@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
 const { getConfig, saveConfig } = require('./config');
-const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, getStoredArticles, saveStoredArticles, getReadStatusMap, markAsRead } = require('./history');
+const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, getStoredArticles, saveStoredArticles, getReadStatusMap, markAsRead, markAllAsRead } = require('./history');
 const { fetchLatestArticles } = require('./scraper');
 const { generateSummary } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
@@ -121,6 +121,18 @@ app.post('/api/mark-read', (req, res) => {
     }
     markAsRead(articleId);
     res.json({ success: true, message: '기사가 확인 처리되었습니다.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/mark-all-read', (req, res) => {
+  try {
+    const articles = getStoredArticles();
+    const allIds = articles.map(a => a.id);
+    markAllAsRead(allIds);
+    addLog('SUCCESS', `✅ 모든 기사 (${allIds.length}건) 일괄 읽음(확인) 처리 완료`);
+    res.json({ success: true, message: '모든 기사가 일괄 확인 처리되었습니다.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

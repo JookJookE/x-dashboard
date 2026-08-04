@@ -30,6 +30,17 @@ function markAsRead(articleId) {
   return map;
 }
 
+function markAllAsRead(articleIds = []) {
+  const map = getReadStatusMap();
+  articleIds.forEach(id => {
+    map[id] = true;
+  });
+  try {
+    fs.writeFileSync(READ_STATUS_FILE, JSON.stringify(map, null, 2), 'utf8');
+  } catch (e) {}
+  return map;
+}
+
 function getStoredArticles() {
   if (!fs.existsSync(ARTICLES_DB_FILE)) return [];
   try {
@@ -160,6 +171,7 @@ module.exports = {
   saveStoredArticles,
   getReadStatusMap,
   markAsRead,
+  markAllAsRead,
   getPostingStatusMap,
   getOrCreateFetchedAt,
   isPosted,

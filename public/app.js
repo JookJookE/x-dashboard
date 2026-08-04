@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadStatus();
 
   document.getElementById('btn-quick-sync').addEventListener('click', () => loadArticles(true));
+  const btnMarkAll = document.getElementById('btn-mark-all-read');
+  if (btnMarkAll) {
+    btnMarkAll.addEventListener('click', markAllArticlesAsRead);
+  }
   document.getElementById('btn-generate-summary').addEventListener('click', generateSummaryForSelected);
   document.getElementById('btn-copy-tweet').addEventListener('click', copyTweetToClipboard);
   document.getElementById('btn-post-webintent').addEventListener('click', postViaWebIntent);
@@ -190,6 +194,24 @@ function selectSidebar6Hours() {
   switchTab('articles');
   renderFilteredArticles(true);
   closeMobileMenu();
+}
+
+async function markAllArticlesAsRead() {
+  const btn = document.getElementById('btn-mark-all-read');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('/api/mark-all-read', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      loadArticles(false);
+    } else {
+      alert('오류: ' + data.message);
+    }
+  } catch (e) {
+    alert('오류: ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function switchTab(tabId) {
