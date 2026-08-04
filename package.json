@@ -1,0 +1,30 @@
+{
+  "name": "x-auto-poster",
+  "version": "1.0.0",
+  "description": "heisenberg.kr 최신 아티클 AI 요약 및 X (Twitter) 자동 포스팅 시스템",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "twitter",
+    "x-api",
+    "ai-summary",
+    "heisenberg",
+    "gemini",
+    "auto-poster"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "iconv-lite": "^0.7.3",
+    "localtunnel": "^2.0.2",
+    "node-cron": "^3.0.3",
+    "twitter-api-v2": "^1.19.0"
+  }
+}

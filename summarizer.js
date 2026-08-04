@@ -1,0 +1,322 @@
+const axios = require('axios');
+const { getConfig } = require('./config');
+const { addLog } = require('./history');
+
+async function generateSummary(article, mode = 'block') {
+  const config = getConfig();
+  const apiKey = config.geminiApiKey;
+
+  if (!apiKey) {
+    addLog('INFO', `스마트 아티클 제목 분리 트윗 생성 (모드: ${mode}): [${article.categoryTag || article.category}] "${article.title}"`);
+    return deepExpertSummary(article, mode);
+  }
+
+  try {
+    addLog('INFO', `Gemini AI 아티클 최고품질 1인칭 후킹 트윗 생성 중 (모드: ${mode}): [${article.categoryTag || article.category}] "${article.title}"`);
+
+    let promptText = '';
+    if (mode === 'talk' || mode === 'gossip') {
+      promptText = `
+당신은 X(트위터)에서 수십만 팔로워를 보유한 트위터 장인이자 인기 계정입니다.
+아래 기사 제목과 내용을 바탕으로, 트위터 피드에서 공감을 얻는 '알차고 생생한 트위터 감성 단문 트윗'을 한글로 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문 내용]: ${article.contentSnippet || article.excerpt}
+
+⚠️ [버전 3 - 트위터 감성 썰 작성 규칙]:
+1. 지나치게 감상 1줄로만 끝내지 말고, [기사의 핵심 사건/소식 내용 1~2줄] + [자연스러운 감상/반응 1줄]로 총 2~3문장 이내로 알차게 작성하세요.
+2. '📌', '📝', '🗣️', '💬', '댓글(타래)용 링크' 같은 어색한 라벨, 기사 링크, 서식은 절대로 붙이지 마세요.
+3. 말투는 트위터 피드 특유의 자연스럽고 생생한 썰/소통 톤을 그대로 유지하세요.
+   (예시: 애플이 전 직원을 통해 영업비밀 훔쳐갔다고 소송 걸자 오픈AI가 "애플이 착각하고 있다"면서 정면 반박함.. 인재 빼가기 싸움 판 제대로 커지는 중인데 과연 누구 말이 맞을지 😳)
+4. 이모지는 과하지 않게 1개 정도만(😳, ㅠ, ✨ 등) 사용하세요.
+5. 마지막 줄에는 카테고리에 맞는 핵심 한글 해시태그 2개만 자연스럽게 넣으세요. (예: #IT #테크 또는 #주식 #증시)
+6. 오직 완성된 한글 트윗 문구만 출력하세요. (설명, 큰따옴표 금지)
+`;
+    } else if (mode === 'mindset') {
+      promptText = `
+당신은 X(트위터)에서 유저들의 마음을 울리고 수천 번 리트윗(RT)과 북마크되는 심리학·멘탈·인간관계 전문 카운슬러이자 트위터 장인입니다.
+아래 기사 제목과 내용을 바탕으로, 트위터 피드에서 깊은 공감을 일으키는 '담백하고 따뜻한 멘탈/공감 꿀팁 트윗'을 한글로 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문 내용]: ${article.contentSnippet || article.excerpt}
+
+⚠️ [버전 4 - 멘탈/공감 꿀팁 작성 규칙]:
+1. [기사 속 인물/상황 언급 1줄] + [마음을 다잡아주는 깊은 공감/멘탈 꿀팁 1~2줄]로 총 2~3문장 이내로 작성하세요.
+2. '📌', '📝', '🗣️', '💬', '댓글(타래)용 링크' 같은 서식이나 어색한 헤더, 기사 링크는 절대로 붙이지 마세요.
+3. 말투는 공감 가고 깊이 있으면서도 자연스럽게 전하는 트위터 멘탈 꿀팁 톤으로 작성하세요.
+   (예시 1: 박지윤도 서울살이 끝나가면서 멘탈 고갈된다고 털어놨는데.. 결국 내 마음부터 돌보는 게 가장 중요함.. 남 시선 신경 쓰지 말고 나부터 챙기자 😳)
+   (예시 2: 인간관계에서 유독 피곤함을 느낀다면 거리를 조금 둬보세요. 모든 사람에게 좋은 사람이 될 필요는 없음.. 내 마음의 여유가 먼저임✨)
+4. 이모지는 1개 정도만(😳, 🌿, ✨ 등) 깔끔하게 사용하세요.
+5. 마지막 줄에는 #멘탈 #생각정리 해시태그 2개를 자연스럽게 넣으세요.
+6. 오직 완성된 한글 트윗 문구만 출력하세요. (설명, 큰따옴표 금지)
+`;
+    } else if (mode === 'story') {
+      promptText = `
+당신은 X(트위터)에서 조회수 100만 회 이상을 기록하는 최고 도파민·호기심 자극형 IT·금융 인플루언서입니다.
+아래 기사를 바탕으로 X 유저들이 타임라인을 내리다 무조건 클릭하게 만드는 '1인칭 도파민 후킹 리포트'를 한글로 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문 내용]: ${article.contentSnippet || article.excerpt}
+
+⚠️ [필수 작성 양식]:
+📌 [아티클 제목]:
+[독자가 손을 멈출 강렬한 호기심/도파민 자극형 제목 (예: OOO이 숨기고 있는 시나리오... 당장 내 주식/코인 폭락할까? / 엔비디아·애플 다음은 여기다!)]
+
+📝 [아티클 본문]:
+[기사의 핵심 발표 팩트 및 내용 1문장]. 아직 사람들은 [표면적 수치/소식]만 보지만, 저는 진짜 핵심은 [실물 유동성/구조적 변화/기업 펀더멘털]에 있다고 생각합니다. [핵심 기술/정책/수혜 동력]이 [주식/반도체/코인 시장]의 하방을 지지하는 결정적 동력이기 때문입니다. 이 [거대한 파이프라인/정책 국면]은 자산 시장에 어떤 파급력으로 돌아올까요?
+
+💬 [댓글(타래)용 링크 텍스트]:
+👇 본문 원본 및 3분 심층 리포트 풀버전 보기: ${article.link || ''}
+
+$NVDA $BTC $ETH #미국주식 #가상자산 #비트코인
+
+작성 규칙:
+1. 오직 위 양식의 완성된 최종 한글 결과만 출력하세요. (생각 과정이나 서식 설명 금지)
+2. 영문 기사인 경우 무조건 100% 매끄러운 한글로 번역하여 작성하세요.
+3. 기사 문맥에 맞춰 X 탐색 피드 노출을 극대화할 주식/코인 티커($NVDA, $BTC, $TSLA, $AMZN, #삼성전자 등)를 반드시 포함하세요.
+`;
+    } else {
+      promptText = `
+당신은 X(트위터)에서 신뢰도가 가장 높은 IT·금융 테크 인플루언서입니다.
+다음 기사를 분석하여 가독성이 뛰어난 3단계 '이모지 인사이트 블록' 트윗을 한글로 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문 내용]: ${article.contentSnippet || article.excerpt}
+
+⚠️ [버전 1 작성 지침 - 이모지 블록형]:
+1. 오직 완성된 한글 트윗 결과만 출력하세요. (생각 과정, 설명, 큰따옴표는 절대 출력하지 마세요)
+2. 🔹 (기사 속 구체적 사건 및 수치 팩트 1문장)
+3. 🧠 (산업 패러다임과 수혜 기업/섹터의 비하인드 전문가 분석 1문장)
+4. 💡 (향후 시장 변수 및 핵심 투자 시사점 1문장) + 마지막 줄 깔끔한 핵심 해시태그 딱 2개만 사용 (예: #주식 #증시)
+5. 영문 외신인 경우 무조건 100% 자연스러운 한글로 번역해서 작성하세요.
+`;
+    }
+
+    const modelsToTry = [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-flash',
+      'gemini-3.5-flash',
+      'gemini-3.6-flash'
+    ];
+    let generatedText = null;
+    let lastError = null;
+
+    for (const modelName of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const response = await axios.post(
+          url,
+          {
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: { temperature: 0.7 }
+          },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
+        );
+
+        generatedText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (generatedText && generatedText.trim().length > 30) {
+          break;
+        }
+      } catch (e) {
+        lastError = e;
+        const msg = e.response?.data?.error?.message || e.message;
+        console.log(`[API Error] Model ${modelName} 실패. 다음 모델로 전환 시도. 사유: ${msg.split('\n')[0]}`);
+        continue; // 에러 종류(Quota 등)와 무관하게 무조건 다음 모델로 순차적 넘어가도록 처리
+      }
+    }
+
+    if (!generatedText) {
+      throw lastError || new Error('Gemini API 응답 결과가 비어 있습니다.');
+    }
+
+    let summaryText = generatedText.trim();
+    addLog('SUCCESS', `[${article.categoryTag || article.category}] Gemini AI 한글 트윗 생성 완료 (${summaryText.length}자)`);
+    return { text: summaryText, isAiGenerated: true, mode };
+  } catch (err) {
+    const errorDetails = err.response?.data?.error?.message || err.message;
+    addLog('ERROR', `Gemini AI 요약 실패 (${errorDetails}), 스마트 파서 사용`);
+    return deepExpertSummary(article, mode);
+  }
+}
+
+function translateTitleToKorean(title) {
+  if (!title) return '';
+  let t = title.replace(/\[외신\s*.*?\]/g, '').trim();
+
+  // Common Financial/Tech Terms Translation Table
+  t = t
+    .replace(/BTC/g, '비트코인')
+    .replace(/ETH/g, '이더리움')
+    .replace(/XRP/g, '리플')
+    .replace(/Crypto Today/gi, '가상자산 동향')
+    .replace(/correct as ETF flows diverge/gi, 'ETF 자금 유입 유출 격차 속 시세 조정')
+    .replace(/corrects?|correction/gi, '가격 조정')
+    .replace(/ETF flows diverge/gi, 'ETF 자금 흐름 엇갈림')
+    .replace(/Fed holds interest rates steady/gi, '미 연준 기준금리 동결')
+    .replace(/inflation hits/gi, '인플레이션 지표 상승')
+    .replace(/Market Size, Trends and Forecast/gi, '시장 규모 및 산업 전망')
+    .replace(/AI Safety Evaluation/gi, 'AI 안전성 평가 기술')
+    .replace(/Nvidia/gi, '엔비디아')
+    .replace(/Apple/gi, '애플')
+    .replace(/Tesla/gi, '테슬라')
+    .replace(/Bitcoin/gi, '비트코인')
+    .replace(/Ethereum/gi, '이더리움')
+    .replace(/Interest Rate/gi, '기준금리')
+    .replace(/Inflation/gi, '물가 상승률')
+    .trim();
+
+  return t;
+}
+
+function deepExpertSummary(article, mode = 'block') {
+  const rawTitle = article.title || '';
+  const isGlobal = article.isGlobal || rawTitle.includes('[외신');
+
+  let sourceTag = '외신';
+  const sourceMatch = rawTitle.match(/\[외신\s*(.*?)\]/);
+  if (sourceMatch && sourceMatch[1]) {
+    sourceTag = sourceMatch[1];
+  }
+
+  let cleanTitle = rawTitle.replace(/[\"']/g, '').replace(/\[오피니언\]/g, '').replace(/\(.*?\)/g, '').trim();
+
+  let koreanTitle = isGlobal ? translateTitleToKorean(cleanTitle) : cleanTitle;
+  if (isGlobal && !koreanTitle.includes('[외신')) {
+    koreanTitle = `[외신 ${sourceTag}] ${koreanTitle}`;
+  }
+
+  let rawSnippet = article.contentSnippet || article.excerpt || article.title;
+
+  rawSnippet = rawSnippet
+    .replace(/&#\d+;/g, '')
+    .replace(/로그인|회원 가입|회원가입|연구자 정보|프로필 보기|출신대학|전공|연구분야|카테고리|Newsletter|1분 요약|스탠다드 등급|멤버십 구독/gi, '')
+    .replace(/Semiconductor|Biotechnology|Robotics|Opinion|Membership|Newsletter|Energy|Future/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const sentences = rawSnippet
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 15 && s !== cleanTitle && !s.includes('http') && !s.includes('Copyright'));
+
+  const analysis = buildDeepArticleAnalysis(koreanTitle, article.category, sentences, isGlobal);
+
+  let categoryHeader = isGlobal ? '🌐' : '💡';
+  let hashtags = '#뉴스 #이슈';
+
+  const cat = String(article.category).toLowerCase();
+  if (cat.includes('it')) {
+    categoryHeader = '💻';
+    hashtags = '#IT #테크';
+  } else if (cat.includes('coin')) {
+    categoryHeader = '🪙';
+    hashtags = '#코인 #비트코인';
+  } else if (cat.includes('stock')) {
+    categoryHeader = '📈';
+    hashtags = '#주식 #증시';
+  } else if (cat.includes('economy')) {
+    categoryHeader = '💵';
+    hashtags = '#경제 #금리';
+  } else if (cat.includes('mindset') || cat.includes('psychology')) {
+    categoryHeader = '🧠';
+    hashtags = '#멘탈 #생각정리';
+  }
+
+  let text = '';
+
+  if (mode === 'talk' || mode === 'gossip') {
+    text = `${koreanTitle}\n\n💬 요약: ${analysis.summary}\n\n솔직히 이건 좀 반응 핫할 만한 듯😳\n\n${hashtags}`;
+  } else if (mode === 'mindset') {
+    text = `${koreanTitle}\n\n🔹 핵심: ${analysis.summary}\n\n결국 내 마음부터 돌보는 게 가장 중요함.. 남 시선 신경 쓰지 말고 나부터 챙기자 😳\n\n${hashtags}`;
+  } else if (mode === 'story') {
+    const threadLink = article.link ? `\n\n💬 [댓글(타래)용 링크 텍스트]:\n👇 본문 원본 및 3분 심층 리포트 풀버전 보기:\n${article.link}` : '';
+    text = `📌 [아티클 제목]:\n${analysis.storyHook}\n\n📝 [아티클 본문]:\n${analysis.storyBody}${threadLink}\n\n${hashtags}`;
+  } else {
+    text = `${categoryHeader} ${koreanTitle}\n\n🔹 ${analysis.summary}\n\n🧠 ${analysis.analysis}\n\n💡 ${analysis.insight}\n\n${hashtags}`;
+  }
+
+  return {
+    text,
+    isAiGenerated: false,
+    mode
+  };
+}
+
+function buildDeepArticleAnalysis(title, category, sentences, isGlobal) {
+  const cat = String(category).toLowerCase();
+  const t = title.toLowerCase();
+
+  let summaryText = sentences.length > 0 ? sentences.slice(0, 2).join(' ') : '';
+  if (summaryText.length > 110) summaryText = summaryText.substring(0, 107) + '...';
+
+  // Specific Foreign Crypto News
+  if (t.includes('btc') || t.includes('eth') || t.includes('xrp') || t.includes('crypto today') || t.includes('비트코인') || t.includes('이더리움')) {
+    return {
+      summary: '비트코인, 이더리움, 리플 등 주요 암호화폐 시세가 단기 조정을 받는 가운데 기관용 현물 ETF 자금 유입·유출 동향이 엇갈리고 있습니다.',
+      analysis: '단기 차익 실현 물량과 자금 유출로 변동성이 확대되고 있으나, 거시경제 금리 정책 및 미 연준 유동성 기조에 따라 재반등 모멘텀이 결정되는 국면입니다.',
+      insight: '미국 현물 ETF로의 유동성 재유입 시점이 핵심 변수이며 비트코인 및 관련주의 자금 회복세를 주목할 시점입니다.',
+      stockTag: '비트코인',
+      storyHook: '지금 가상자산 시장에서 비트코인·이더리움 시세 조정과 ETF 자금 동향에 주목해야 하는 이유',
+      storyBody: '비트코인, 이더리움, 리플 시세가 조정을 받으며 현물 ETF 자금 유입 유출 격차가 확대되었습니다. 아직 사람들은 단기 시세 하락만 우려하지만, 저는 진짜 핵심은 기관 자금의 재편에 있다고 생각합니다. 현물 ETF 유휴 자금이 다시 유입되는 타이밍이 가상자산 반등의 신호탄이기 때문입니다. 이 유동성 파이프라인은 코인 시장에 어떤 큰 상승 동력으로 연결되게 될까요?'
+    };
+  }
+
+  // Specific Foreign Fed / Inflation News
+  if (t.includes('fed') || t.includes('연준') || t.includes('rates') || t.includes('inflation')) {
+    return {
+      summary: '미 연준(Fed)이 인플레이션 및 고용 지표를 주시하며 기준금리 기조와 통화 정책 가이드라인을 발표했습니다.',
+      analysis: '고금리 장기화 우려와 금리 인하 기대감이 상존하는 가운데 환율 및 글로벌 증시의 유동성 향방을 결정짓는 핵심 국면입니다.',
+      insight: '미 연준의 금리 인하 시점과 국채 금리 안정 여부가 국내외 주식 및 자산 시장의 이익률을 좌우하게 될 전망입니다.',
+      stockTag: '미연준',
+      storyHook: '미 연준(Fed) 금리 정책과 글로벌 경제 향방을 깊이 있게 봐야 하는 이유',
+      storyBody: '미 연준(Fed)의 기준금리 및 인플레이션 지표 관련 공식 발표가 공개되었습니다. 아직 사람들은 수치 변화만 보지만, 저는 진짜 핵심은 실물 유동성 회복에 있다고 생각합니다. 통화 정책 안정 시점이 주식과 코인 시장의 하방을 지지하는 결정적 동력이기 때문입니다. 이 경제 정책 국면은 자산 시장에 어떤 파급력으로 돌아올까요?'
+    };
+  }
+
+  // Specific Foreign Tech / AI Safety News
+  if (t.includes('ai') || t.includes('nvidia') || t.includes('apple') || t.includes('safety')) {
+    return {
+      summary: '글로벌 빅테크 기업들이 차세대 AI 인프라 구축 및 AI 안전성 평가 기술(AI Safety) 표준화 프로젝트를 대대적으로 확장하고 있습니다.',
+      analysis: '단순 모델 개발을 넘어 안전성 검증 및 기업용 보안 온디바이스 생태계 구축이 빅테크 경쟁력의 핵심 지표로 부각되었습니다.',
+      insight: '엔비디아·애플 등 글로벌 대장주의 AI 투자 집행액과 관련 반도체 장비주들의 실적 반영 추이를 주시해야 합니다.',
+      stockTag: '빅테크',
+      storyHook: '지금 글로벌 테크 시장에서 AI 인프라 및 신기술 동향에 투자하고 싶은 이유',
+      storyBody: '글로벌 빅테크 기업들의 차세대 AI 기술 발표 및 시장 전망 리포트가 발표되었습니다. 아직 시장은 초기 수치만 보지만, 저는 진짜 무서움은 글로벌 온디바이스 및 AI 생태계 주도권에 있다고 생각합니다. AI 솔루션과 인프라를 지배하는 기업이 시장 전체의 밸류에이션을 이끌기 때문입니다. 이 신기술 파이프라인은 글로벌 증시에 어떤 실질적 수혜로 연결될까요?'
+    };
+  }
+
+  // 1. Heisenberg Tech Reports
+  if (t.includes('애플') || t.includes('메모리')) {
+    return {
+      summary: '애플이 온디바이스 AI 20B 전체 모델을 NAND Flash에 보관하고 필요한 1~4B 가중치만 DRAM으로 불러오는 스왑 신기술을 선보였습니다.',
+      analysis: '메모리를 없앤 게 아니라 NAND-DRAM 고효율 재편일 뿐입니다. 결과적으로 삼성전자와 SK하이닉스의 메모리 공급 입지는 변함없이 견고합니다.',
+      insight: 'iPhone 온디바이스 AI 메모리 용량이 핵심 변수이며, 한국 반도체 기업들의 HBM 및 공정 장비 생태계 전반의 우상향 기반은 흔들리지 않는다는 결론입니다.',
+      stockTag: '삼성전자',
+      storyHook: '지금 반도체 시장에서 한국 메모리에 주목해야 하는 이유',
+      storyBody: '애플은 온디바이스 AI 20B 모델 전체를 NAND에 저장하고 1~4B 가중치만 DRAM으로 불러오는 신기술을 공개했습니다. 아직 사람들은 비싼 DRAM을 덜 쓰는 애플의 기술만 보지만, 저는 진짜 핵심은 여전히 삼성전자와 SK하이닉스에 있다고 생각합니다. TPU와 AI를 돌리기 위해 NAND-DRAM을 고효율로 재편했을 뿐 메모리 수급 자체를 없앤 건 아니기 때문입니다. 애플의 이 거대한 메모리 파이프라인은 한국 반도체 공급망에 어떤 실질적인 수혜로 돌아오게 될까요?'
+    };
+  }
+
+  // Default General News Fallback
+  return {
+    summary: isGlobal
+      ? `${title}: 글로벌 시장에서 주요 기업 실적 및 거시 경제 정책 지표가 공식 집계되었습니다.`
+      : `${title} 관련 핵심 팩트 및 발표 정보 내용입니다.`,
+    analysis: isGlobal
+      ? '글로벌 유동성과 거시 경제 기조 변화가 국내외 자산 시장과 주요 기술 섹터의 펀더멘털에 직접적 파급력을 줄 수 있는 국면입니다.'
+      : '기술적 차별성과 향후 관련 기업들의 실적 반영 추이가 가치 재평가의 핵심 관전 지점입니다.',
+    insight: isGlobal
+      ? '글로벌 외신 속보 분석을 통해 주요 대장주 및 관련 수혜 기업군의 수급 흐름을 점검할 필요가 있습니다.'
+      : '산업 패러다임 변화에 맞춰 핵심 기업들의 수급 변화를 주시할 시점입니다.',
+    stockTag: isGlobal ? '글로벌외신' : '투자인사이트',
+    storyHook: `지금 글로벌/국내 시장에서 ${title} 소식에 주시해야 하는 이유`,
+    storyBody: `${title} 소식이 공개되었습니다. 아직 사람들은 단순 발표로만 보지만, 저는 진짜 핵심은 글로벌 유동성과 산업 생태계의 구조적 변화에 있다고 생각합니다. 신기술 도입과 정책 변동이 결합하여 기업 가치를 재평가하는 국면이기 때문입니다. 이 거대한 변화는 어디까지가 기대이고 어디서부터 실적 반영의 시작일까요?`
+  };
+}
+
+module.exports = {
+  generateSummary
+};

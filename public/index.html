@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>X Content Helper - IT·코인·주식·경제 트윗 생성기</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Backdrop Overlay for Mobile Sidebar -->
+    <div id="mobile-sidebar-overlay" class="sidebar-overlay"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="app-sidebar" class="sidebar">
+      <div class="brand">
+        <div class="logo-icon">𝕏</div>
+        <div class="brand-text">
+          <h2>X Content Helper</h2>
+          <span>TECH & FINANCE</span>
+        </div>
+        <button id="btn-close-mobile-menu" class="btn-close-sidebar" aria-label="메뉴 닫기">✕</button>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="dashboard" data-cat="all" data-hours="0">
+          <span class="icon">📊</span>
+          <span>대시보드</span>
+        </button>
+
+        <button class="nav-item highlight-item" data-tab="articles" data-cat="all" data-hours="6">
+          <span class="icon">⚡</span>
+          <span>최근 6시간 속보</span>
+        </button>
+
+        <div class="menu-label">카테고리별 뉴스</div>
+
+        <button class="nav-item" data-tab="articles" data-cat="heisenberg" data-hours="0">
+          <span class="icon">💡</span>
+          <span>하이젠버그</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="it" data-hours="0">
+          <span class="icon">💻</span>
+          <span>IT뉴스</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="coin" data-hours="0">
+          <span class="icon">🪙</span>
+          <span>코인</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="stock" data-hours="0">
+          <span class="icon">📈</span>
+          <span>주식</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="economy" data-hours="0">
+          <span class="icon">💵</span>
+          <span>경제뉴스</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="global" data-hours="0">
+          <span class="icon">🌐</span>
+          <span>해외뉴스 (글로벌)</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="gossip" data-hours="0">
+          <span class="icon">🗣️</span>
+          <span>가십 / 연예 이슈</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="mindset" data-hours="0">
+          <span class="icon">🧠</span>
+          <span>멘탈 / 심리 / 대인관계</span>
+        </button>
+
+        <div class="menu-label">시스템</div>
+
+        <button class="nav-item" data-tab="settings" data-cat="all" data-hours="0">
+          <span class="icon">⚙️</span>
+          <span>AI 키 설정</span>
+        </button>
+
+        <div class="menu-label">도구</div>
+
+        <button class="nav-item" data-tab="composer" data-cat="all" data-hours="0">
+          <span class="icon">✍️</span>
+          <span>트윗 작성 & 복사</span>
+        </button>
+      </nav>
+
+      <div class="system-status-card">
+        <div class="status-indicator online" id="status-dot"></div>
+        <div class="status-info">
+          <span class="status-title">📱 모바일 와이파이 접속 주소</span>
+          <span id="mobile-url-link" class="status-sub" style="color:var(--accent-cyan);">http://192.168.0.10:3000</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Bar Header -->
+      <header class="top-header">
+        <div class="header-left-wrapper">
+          <button id="btn-toggle-mobile-menu" class="mobile-menu-toggle" aria-label="메뉴 열기">
+            <span>☰</span>
+          </button>
+          <div class="header-title">
+            <h1 id="page-title">대시보드</h1>
+            <p id="page-subtitle">하이젠버그, IT, 코인, 주식, 경제 최신 뉴스 AI 트윗 생성기</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="btn-quick-sync" class="btn btn-secondary">
+            <span class="icon">🔄</span> 수집
+          </button>
+        </div>
+      </header>
+
+      <!-- TAB 1: Dashboard -->
+      <section id="tab-dashboard" class="tab-content active">
+        <div class="stats-grid">
+          <div class="stat-card" style="cursor:pointer;" onclick="selectSidebar6Hours()">
+            <div class="stat-icon cyan">⚡</div>
+            <div class="stat-data">
+              <span class="stat-label">최근 6시간 속보 보기</span>
+              <span class="stat-value" id="stat-6h-count">클릭하여 보기</span>
+            </div>
+          </div>
+          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('all')">
+            <div class="stat-icon purple">📰</div>
+            <div class="stat-data">
+              <span class="stat-label">전체 수집 뉴스 목록</span>
+              <span class="stat-value" id="stat-articles-count">0건</span>
+            </div>
+          </div>
+          <div class="stat-card" id="stat-card-unread" style="cursor:pointer;" onclick="toggleUnreadArticlesFilter()">
+            <div class="stat-icon" style="background:rgba(234, 179, 8, 0.15); color:#facc15;">👀</div>
+            <div class="stat-data">
+              <span class="stat-label">확인 안 한 기사</span>
+              <span class="stat-value" id="stat-unread-count" style="color:#facc15;">0건 (클릭해 보기)</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">📱</div>
+            <div class="stat-data">
+              <span class="stat-label">와이파이 스마트폰 접속</span>
+              <span class="stat-value" style="font-size:13px; color:var(--accent-cyan);" id="stat-mobile-url-text">http://192.168.0.10:3000</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-sections">
+          <!-- Recent Articles Quick View -->
+          <div class="card card-flex-1">
+            <div class="card-header">
+              <h3>📰 최신 뉴스 소식 목록</h3>
+              <button class="btn-link" onclick="selectCategoryNav('all')">전체보기 &rarr;</button>
+            </div>
+            <div class="card-body">
+              <div id="dashboard-articles-mini" class="articles-mini-list">
+                <div class="skeleton-loader">최신 소식을 확인하는 중...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity Logs Stream -->
+          <div class="card card-flex-1">
+            <div class="card-header">
+              <h3>시스템 감지 로그</h3>
+              <button class="btn-link" onclick="loadLogs()">새로고침</button>
+            </div>
+            <div class="card-body">
+              <div id="logs-container" class="logs-stream">
+                <div class="log-entry info">로그 데이터를 로딩 중입니다...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: Articles List -->
+      <section id="tab-articles" class="tab-content">
+        <div class="card">
+          <div class="card-header-flexible">
+            <div class="category-filters">
+              <button class="filter-btn active" data-filter-cat="all">전체</button>
+              <button class="filter-btn" data-filter-cat="heisenberg">💡 하이젠버그</button>
+              <button class="filter-btn" data-filter-cat="it">💻 IT뉴스</button>
+              <button class="filter-btn" data-filter-cat="coin">🪙 코인</button>
+              <button class="filter-btn" data-filter-cat="stock">📈 주식</button>
+              <button class="filter-btn" data-filter-cat="economy">💵 경제뉴스</button>
+              <button class="filter-btn" data-filter-cat="global">🌐 해외뉴스</button>
+            </div>
+
+            <div class="time-filter-wrapper">
+              <button id="btn-toggle-6h" class="btn btn-outline btn-sm">
+                <span>⚡</span> 최근 6시간 이내 뉴스만 보기 [OFF]
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="loadArticles()">
+                <span>🔄</span> 새로고침
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div id="articles-grid" class="articles-grid">
+              <div class="skeleton-loader">뉴스를 불러오는 중입니다...</div>
+            </div>
+            <div id="articles-pagination" class="pagination-container"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: AI Composer & Post -->
+      <section id="tab-composer" class="tab-content">
+        <div class="composer-layout">
+          <!-- Left: Selected Article Details -->
+          <div class="card">
+            <div class="card-header">
+              <h3>선택된 뉴스 소식</h3>
+            </div>
+            <div class="card-body">
+              <div id="composer-selected-article" class="selected-article-box">
+                <p class="placeholder-text">왼쪽 메뉴나 뉴스 탭에서 요약할 뉴스를 선택해 주세요.</p>
+                <button class="btn btn-secondary" onclick="selectLatestArticleForComposer()">
+                  최신 뉴스 불러오기
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: AI Tweet Composer -->
+          <div class="card">
+            <div class="card-header">
+              <h3>AI 전문가 트윗 요약 & 복사</h3>
+              <button id="btn-generate-summary" class="btn btn-accent btn-sm">
+                <span>✨</span> AI 요약 다시 생성
+              </button>
+            </div>
+            <div class="card-body">
+              <!-- Tweet Style Version Selector -->
+              <div style="margin-bottom: 15px;">
+                <label style="font-size:13px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">트윗 생성 버전 선택 (모든 카테고리 적용 가능):</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button id="btn-mode-block" class="btn btn-outline mode-btn active" onclick="setComposerMode('block')">
+                    ⚡ 버전 1: 이모지 블록 요약형
+                  </button>
+                  <button id="btn-mode-story" class="btn btn-outline mode-btn" onclick="setComposerMode('story')">
+                    🔥 버전 2: 1인칭 후킹 리포트형
+                  </button>
+                  <button id="btn-mode-talk" class="btn btn-outline mode-btn" onclick="setComposerMode('talk')">
+                    🗣️ 버전 3: 생생한 썰/소통형
+                  </button>
+                  <button id="btn-mode-mindset" class="btn btn-outline mode-btn" onclick="setComposerMode('mindset')">
+                    🧠 버전 4: 멘탈/공감 꿀팁형
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="tweet-text-input">생성된 트윗 문구 (외부 링크 100% 제거됨):</label>
+                <textarea id="tweet-text-input" rows="8" placeholder="AI 요약 문구가 여기에 작성됩니다..."></textarea>
+                <div class="char-count-wrapper">
+                  <span id="char-counter" class="char-counter">0 / 280자</span>
+                  <span id="ai-badge" class="badge badge-info" style="display:inline-block;">스마트 본문 파싱 완료</span>
+                </div>
+              </div>
+
+                <!-- Thumbnail Image Generator Section -->
+                <div id="thumbnail-section" style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                    <label id="thumbnail-label" style="font-size:13px; font-weight:700; color:var(--text-muted);">🖼️🎨 트윗 첨부용 이미지 (원본 이미지, AI 썸네일 & 기사 카드 3종 지원):</label>
+                    <div id="thumbnail-action-box" style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <button id="btn-fetch-original-image" class="btn btn-outline btn-sm" onclick="fetchOriginalImageForSelected()">
+                        🖼️ 원본 이미지 가져오기
+                      </button>
+                      <button id="btn-generate-image" class="btn btn-outline btn-sm" onclick="generateThumbnailForSelected()">
+                        ✨ AI 썸네일 1초 생성
+                      </button>
+                      <button id="btn-generate-headline-card" class="btn btn-outline btn-sm" onclick="generateHeadlineCardForSelected()">
+                        📰 기사 카드 이미지 1초 생성
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Triple Preview Grid -->
+                  <div id="thumbnail-dual-container" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:10px;">
+                    <!-- Left: Original Article Image Box -->
+                    <div id="original-image-box" style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); text-align:center;">
+                      <h5 style="font-size:12px; font-weight:bold; color:#ff75d8; margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <span>🖼️</span> 원본 기사 대표 사진
+                      </h5>
+                      <div id="original-image-preview">
+                        <p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[🖼️ 원본 이미지 가져오기] 버튼을 누르면 기사 원본 사진이 표시됩니다.</p>
+                      </div>
+                    </div>
+
+                    <!-- Middle: AI Generated Thumbnail Box -->
+                    <div id="ai-image-box" style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); text-align:center;">
+                      <h5 style="font-size:12px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <span>🎨</span> 16:9 AI 썸네일 이미지
+                      </h5>
+                      <div id="ai-image-preview">
+                        <p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[✨ AI 썸네일 1초 생성] 버튼을 누르면 고화질 인포그래픽이 표시됩니다.</p>
+                      </div>
+                    </div>
+
+                    <!-- Right: News Headline Card Box -->
+                    <div id="card-image-box" style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); text-align:center;">
+                      <h5 style="font-size:12px; font-weight:bold; color:var(--accent-purple); margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <span>📰</span> 기사 헤드라인 캡처 카드
+                      </h5>
+                      <div id="card-image-preview">
+                        <p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[📰 기사 카드 이미지 1초 생성] 버튼을 누르면 뉴스 헤드라인 카드가 표시됩니다.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-actions-inline" style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
+                  <button id="btn-copy-tweet" class="btn btn-secondary">
+                    📋 전체 문구 복사
+                  </button>
+                  <button id="btn-copy-thread-link" class="btn btn-outline" style="border-color:var(--accent-glow); color:var(--text-main);" onclick="copyThreadReplyLink()">
+                    💬 댓글(타래)용 링크만 복사
+                  </button>
+                  <button id="btn-post-webintent" class="btn btn-primary" title="트윗 작성창에 문구가 100% 자동 채워집니다">
+                    🌐 X 작성창 열기 (문구 100% 자동채움)
+                  </button>
+                  <button id="btn-post-article" class="btn btn-accent" title="글 자동복사 + X 아티클 에디터 이동">
+                    📰 X 아티클 에디터 열기 (복사 후 Ctrl+V)
+                  </button>
+                </div>
+            </div>
+          </div>
+        </div>
+      <!-- TAB 4: AI & Security Settings -->
+      <section id="tab-settings" class="tab-content">
+        <div class="card" style="max-width:600px; margin-bottom:20px;">
+          <div class="card-header">
+            <h3>🔒 외부 접속 보안 비밀번호 변경</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+              스마트폰(LTE/5G)이나 외부 PC에서 Cloudflare 터널로 접속할 때 사용하는 <strong>보안 로그인 비밀번호</strong>입니다.
+            </p>
+            <div class="form-group">
+              <label for="auth-password-input">접속 비밀번호 (기본값: 1234):</label>
+              <input type="password" id="auth-password-input" placeholder="새 비밀번호 입력..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <button id="btn-save-auth-password" class="btn btn-accent" onclick="saveAuthPassword()" style="margin-top:10px;">
+              🔒 비밀번호 변경 저장
+            </button>
+          </div>
+        </div>
+
+        <div class="card" style="max-width:600px;">
+          <div class="card-header">
+            <h3>⚙️ Gemini AI API 키 설정</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+              Google Gemini API 키를 입력하시면 <strong>Google 실시간 1인칭 후킹 스토리 & 심층 분석 AI</strong>가 연동되어 100% 진짜 AI로 트윗을 생성합니다. (미입력 시 스마트 내장 알고리즘 파서 작동)
+            </p>
+            <div class="form-group">
+              <label for="gemini-key-input">Gemini API Key:</label>
+              <input type="password" id="gemini-key-input" placeholder="AIzaSy..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <button id="btn-save-key" class="btn btn-primary" style="margin-top:10px;">
+              💾 API 키 저장
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

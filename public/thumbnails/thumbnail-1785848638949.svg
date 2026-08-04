@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675">
+  <defs>
+    
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#021814"/>
+        <stop offset="50%" stop-color="#052e27"/>
+        <stop offset="100%" stop-color="#010d0b"/>
+      </linearGradient>
+      <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#00b09b"/>
+        <stop offset="100%" stop-color="#96c93d"/>
+      </linearGradient>
+    
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.88"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.94"/>
+    </linearGradient>
+    <linearGradient id="chartAreaGreen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0.0"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="22" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1200" height="675" fill="url(#bgGrad)"/>
+  
+  <!-- Category Specific Rich Artwork Layer -->
+  
+      <!-- Cyberpunk Green Glowing Ambient Orbs -->
+      <circle cx="950" cy="220" r="260" fill="#00ff87" opacity="0.2" filter="url(#glow)"/>
+      <circle cx="200" cy="480" r="200" fill="#00b09b" opacity="0.18" filter="url(#glow)"/>
+
+      <!-- High Tech Microchip Circuit Grid Lines -->
+      <path d="M 80 180 L 320 180 L 400 260 L 760 260 L 840 180 L 1120 180" fill="none" stroke="#00ff87" stroke-width="3" opacity="0.5"/>
+      <path d="M 80 500 L 420 500 L 500 420 L 780 420 L 860 500 L 1120 500" fill="none" stroke="#00ff87" stroke-width="3" opacity="0.5"/>
+      <circle cx="400" cy="260" r="6" fill="#00ff87" filter="url(#glow)"/>
+      <circle cx="760" cy="260" r="6" fill="#00ff87" filter="url(#glow)"/>
+      <circle cx="500" cy="420" r="6" fill="#00ff87" filter="url(#glow)"/>
+
+      <!-- 3D AI Microchip Core Processor Artwork -->
+      <g filter="url(#glow)" transform="translate(860, 110)">
+        <rect x="0" y="0" width="170" height="170" rx="28" fill="none" stroke="#00ff87" stroke-width="4" opacity="0.8"/>
+        <rect x="25" y="25" width="120" height="120" rx="18" fill="rgba(0,255,135,0.15)" stroke="#00ff87" stroke-width="2"/>
+        <text x="85" y="90" font-family="'Segoe UI', Arial, sans-serif" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle">AI</text>
+        <text x="85" y="118" font-family="'Segoe UI', Arial, sans-serif" font-size="14" font-weight="bold" fill="#00ff87" text-anchor="middle">HBM3e</text>
+      </g>
+    
+
+  <!-- Main Card Glass Container -->
+  <rect x="65" y="55" width="1070" height="565" rx="36" fill="url(#cardGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+
+  <!-- Category Badge Container -->
+  <rect x="115" y="110" width="430" height="62" rx="31" fill="url(#badgeGrad)"/>
+  <text x="145" y="150" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="23" font-weight="bold" fill="#ffffff">
+    💻  AI &amp; SEMICONDUCTOR TECH
+  </text>
+
+  <!-- Main Title Line 1 -->
+  <text x="115" y="260" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="44" font-weight="900" fill="#ffffff">
+    팜 민 학 교수: 심리학과 교육학
+  </text>
+
+  <!-- Main Title Line 2 -->
+  <text x="115" y="332" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="44" font-weight="900" fill="#00ff87">
+    분야에 지식의 씨앗을 뿌린 분.
+  </text>
+
+  <!-- Bottom Divider Line -->
+  <line x1="115" y1="470" x2="1035" y2="470" stroke="rgba(255,255,255,0.15)" stroke-width="2" stroke-dasharray="8 8"/>
+
+  <!-- Footer Brand Tag -->
+  <text x="115" y="535" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="26" font-weight="bold" fill="#00ff87">
+    ⚡ JookJook Insight Report
+  </text>
+
+  <!-- Ticker Tags -->
+  <text x="1035" y="535" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="24" font-weight="bold" fill="#94a3b8" text-anchor="end">
+    $NVDA $AAPL #AI #반도체
+  </text>
+</svg>

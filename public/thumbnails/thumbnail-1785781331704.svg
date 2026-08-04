@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675">
+  <defs>
+    
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#140c00"/>
+        <stop offset="50%" stop-color="#2a1a00"/>
+        <stop offset="100%" stop-color="#080400"/>
+      </linearGradient>
+      <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#F7931A"/>
+        <stop offset="100%" stop-color="#FFD200"/>
+      </linearGradient>
+    
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.88"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.94"/>
+    </linearGradient>
+    <linearGradient id="chartAreaGreen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0.0"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="22" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1200" height="675" fill="url(#bgGrad)"/>
+  
+  <!-- Category Specific Rich Artwork Layer -->
+  
+      <!-- Glowing Gold Ambient Light Orbs -->
+      <circle cx="950" cy="220" r="280" fill="#FFD200" opacity="0.18" filter="url(#glow)"/>
+      <circle cx="200" cy="500" r="220" fill="#F7931A" opacity="0.15" filter="url(#glow)"/>
+
+      <!-- Rising Bullish Candlestick Chart Layer -->
+      <path d="M 80 500 Q 300 460 520 380 T 820 240 T 1120 120" fill="none" stroke="#22c55e" stroke-width="7" opacity="0.85" filter="url(#glow)"/>
+      <path d="M 80 500 Q 300 460 520 380 T 820 240 T 1120 120 L 1120 600 L 80 600 Z" fill="url(#chartAreaGreen)" opacity="0.2"/>
+
+      <!-- Green Candlestick Bars -->
+      <rect x="380" y="340" width="14" height="80" rx="3" fill="#22c55e" opacity="0.75"/>
+      <line x1="387" y1="320" x2="387" y2="440" stroke="#22c55e" stroke-width="2" opacity="0.75"/>
+      <rect x="580" y="260" width="14" height="100" rx="3" fill="#22c55e" opacity="0.85"/>
+      <line x1="587" y1="240" x2="587" y2="380" stroke="#22c55e" stroke-width="2" opacity="0.85"/>
+      <rect x="780" y="190" width="14" height="120" rx="3" fill="#22c55e" opacity="0.95"/>
+      <line x1="787" y1="170" x2="787" y2="330" stroke="#22c55e" stroke-width="2" opacity="0.95"/>
+
+      <!-- 3D Glowing Bitcoin Coin Artwork -->
+      <g filter="url(#glow)" transform="translate(860, 110)">
+        <circle cx="100" cy="100" r="85" fill="url(#badgeGrad)" opacity="0.9"/>
+        <circle cx="100" cy="100" r="75" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+        <circle cx="100" cy="100" r="65" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="8 6" opacity="0.8"/>
+        <text x="100" y="125" font-family="'Segoe UI', Arial, sans-serif" font-size="80" font-weight="900" fill="#ffffff" text-anchor="middle">₿</text>
+      </g>
+      <!-- Secondary Floating Ethereum Emblem -->
+      <g transform="translate(730, 80) scale(0.65)" opacity="0.85" filter="url(#glow)">
+        <polygon points="60,10 110,90 60,120 10,90" fill="#8c8c8c"/>
+        <polygon points="60,10 110,90 60,65" fill="#343434"/>
+        <polygon points="60,130 110,100 60,170 10,100" fill="#8c8c8c"/>
+      </g>
+    
+
+  <!-- Main Card Glass Container -->
+  <rect x="65" y="55" width="1070" height="565" rx="36" fill="url(#cardGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+
+  <!-- Category Badge Container -->
+  <rect x="115" y="110" width="430" height="62" rx="31" fill="url(#badgeGrad)"/>
+  <text x="145" y="150" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="23" font-weight="bold" fill="#ffffff">
+    🪙  CRYPTO &amp; BITCOIN REPORT
+  </text>
+
+  <!-- Main Title Line 1 -->
+  <text x="115" y="260" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="44" font-weight="900" fill="#ffffff">
+    Ethereum ETF Inflows
+  </text>
+
+  <!-- Main Title Line 2 -->
+  <text x="115" y="332" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="44" font-weight="900" fill="#FFD200">
+    Beat Bitcoin: What It...
+  </text>
+
+  <!-- Bottom Divider Line -->
+  <line x1="115" y1="470" x2="1035" y2="470" stroke="rgba(255,255,255,0.15)" stroke-width="2" stroke-dasharray="8 8"/>
+
+  <!-- Footer Brand Tag -->
+  <text x="115" y="535" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="26" font-weight="bold" fill="#FFD200">
+    ⚡ JookJook Insight Report
+  </text>
+
+  <!-- Ticker Tags -->
+  <text x="1035" y="535" font-family="'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="24" font-weight="bold" fill="#94a3b8" text-anchor="end">
+    $BTC $ETH #가상자산 #비트코인
+  </text>
+</svg>

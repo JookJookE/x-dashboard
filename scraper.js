@@ -1,0 +1,276 @@
+const axios = require('axios');
+const { getConfig } = require('./config');
+const { isPosted, addLog, getOrCreateFetchedAt, saveStoredArticles } = require('./history');
+
+function cleanHtml(html) {
+  if (!html) return '';
+  let cleaned = html
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#039;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/&#38;/gi, '&')
+    .replace(/&#8211;/gi, '-')
+    .replace(/&#8212;/gi, '--')
+    .replace(/&#8216;/gi, "'")
+    .replace(/&#8217;/gi, "'")
+    .replace(/&#8220;/gi, '"')
+    .replace(/&#8221;/gi, '"');
+
+  return cleaned
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function fetchArticlePageText(link) {
+  if (!link) return '';
+  try {
+    const res = await axios.get(link, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 6000,
+      maxRedirects: 5
+    });
+    let cleaned = cleanHtml(res.data);
+    cleaned = cleaned.replace(/^[\s\S]*?(1분 요약|분 요약)/i, '');
+    cleaned = cleaned.replace(/Semiconductor|Biotechnology|Robotics|Opinion|Membership|Newsletter|Energy|Future/gi, '');
+    cleaned = cleaned.replace(/프로필 보기[\s\S]*?1분 요약/gi, '');
+    cleaned = cleaned.replace(/출신대학 :[\s\S]*?연구분야 :/gi, '');
+    cleaned = cleaned.replace(/전공 :[\s\S]*?읽을 시간 :/gi, '');
+    cleaned = cleaned.replace(/기자|구독|무단전재|재배포 금지|Copyright[\s\S]*/gi, '');
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+    return cleaned.substring(0, 1500);
+  } catch (err) {
+    return '';
+  }
+}
+
+// 1. Heisenberg Tech Articles
+async function fetchHeisenbergArticles(limit = 5, scanBatchTime = null) {
+  const config = getConfig();
+  const url = `${config.targetUrl}?per_page=${limit}`;
+
+  try {
+    const response = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 10000
+    });
+
+    const posts = response.data;
+    if (!Array.isArray(posts)) return [];
+
+    const cleaned = [];
+    for (const post of posts) {
+      const cleanTitle = cleanHtml(post.title?.rendered || '');
+      let cleanContent = cleanHtml(post.content?.rendered || '');
+
+      if (cleanContent.length < 50 && post.link) {
+        cleanContent = await fetchArticlePageText(post.link);
+      }
+
+      const id = `heisenberg-${post.id}`;
+      cleaned.push({
+        id,
+        category: 'heisenberg',
+        categoryTag: '💡 하이젠버그',
+        date: new Date(post.date).toISOString(),
+        fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
+        link: post.link,
+        title: cleanTitle,
+        contentSnippet: cleanContent.substring(0, 1500),
+        isPosted: isPosted(id)
+      });
+    }
+    return cleaned;
+  } catch (err) {
+    console.error('Error fetching Heisenberg articles:', err.message);
+    return [];
+  }
+}
+
+// 2. Korean Google News RSS Feeds
+async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null) {
+  const freshQuery = `${queryStr} when:2d`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
+  try {
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 10000
+    });
+
+    const xml = res.data;
+    const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+    const articles = [];
+
+    for (let i = 0; i < Math.min(items.length, limit); i++) {
+      const itemXml = items[i][0];
+      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
+      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
+      const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
+      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
+
+      if (titleMatch) {
+        let title = cleanHtml(titleMatch[1]);
+        const sourceIndex = title.lastIndexOf(' - ');
+        if (sourceIndex > 0) title = title.substring(0, sourceIndex);
+
+        const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
+        const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
+        let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
+
+        if (rawSnippet.length < 30 && link) {
+          rawSnippet = await fetchArticlePageText(link);
+        }
+        if (!rawSnippet || rawSnippet.length < 15) {
+          rawSnippet = title;
+        }
+
+        const id = `${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
+
+        articles.push({
+          id,
+          category: categoryKey,
+          categoryTag: tag,
+          date: isoDate,
+          fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
+          link,
+          title,
+          contentSnippet: rawSnippet.substring(0, 1500),
+          isPosted: isPosted(id)
+        });
+      }
+    }
+    return articles;
+  } catch (err) {
+    console.error(`Error fetching ${categoryName} RSS:`, err.message);
+    return [];
+  }
+}
+
+// 3. Global Foreign English News RSS Feeds (월스트리트저널, 로이터, 코인데스크 외신 뉴스)
+async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null) {
+  const freshQuery = `${queryStr} when:2d`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
+  try {
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 10000
+    });
+
+    const xml = res.data;
+    const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+    const articles = [];
+
+    for (let i = 0; i < Math.min(items.length, limit); i++) {
+      const itemXml = items[i][0];
+      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
+      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
+      const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
+      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
+
+      if (titleMatch) {
+        let title = cleanHtml(titleMatch[1]);
+        const sourceIndex = title.lastIndexOf(' - ');
+        let sourceName = '';
+        if (sourceIndex > 0) {
+          sourceName = title.substring(sourceIndex + 3);
+          title = title.substring(0, sourceIndex);
+        }
+
+        const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
+        const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
+        let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
+
+        if (!rawSnippet || rawSnippet.length < 15) {
+          rawSnippet = title;
+        }
+
+        const id = `global-${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
+
+        articles.push({
+          id,
+          category: 'global',
+          categoryTag: `🌐 해외뉴스 (${tag.replace('🌐 외신 ', '')})`,
+          date: isoDate,
+          fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
+          link,
+          title: `[외신 ${sourceName ? sourceName : '속보'}] ${title}`,
+          contentSnippet: `Global News Source (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
+          isGlobal: true,
+          isPosted: isPosted(id)
+        });
+      }
+    }
+    return articles;
+  } catch (err) {
+    console.error(`Error fetching Global ${categoryName} RSS:`, err.message);
+    return [];
+  }
+}
+
+async function fetchLatestArticles(limit = 35, customScanTime = null) {
+  const scanBatchTime = customScanTime || new Date().toISOString();
+  addLog('INFO', '국내외 최신 소식 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
+
+  try {
+    const [
+      heisenberg,
+      itNews,
+      coinNews,
+      stockNews,
+      economyNews,
+      globalIt,
+      globalCoin,
+      globalStock,
+      globalEconomy,
+      gossipNews,
+      mindsetNews
+    ] = await Promise.all([
+      fetchHeisenbergArticles(5, scanBatchTime),
+      fetchNewsRssArticles('it', '(IT OR 테크 OR 반도체 OR AI OR 엔비디아 OR 애플 OR 빅테크)', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTime),
+      fetchNewsRssArticles('coin', '(비트코인 OR 가상자산 OR 코인 OR 이더리움 OR 암호화폐 OR 리플)', '코인', '🪙 코인', 4, scanBatchTime),
+      fetchNewsRssArticles('stock', '(주식 OR 증시 OR 코스피 OR 미국주식 OR 나스닥 OR 엔비디아 OR 테슬라)', '주식', '📈 주식', 4, scanBatchTime),
+      fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTime),
+      fetchGlobalNewsRssArticles('it', '(Nvidia OR Apple OR OpenAI OR "Artificial Intelligence" OR Tech)', '글로벌 IT', '💻 IT', 3, scanBatchTime),
+      fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple)', '글로벌 코인', '🪙 코인', 3, scanBatchTime),
+      fetchGlobalNewsRssArticles('stock', '(Nasdaq OR "S&P500" OR "Stock Market" OR NVDA OR TSLA)', '글로벌 주식', '📈 주식', 3, scanBatchTime),
+      fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTime),
+      fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 6, scanBatchTime),
+      fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 5, scanBatchTime)
+    ]);
+
+    const allArticles = [
+      ...heisenberg,
+      ...itNews,
+      ...globalIt,
+      ...coinNews,
+      ...globalCoin,
+      ...stockNews,
+      ...globalStock,
+      ...economyNews,
+      ...globalEconomy,
+      ...gossipNews,
+      ...mindsetNews
+    ];
+
+    allArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const persistentArticles = saveStoredArticles(allArticles);
+
+    addLog('SUCCESS', `국내외 총 ${allArticles.length}건의 최신 소식을 성공적으로 수집했습니다. (DB 보관: ${persistentArticles.length}건)`);
+    return persistentArticles;
+  } catch (err) {
+    addLog('ERROR', `뉴스 수집 실패: ${err.message}`);
+    return [];
+  }
+}
+
+module.exports = {
+  fetchLatestArticles,
+  cleanHtml
+};
