@@ -6,6 +6,26 @@ let currentComposerMode = 'block'; // 'block' (버전 1) vs 'story' (버전 2)
 let currentArticlesPage = 1;
 const ARTICLES_PER_PAGE = 30;
 
+function getLocalReadMap() {
+  try {
+    return JSON.parse(localStorage.getItem('x_read_map') || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveLocalReadId(id) {
+  const map = getLocalReadMap();
+  map[id] = true;
+  localStorage.setItem('x_read_map', JSON.stringify(map));
+}
+
+function saveLocalAllRead(ids) {
+  const map = getLocalReadMap();
+  ids.forEach(id => { map[id] = true; });
+  localStorage.setItem('x_read_map', JSON.stringify(map));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
   initTabs();
@@ -199,16 +219,15 @@ function selectSidebar6Hours() {
 async function markAllArticlesAsRead() {
   const btn = document.getElementById('btn-mark-all-read');
   if (btn) btn.disabled = true;
+  const allIds = currentArticles.map(a => a.id);
+  saveLocalAllRead(allIds);
+  currentArticles.forEach(a => { a.isRead = true; });
   try {
     const res = await fetch('/api/mark-all-read', { method: 'POST' });
     const data = await res.json();
-    if (data.success) {
-      loadArticles(false);
-    } else {
-      alert('오류: ' + data.message);
-    }
+    loadArticles(false);
   } catch (e) {
-    alert('오류: ' + e.message);
+    loadArticles(false);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -317,7 +336,13 @@ async function loadArticles(forceRefresh = false) {
     const data = await res.json();
 
     if (data.success) {
-      currentArticles = data.articles.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const localReadMap = getLocalReadMap();
+      currentArticles = data.articles.map(art => {
+        if (localReadMap[art.id]) {
+          return { ...art, isRead: true };
+        }
+        return art;
+      }).sort((a, b) => new Date(b.date) - new Date(a.date));
       document.getElementById('stat-articles-count').innerText = `${data.totalCount || currentArticles.length}건`;
 
       const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
@@ -560,6 +585,9 @@ function renderArticlesDashboard(articles) {
 function selectArticleForComposer(articleId) {
   const article = currentArticles.find(a => String(a.id) === String(articleId));
   if (!article) return;
+
+  saveLocalReadId(articleId);
+  article.isRead = true;
 
   markArticleAsRead(articleId);
 
