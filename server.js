@@ -17,6 +17,19 @@ const LOCAL_WIFI_IP = '192.168.0.10';
 app.use(cors());
 app.use(express.json());
 
+// Public Health Check Endpoint (For 24/7 Keep-Alive Pings)
+app.get('/ping', (req, res) => {
+  res.send('pong');
+});
+
+// Self Keep-Alive Timer: Ping /ping every 10 minutes to prevent Render Free Tier from sleeping
+setInterval(async () => {
+  try {
+    const renderUrl = process.env.RENDER_EXTERNAL_URL || 'https://x-dashboard-4snc.onrender.com';
+    await axios.get(`${renderUrl}/ping`, { timeout: 5000 });
+  } catch (e) {}
+}, 10 * 60 * 1000);
+
 // HTTP Basic Security Authentication for Tunnel & External Access
 app.use((req, res, next) => {
   const config = getConfig();
