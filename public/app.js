@@ -299,6 +299,7 @@ function getCategoryTitle(cat) {
     case 'economy': return '💵 경제/금리/환율 최신 뉴스';
     case 'global': return '🌐 해외뉴스 (글로벌 외신 속보)';
     case 'blind': return '🏢 블라인드 / 직장썰';
+    case 'pann': return '⚖️ 네이트판/사연 최신 글';
     case 'gossip': return '🗣️ 가십 / 연예 이슈';
     case 'mindset': return '🧠 멘탈 / 심리 / 대인관계 꿀팁';
     case 'tech_all': return '📊 테크 & 금융 전문 소식';
@@ -364,7 +365,7 @@ function update6HourToggleUI(active) {
 
 function isCommunityCategory(cat) {
   const c = String(cat).toLowerCase();
-  return c === 'blind' || c === 'gossip' || c === 'mindset';
+  return c === 'blind' || c === 'gossip' || c === 'mindset' || c === 'pann';
 }
 
 function selectCategoryNav(cat, unreadOnly = false) {
