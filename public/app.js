@@ -152,13 +152,27 @@ function formatRelativeTime(dateStr) {
   const diffMin = Math.floor(diffMs / (1000 * 60));
   const diffHour = Math.floor(diffMs / (1000 * 60 * 60));
 
-  if (diffMin < 0) return '방금 전';
-  if (diffMin < 1) return '방금 전';
-  if (diffMin < 60) return `${diffMin}분 전`;
-  if (diffHour < 24) return `${diffHour}시간 전`;
-  
-  // 1일 이상 된 글은 한국 표준시(KST)로 날짜와 시각 표시
-  return pubDate.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  let relativeText = '방금 전';
+  if (diffMin < 1) {
+    relativeText = '방금 전';
+  } else if (diffMin < 60) {
+    relativeText = `${diffMin}분 전`;
+  } else if (diffHour < 24) {
+    relativeText = `${diffHour}시간 전`;
+  } else {
+    const diffDays = Math.floor(diffHour / 24);
+    relativeText = `${diffDays}일 전`;
+  }
+
+  const kstTime = pubDate.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return `${relativeText} (${kstTime})`;
 }
 
 function formatTimeOnly(dateStr) {
