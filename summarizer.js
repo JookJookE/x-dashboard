@@ -52,6 +52,26 @@ async function generateSummary(article, mode = 'block') {
 5. 마지막 줄에는 #멘탈 #생각정리 해시태그 2개를 자연스럽게 넣으세요.
 6. 오직 완성된 한글 트윗 문구만 출력하세요. (설명, 큰따옴표 금지)
 `;
+    } else if (mode === 'capture' || mode === 'blind') {
+      promptText = `
+당신은 X(트위터)에서 수십만 회의 클릭수와 리트윗(RT)을 이끌어내는 핫이슈 커뮤니티·블라인드 전문 큐레이터이자 트위터 장인입니다.
+유저가 트윗 작성 시 '블라인드/커뮤니티 캡처 이미지'를 함께 첨부할 때 사용할, 호기심과 도파민이 극대화된 '캡처 이미지 첨부용 캡션 문구'를 한글로 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문 내용]: ${article.contentSnippet || article.excerpt}
+
+⚠️ [버전 5 - 📸 이미지 캡처 연동 / 블라인드 썰 작성 규칙]:
+1. [첫 줄: 이미지를 클릭하게 만드는 도파민 극대화 1줄 질문/경악 멘트]
+2. [둘째 줄: 캡처 내용의 핵심 썰/폭로 사건 요약 1~2문장]
+3. [셋째 줄: 리트윗(RT)/댓글 유도 소통 질문 + 이모지]
+4. '📌', '📝', '🗣️', '💬', '댓글(타래)용 링크' 같은 어색한 헤더, 서식, 외부 링크는 붙이지 마세요.
+   (예시 1: 블라인드에 뜬금없이 올라와서 회사 난리 났다는 글.. 이거 실화냐? 😱
+입사해서 놀고먹다가 6억 챙겼다는 글 올라와서 분위기 초토화됐다는데.. 다들 이거 어떻게 생각함? 🔥 #블라인드 #직장인썰)
+   (예시 2: 블라인드에 내부 폭로글 터졌는데 수위 진짜 미쳤네.. 👀
+IT 인력 절반 이상이 특정 카르텔이라면서 논란 일파만파 퍼지는 중.. 과연 어떻게 마무리될까? 😳 #블라인드 #이슈)
+5. 마지막 줄에는 #블라인드 #직장인썰 해시태그 2개를 자연스럽게 넣으세요.
+6. 오직 완성된 한글 트윗 문구만 출력하세요. (설명, 큰따옴표 금지)
+`;
     } else if (mode === 'story') {
       promptText = `
 당신은 X(트위터)에서 조회수 100만 회 이상을 기록하는 최고 도파민·호기심 자극형 IT·금융 인플루언서입니다.
@@ -242,6 +262,8 @@ function deepExpertSummary(article, mode = 'block') {
     text = `${koreanTitle}\n\n💬 핵심: ${analysis.summary}\n\n${randomEnding}\n\n${hashtags}`;
   } else if (mode === 'mindset') {
     text = `${koreanTitle}\n\n🔹 핵심: ${analysis.summary}\n\n결국 내 마음부터 돌보는 게 가장 중요함.. 남 시선 신경 쓰지 말고 나부터 챙기자 😳\n\n${hashtags}`;
+  } else if (mode === 'capture' || mode === 'blind') {
+    text = `블라인드에 뜬금없이 올라와서 난리 난 썰.. 이거 실화냐? 😱\n\n💬 핵심: ${analysis.summary}\n\n과연 이거 어떻게 마무리될지 판이 커지는 중.. 다들 어떻게 생각하시나요? 🔥\n\n#블라인드 #직장인썰`;
   } else if (mode === 'story') {
     const threadLink = article.link ? `\n\n💬 [댓글(타래)용 링크 텍스트]:\n👇 본문 원본 및 3분 심층 리포트 풀버전 보기:\n${article.link}` : '';
     text = `📌 [아티클 제목]:\n${analysis.storyHook}\n\n📝 [아티클 본문]:\n${analysis.storyBody}${threadLink}\n\n${hashtags}`;

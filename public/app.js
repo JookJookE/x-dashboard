@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(loadStatus, 30000);
 });
 
-// Mode Selection (버전 1: 블록형 vs 버전 2: 1인칭 후킹 스토리형 vs 버전 3: 생생한 썰/소통형)
+// Mode Selection (버전 1~5)
 function setComposerMode(mode, silent = false) {
   currentComposerMode = mode;
 
@@ -67,13 +67,18 @@ function setComposerMode(mode, silent = false) {
   const btnStory = document.getElementById('btn-mode-story');
   const btnTalk = document.getElementById('btn-mode-talk');
   const btnMindset = document.getElementById('btn-mode-mindset');
+  const btnCapture = document.getElementById('btn-mode-capture');
 
   if (btnBlock) btnBlock.classList.remove('active');
   if (btnStory) btnStory.classList.remove('active');
   if (btnTalk) btnTalk.classList.remove('active');
   if (btnMindset) btnMindset.classList.remove('active');
+  if (btnCapture) btnCapture.classList.remove('active');
 
-  if (mode === 'mindset') {
+  if (mode === 'capture' || mode === 'blind') {
+    if (btnCapture) btnCapture.classList.add('active');
+    if (!silent) showToast('📸 버전 5: 캡처 이미지 첨부 / 블라인드 썰 공유형 모드로 전환되었습니다.');
+  } else if (mode === 'mindset') {
     if (btnMindset) btnMindset.classList.add('active');
     if (!silent) showToast('🧠 버전 4: 멘탈/공감 꿀팁형 모드로 전환되었습니다.');
   } else if (mode === 'talk') {
@@ -637,7 +642,9 @@ function selectArticleForComposer(articleId) {
 
   // Default mode selection: Version 4 for Mindset, Version 3 for Gossip, Version 1 for Analytical articles
   const cat = String(article.category).toLowerCase();
-  if (cat === 'mindset') {
+  if (cat === 'blind') {
+    setComposerMode('capture', true);
+  } else if (cat === 'mindset') {
     setComposerMode('mindset', true);
   } else if (cat === 'gossip') {
     setComposerMode('talk', true);
