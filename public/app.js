@@ -84,14 +84,19 @@ function setComposerMode(mode, silent = false) {
   const btnTalk = document.getElementById('btn-mode-talk');
   const btnMindset = document.getElementById('btn-mode-mindset');
   const btnCapture = document.getElementById('btn-mode-capture');
+  const btnPann = document.getElementById('btn-mode-pann');
 
   if (btnBlock) btnBlock.classList.remove('active');
   if (btnStory) btnStory.classList.remove('active');
   if (btnTalk) btnTalk.classList.remove('active');
   if (btnMindset) btnMindset.classList.remove('active');
   if (btnCapture) btnCapture.classList.remove('active');
+  if (btnPann) btnPann.classList.remove('active');
 
-  if (mode === 'capture' || mode === 'blind') {
+  if (mode === 'pann') {
+    if (btnPann) btnPann.classList.add('active');
+    if (!silent) showToast('⚖️ 버전 6: AITA 네이트판 갈등 유도형 모드로 전환되었습니다.');
+  } else if (mode === 'capture' || mode === 'blind') {
     if (btnCapture) btnCapture.classList.add('active');
     if (!silent) showToast('📸 버전 5: 캡처 이미지 첨부 / 블라인드 썰 공유형 모드로 전환되었습니다.');
   } else if (mode === 'mindset') {
@@ -721,6 +726,8 @@ async function generateSummaryForSelected() {
   if (currentComposerMode === 'story') modeLabel = '🔥 버전 2: 1인칭 후킹 리포트형 트윗 생성 중...';
   if (currentComposerMode === 'talk') modeLabel = '🗣️ 버전 3: 생생한 썰/소통형 트윗 생성 중...';
   if (currentComposerMode === 'mindset') modeLabel = '🧠 버전 4: 멘탈/공감 꿀팁형 트윗 생성 중...';
+  if (currentComposerMode === 'capture' || currentComposerMode === 'blind') modeLabel = '📸 버전 5: 캡처 이미지 첨부 / 블라인드 썰 공유형 트윗 생성 중...';
+  if (currentComposerMode === 'pann') modeLabel = '⚖️ 버전 6: AITA 네이트판 갈등 유도형 트윗 생성 중...';
 
   textInput.value = modeLabel;
   textInput.disabled = true;
@@ -737,12 +744,14 @@ async function generateSummaryForSelected() {
       textInput.value = data.summary;
       const badgeEl = document.getElementById('ai-badge');
       if (badgeEl) {
-        if (currentComposerMode === 'mindset') badgeEl.innerText = '🧠 멘탈/공감 꿀팁형';
+        if (currentComposerMode === 'pann') badgeEl.innerText = '⚖️ 네이트판 갈등 유도형';
+        else if (currentComposerMode === 'capture' || currentComposerMode === 'blind') badgeEl.innerText = '📸 블라인드 썰 공유형';
+        else if (currentComposerMode === 'mindset') badgeEl.innerText = '🧠 멘탈/공감 꿀팁형';
         else if (currentComposerMode === 'talk') badgeEl.innerText = '🗣️ 생생한 썰/소통형';
         else if (currentComposerMode === 'story') badgeEl.innerText = '🔥 1인칭 후킹 리포트형';
         else badgeEl.innerText = '⚡ 이모지 블록 요약형';
       }
-      const modeToastName = currentComposerMode === 'mindset' ? '🧠 버전 4 (멘탈/공감 꿀팁형)' : currentComposerMode === 'talk' ? '🗣️ 버전 3 (생생한 썰/소통형)' : currentComposerMode === 'story' ? '🔥 버전 2 (1인칭 후킹 스토리)' : '⚡ 버전 1 (이모지 블록)';
+      const modeToastName = currentComposerMode === 'pann' ? '⚖️ 버전 6 (네이트판 갈등 유도형)' : (currentComposerMode === 'capture' || currentComposerMode === 'blind' ? '📸 버전 5 (블라인드 썰 공유형)' : (currentComposerMode === 'mindset' ? '🧠 버전 4 (멘탈/공감 꿀팁형)' : (currentComposerMode === 'talk' ? '🗣️ 버전 3 (생생한 썰/소통형)' : (currentComposerMode === 'story' ? '🔥 버전 2 (1인칭 후킹 스토리)' : '⚡ 버전 1 (이모지 블록)'))));
       showToast(`${modeToastName} 트윗 생성 완료!`);
     } else {
       textInput.value = `요약 오류: ${data.message}`;
