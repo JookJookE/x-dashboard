@@ -73,6 +73,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Poll status every 30s for mobile URL
   setInterval(loadStatus, 30000);
+
+  // Load trending keywords immediately and refresh every 30s
+  loadTrending();
+  setInterval(loadTrending, 30000);
 });
 
 // Mode Selection (버전 1~5)
@@ -1260,4 +1264,103 @@ function showToast(message) {
   setTimeout(() => {
     toast.classList.remove('show');
   }, 3500);
+}
+
+// ===== Trending Keywords =====
+
+async function loadTrending() {
+  try {
+    const res = await fetch('/api/trending');
+    const data = await res.json();
+
+    if (data.success) {
+      const timeStr = new Date(data.updatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      renderTrendingList('trending-kr-list', data.kr, 'kr');
+      renderTrendingList('trending-us-list', data.us, 'us');
+
+      const krTimeEl = document.getElementById('trending-kr-time');
+      const usTimeEl = document.getElementById('trending-us-time');
+      if (krTimeEl) krTimeEl.innerText = `업데이트: ${timeStr}`;
+      if (usTimeEl) usTimeEl.innerText = `업데이트: ${timeStr}`;
+    }
+  } catch (e) {
+    console.error('Trending load error:', e);
+  }
+}
+
+function renderTrendingList(containerId, trends, region) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  if (!trends || trends.length === 0) {
+    el.innerHTML = '<p class="placeholder-text">검색어 데이터를 불러올 수 없습니다.</p>';
+    return;
+  }
+
+  el.innerHTML = trends.map(t => `
+    <div class="trending-item" onclick="fetchTrendingArticles('${t.keyword.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${region}', this)">
+      <span class="trending-rank ${t.rank <= 3 ? 'top3' : ''}">${t.rank}</span>
+      <span class="trending-keyword">${t.keyword}</span>
+      ${t.traffic ? `<span class="trending-traffic">${t.traffic}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+async function fetchTrendingArticles(keyword, region, clickedEl) {
+  // Highlight clicked item
+  document.querySelectorAll('.trending-item').forEach(el => el.classList.remove('active'));
+  if (clickedEl) clickedEl.classList.add('active');
+
+  const panel = document.getElementById('trending-articles-panel');
+  const titleEl = document.getElementById('trending-articles-title');
+  const listEl = document.getElementById('trending-articles-list');
+
+  panel.style.display = 'block';
+  titleEl.innerText = `🔍 "${keyword}" 관련 기사`;
+  listEl.innerHTML = '<div class="skeleton-loader">관련 기사를 검색 중...</div>';
+
+  // Scroll to panel
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const res = await fetch(`/api/trending-articles?keyword=${encodeURIComponent(keyword)}&region=${region}`);
+    const data = await res.json();
+
+    if (data.success && data.articles.length > 0) {
+      listEl.innerHTML = data.articles.map(art => `
+        <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px;">
+              <span class="badge badge-info" style="font-size:9px;">${art.categoryTag || '🔍 트렌딩'}</span>
+              <span style="font-size: 10px; color: var(--accent-cyan); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
+            </div>
+            <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${art.title}</h5>
+            ${art.link ? '<a href="' + art.link + '" target="_blank" class="btn-link" style="font-size:11px;">원문보기 ↗</a>' : ''}
+          </div>
+          <button class="btn btn-accent btn-sm" style="white-space:nowrap; margin-left:8px;" onclick='selectTrendingArticleForComposer(${JSON.stringify(art).replace(/'/g, "&#39;")})'>✨ 트윗 생성</button>
+        </div>
+      `).join('');
+      showToast(`🔍 "${keyword}" 관련 기사 ${data.articles.length}건을 찾았습니다!`);
+    } else {
+      listEl.innerHTML = '<p class="placeholder-text">관련 기사를 찾을 수 없습니다.</p>';
+    }
+  } catch (e) {
+    listEl.innerHTML = `<p class="placeholder-text">기사 검색 실패: ${e.message}</p>`;
+  }
+}
+
+function selectTrendingArticleForComposer(article) {
+  selectedArticle = article;
+  setComposerMode('talk', true);
+  renderSelectedArticle(article);
+  switchTab('composer');
+  generateSummaryForSelected();
+  closeMobileMenu();
+}
+
+function closeTrendingArticles() {
+  const panel = document.getElementById('trending-articles-panel');
+  if (panel) panel.style.display = 'none';
+  document.querySelectorAll('.trending-item').forEach(el => el.classList.remove('active'));
 }

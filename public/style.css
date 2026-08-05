@@ -656,3 +656,62 @@ body {
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* Trending Keywords Styling */
+.trending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trending-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+}
+
+.trending-item:hover {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.25);
+  transform: translateX(4px);
+}
+
+.trending-item.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.trending-rank {
+  font-size: 14px;
+  font-weight: 900;
+  min-width: 24px;
+  text-align: center;
+  color: var(--accent-cyan);
+}
+
+.trending-rank.top3 {
+  color: #facc15;
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
+}
+
+.trending-keyword {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trending-traffic {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}

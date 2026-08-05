@@ -308,6 +308,86 @@ function startCloudflareTunnel() {
   }
 }
 
+// ===== Trending Keywords API (No DB Storage) =====
+
+app.get('/api/trending', async (req, res) => {
+  try {
+    const [krRes, usRes] = await Promise.allSettled([
+      axios.get('https://trends.google.co.kr/trending/rss?geo=KR', { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 }),
+      axios.get('https://trends.google.com/trending/rss?geo=US', { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 })
+    ]);
+
+    function parseTrendingRss(xml) {
+      if (!xml) return [];
+      const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+      return items.slice(0, 10).map((m, idx) => {
+        const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
+        const trafficMatch = m[0].match(/<ht:approx_traffic>(.*?)<\/ht:approx_traffic>/i);
+        const newsMatch = m[0].match(/<ht:news_item_title>(.*?)<\/ht:news_item_title>/i);
+        return {
+          rank: idx + 1,
+          keyword: titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '',
+          traffic: trafficMatch ? trafficMatch[1] : '',
+          relatedNews: newsMatch ? newsMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''
+        };
+      }).filter(t => t.keyword);
+    }
+
+    const krTrends = krRes.status === 'fulfilled' ? parseTrendingRss(krRes.value.data) : [];
+    const usTrends = usRes.status === 'fulfilled' ? parseTrendingRss(usRes.value.data) : [];
+
+    res.json({ success: true, kr: krTrends, us: usTrends, updatedAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/trending-articles', async (req, res) => {
+  try {
+    const keyword = req.query.keyword;
+    const region = req.query.region || 'kr';
+    if (!keyword) return res.status(400).json({ success: false, message: 'keyword 필수' });
+
+    const hl = region === 'us' ? 'en-US' : 'ko';
+    const gl = region === 'us' ? 'US' : 'KR';
+    const ceid = region === 'us' ? 'US:en' : 'KR:ko';
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
+
+    const rssRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 });
+    const items = [...rssRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+
+    const articles = items.slice(0, 5).map((m, idx) => {
+      const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
+      const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
+      const dateMatch = m[0].match(/<pubDate>(.*?)<\/pubDate>/i);
+      const descMatch = m[0].match(/<description>(.*?)<\/description>/i);
+
+      let title = titleMatch ? titleMatch[1] : '';
+      title = title.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
+      const sourceIdx = title.lastIndexOf(' - ');
+      if (sourceIdx > 0) title = title.substring(0, sourceIdx);
+
+      const link = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+      const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
+      let snippet = descMatch ? descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').trim() : title;
+
+      return {
+        id: `trending-${idx}-${Date.now()}`,
+        category: 'trending',
+        categoryTag: `🔍 ${keyword}`,
+        date: isoDate,
+        link,
+        title,
+        contentSnippet: snippet.substring(0, 1500)
+      };
+    });
+
+    res.json({ success: true, keyword, articles });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
   console.log(`🚀 X 트윗 생성기 대시보드 실행 중`);

@@ -195,6 +195,47 @@
           </div>
         </div>
 
+        <!-- Section 3: Real-time Trending Keywords -->
+        <div class="dashboard-sections" style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+          <!-- Korean Trending -->
+          <div class="card card-flex-1">
+            <div class="card-header">
+              <h3>🇰🇷 한국 실시간 급상승 검색어</h3>
+              <span id="trending-kr-time" style="font-size:11px; color:var(--text-dim);"></span>
+            </div>
+            <div class="card-body">
+              <div id="trending-kr-list" class="trending-list">
+                <div class="skeleton-loader">검색어 순위 로딩 중...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Global Trending -->
+          <div class="card card-flex-1">
+            <div class="card-header">
+              <h3>🌐 해외 실시간 급상승 검색어</h3>
+              <span id="trending-us-time" style="font-size:11px; color:var(--text-dim);"></span>
+            </div>
+            <div class="card-body">
+              <div id="trending-us-list" class="trending-list">
+                <div class="skeleton-loader">검색어 순위 로딩 중...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trending Articles Panel (appears on keyword click) -->
+        <div id="trending-articles-panel" class="card" style="margin-bottom: 20px; display:none;">
+          <div class="card-header">
+            <h3 id="trending-articles-title">🔍 관련 기사</h3>
+            <button class="btn-link" onclick="closeTrendingArticles()">닫기 ✕</button>
+          </div>
+          <div class="card-body">
+            <div id="trending-articles-list" class="articles-mini-list">
+            </div>
+          </div>
+        </div>
+
         <div class="card card-flex-1" style="margin-bottom: 20px;">
           <div class="card-header">
             <h3>시스템 감지 로그</h3>
