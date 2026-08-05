@@ -337,10 +337,25 @@ function update6HourToggleUI(active) {
   }
 }
 
+function isCommunityCategory(cat) {
+  const c = String(cat).toLowerCase();
+  return c === 'blind' || c === 'gossip' || c === 'mindset';
+}
+
+function selectCategoryNav(cat, unreadOnly = false) {
+  selectedCategory = cat;
+  isUnreadFilterActive = unreadOnly;
+  is6HourFilterActive = false;
+  updateCategoryFilterUI(cat);
+  switchTab('articles');
+  renderFilteredArticles(true);
+  closeMobileMenu();
+}
+
 // Load Articles (forceRefresh=true일 때 1초 실시간 강제 수집)
 async function loadArticles(forceRefresh = false) {
   const gridEl = document.getElementById('articles-grid');
-  gridEl.innerHTML = '<div class="skeleton-loader">최신 뉴스를 실시간 수집 중입니다...</div>';
+  if (gridEl) gridEl.innerHTML = '<div class="skeleton-loader">최신 뉴스를 실시간 수집 중입니다...</div>';
 
   try {
     const url = forceRefresh ? '/api/articles?refresh=true&limit=300' : '/api/articles?limit=300';
@@ -355,26 +370,21 @@ async function loadArticles(forceRefresh = false) {
         }
         return art;
       }).sort((a, b) => new Date(b.date) - new Date(a.date));
-      document.getElementById('stat-articles-count').innerText = `${data.totalCount || currentArticles.length}건`;
-
-      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-      const sixHourArticles = currentArticles.filter(art => new Date(art.date) >= sixHoursAgo);
-      document.getElementById('stat-6h-count').innerText = `${sixHourArticles.length}건 (클릭해 보기)`;
 
       updateUnreadStats();
 
-      const generalArticles = currentArticles.filter(a => {
-        const c = String(a.category).toLowerCase();
-        return c !== 'gossip' && c !== 'mindset';
-      });
-      renderArticlesDashboard(generalArticles.slice(0, 5));
+      const techArticles = currentArticles.filter(a => !isCommunityCategory(a.category));
+      const commArticles = currentArticles.filter(a => isCommunityCategory(a.category));
+
+      renderArticlesDashboardTech(techArticles.slice(0, 5));
+      renderArticlesDashboardComm(commArticles.slice(0, 5));
       renderFilteredArticles();
       showToast(forceRefresh ? '⚡ 1초 실시간 최신 뉴스 수집을 완료했습니다!' : '최신 소식 목록 로딩 완료!');
     } else {
-      gridEl.innerHTML = `<p class="placeholder-text">오류: ${data.message}</p>`;
+      if (gridEl) gridEl.innerHTML = `<p class="placeholder-text">오류: ${data.message}</p>`;
     }
   } catch (err) {
-    gridEl.innerHTML = `<p class="placeholder-text">뉴스를 가져오지 못했습니다 (${err.message})</p>`;
+    if (gridEl) gridEl.innerHTML = `<p class="placeholder-text">뉴스를 가져오지 못했습니다 (${err.message})</p>`;
   }
 }
 
@@ -383,20 +393,6 @@ let isUnreadFilterActive = false;
 function toggleUnreadArticlesFilter() {
   isUnreadFilterActive = !isUnreadFilterActive;
   is6HourFilterActive = false;
-  const cardEl = document.getElementById('stat-card-unread');
-  if (isUnreadFilterActive) {
-    if (cardEl) {
-      cardEl.style.border = '2px solid #facc15';
-      cardEl.style.background = 'rgba(250, 204, 21, 0.12)';
-    }
-    showToast('👀 확인 안 한 신규 기사들만 골라냅니다.');
-  } else {
-    if (cardEl) {
-      cardEl.style.border = '';
-      cardEl.style.background = '';
-    }
-    showToast('전체 수집 기사를 표시합니다.');
-  }
   renderFilteredArticles(true);
 }
 
@@ -418,11 +414,21 @@ async function markArticleAsRead(articleId) {
 }
 
 function updateUnreadStats() {
-  const unreadArticles = currentArticles.filter(a => !a.isRead);
-  const unreadEl = document.getElementById('stat-unread-count');
-  if (unreadEl) {
-    unreadEl.innerText = `${unreadArticles.length}건 (클릭해 보기)`;
-  }
+  const techArticles = currentArticles.filter(a => !isCommunityCategory(a.category));
+  const commArticles = currentArticles.filter(a => isCommunityCategory(a.category));
+
+  const techUnread = techArticles.filter(a => !a.isRead).length;
+  const commUnread = commArticles.filter(a => !a.isRead).length;
+
+  const techCountEl = document.getElementById('stat-tech-count');
+  const techUnreadEl = document.getElementById('stat-tech-unread');
+  const commCountEl = document.getElementById('stat-comm-count');
+  const commUnreadEl = document.getElementById('stat-comm-unread');
+
+  if (techCountEl) techCountEl.innerText = `${techArticles.length}건`;
+  if (techUnreadEl) techUnreadEl.innerText = `${techUnread}건 (클릭)`;
+  if (commCountEl) commCountEl.innerText = `${commArticles.length}건`;
+  if (commUnreadEl) commUnreadEl.innerText = `${commUnread}건 (클릭)`;
 }
 
 function renderFilteredArticles(resetPage = false) {
@@ -433,12 +439,13 @@ function renderFilteredArticles(resetPage = false) {
   let filtered = currentArticles;
 
   if (selectedCategory === 'all') {
-    filtered = filtered.filter(a => {
-      const c = String(a.category).toLowerCase();
-      return c !== 'gossip' && c !== 'mindset';
-    });
+    filtered = currentArticles;
+  } else if (selectedCategory === 'tech_all') {
+    filtered = currentArticles.filter(a => !isCommunityCategory(a.category));
+  } else if (selectedCategory === 'comm_all') {
+    filtered = currentArticles.filter(a => isCommunityCategory(a.category));
   } else {
-    filtered = filtered.filter(a => String(a.category).toLowerCase() === String(selectedCategory).toLowerCase());
+    filtered = currentArticles.filter(a => String(a.category).toLowerCase() === String(selectedCategory).toLowerCase());
   }
 
   if (is6HourFilterActive) {
@@ -572,10 +579,11 @@ function renderArticlesGrid(articles) {
   }).join('');
 }
 
-function renderArticlesDashboard(articles) {
-  const miniListEl = document.getElementById('dashboard-articles-mini');
+function renderArticlesDashboardTech(articles) {
+  const miniListEl = document.getElementById('dashboard-tech-mini');
+  if (!miniListEl) return;
   if (!articles || articles.length === 0) {
-    miniListEl.innerHTML = '<p class="placeholder-text">최신 소식이 없습니다.</p>';
+    miniListEl.innerHTML = '<p class="placeholder-text">수집된 테크/금융 소식이 없습니다.</p>';
     return;
   }
 
@@ -584,6 +592,28 @@ function renderArticlesDashboard(articles) {
       <div>
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px;">
           <span class="badge badge-info" style="font-size:9px;">${art.categoryTag || art.category}</span>
+          <span style="font-size: 10px; color: var(--accent-cyan); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
+        </div>
+        <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px;">${art.title}</h5>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="selectArticleForComposer('${art.id}')">생성</button>
+    </div>
+  `).join('');
+}
+
+function renderArticlesDashboardComm(articles) {
+  const miniListEl = document.getElementById('dashboard-comm-mini');
+  if (!miniListEl) return;
+  if (!articles || articles.length === 0) {
+    miniListEl.innerHTML = '<p class="placeholder-text">수집된 커뮤니티/썰 소식이 없습니다.</p>';
+    return;
+  }
+
+  miniListEl.innerHTML = articles.map(art => `
+    <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px;">
+          <span class="badge badge-info" style="font-size:9px; background:rgba(250, 204, 21, 0.2); color:#facc15;">${art.categoryTag || art.category}</span>
           <span style="font-size: 10px; color: var(--accent-gold); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
         </div>
         <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px;">${art.title}</h5>

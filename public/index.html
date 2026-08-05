@@ -36,8 +36,12 @@
           <span>최근 6시간 속보</span>
         </button>
 
-        <div class="menu-label">카테고리별 뉴스</div>
+        <div class="menu-label">📊 테크 & 금융 전문</div>
 
+        <button class="nav-item" data-tab="articles" data-cat="tech_all" data-hours="0">
+          <span class="icon">⚡</span>
+          <span>테크 & 금융 전체</span>
+        </button>
         <button class="nav-item" data-tab="articles" data-cat="heisenberg" data-hours="0">
           <span class="icon">💡</span>
           <span>하이젠버그</span>
@@ -61,6 +65,17 @@
         <button class="nav-item" data-tab="articles" data-cat="global" data-hours="0">
           <span class="icon">🌐</span>
           <span>해외뉴스 (글로벌)</span>
+        </button>
+
+        <div class="menu-label">🗣️ 커뮤니티 & 썰 / 멘탈</div>
+
+        <button class="nav-item" data-tab="articles" data-cat="comm_all" data-hours="0">
+          <span class="icon">🔥</span>
+          <span>커뮤니티/썰 전체</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="blind" data-hours="0">
+          <span class="icon">🏢</span>
+          <span>블라인드 / 직장썰</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="gossip" data-hours="0">
           <span class="icon">🗣️</span>
@@ -120,61 +135,74 @@
 
       <!-- TAB 1: Dashboard -->
       <section id="tab-dashboard" class="tab-content active">
+        <!-- Stats Bar: Dual Group Unread Status -->
         <div class="stats-grid">
-          <div class="stat-card" style="cursor:pointer;" onclick="selectSidebar6Hours()">
-            <div class="stat-icon cyan">⚡</div>
+          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('tech_all')">
+            <div class="stat-icon cyan">📊</div>
             <div class="stat-data">
-              <span class="stat-label">최근 6시간 속보 보기</span>
-              <span class="stat-value" id="stat-6h-count">클릭하여 보기</span>
+              <span class="stat-label">테크 & 금융 전문 소식</span>
+              <span class="stat-value" id="stat-tech-count">0건</span>
             </div>
           </div>
-          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('all')">
-            <div class="stat-icon purple">📰</div>
+          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('tech_all', true)">
+            <div class="stat-icon" style="background:rgba(56, 189, 248, 0.15); color:#38bdf8;">👀</div>
             <div class="stat-data">
-              <span class="stat-label">전체 수집 뉴스 목록</span>
-              <span class="stat-value" id="stat-articles-count">0건</span>
+              <span class="stat-label">테크/금융 미확인</span>
+              <span class="stat-value" id="stat-tech-unread" style="color:#38bdf8;">0건 (클릭)</span>
             </div>
           </div>
-          <div class="stat-card" id="stat-card-unread" style="cursor:pointer;" onclick="toggleUnreadArticlesFilter()">
-            <div class="stat-icon" style="background:rgba(234, 179, 8, 0.15); color:#facc15;">👀</div>
+          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('comm_all')">
+            <div class="stat-icon purple">🗣️</div>
             <div class="stat-data">
-              <span class="stat-label">확인 안 한 기사</span>
-              <span class="stat-value" id="stat-unread-count" style="color:#facc15;">0건 (클릭해 보기)</span>
+              <span class="stat-label">커뮤니티 & 썰 / 멘탈</span>
+              <span class="stat-value" id="stat-comm-count">0건</span>
             </div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon green">📱</div>
+          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('comm_all', true)">
+            <div class="stat-icon" style="background:rgba(250, 204, 21, 0.15); color:#facc15;">👀</div>
             <div class="stat-data">
-              <span class="stat-label">와이파이 스마트폰 접속</span>
-              <span class="stat-value" style="font-size:13px; color:var(--accent-cyan);" id="stat-mobile-url-text">http://192.168.0.10:3000</span>
+              <span class="stat-label">커뮤니티/썰 미확인</span>
+              <span class="stat-value" id="stat-comm-unread" style="color:#facc15;">0건 (클릭)</span>
             </div>
           </div>
         </div>
 
-        <div class="dashboard-sections">
-          <!-- Recent Articles Quick View -->
+        <div class="dashboard-sections" style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+          <!-- Section 1: Tech & Finance Mini List -->
           <div class="card card-flex-1">
             <div class="card-header">
-              <h3>📰 최신 뉴스 소식 목록</h3>
-              <button class="btn-link" onclick="selectCategoryNav('all')">전체보기 &rarr;</button>
+              <h3>📊 테크 & 금융 최신 소식 (IT/주식/코인)</h3>
+              <button class="btn-link" onclick="selectCategoryNav('tech_all')">전체보기 &rarr;</button>
             </div>
             <div class="card-body">
-              <div id="dashboard-articles-mini" class="articles-mini-list">
-                <div class="skeleton-loader">최신 소식을 확인하는 중...</div>
+              <div id="dashboard-tech-mini" class="articles-mini-list">
+                <div class="skeleton-loader">테크 & 금융 소식 확인 중...</div>
               </div>
             </div>
           </div>
 
-          <!-- Activity Logs Stream -->
+          <!-- Section 2: Community & Mental Mini List -->
           <div class="card card-flex-1">
             <div class="card-header">
-              <h3>시스템 감지 로그</h3>
-              <button class="btn-link" onclick="loadLogs()">새로고침</button>
+              <h3>🗣️ 커뮤니티 & 썰 / 멘탈 소식 (블라인드/가십/심리)</h3>
+              <button class="btn-link" onclick="selectCategoryNav('comm_all')">전체보기 &rarr;</button>
             </div>
             <div class="card-body">
-              <div id="logs-container" class="logs-stream">
-                <div class="log-entry info">로그 데이터를 로딩 중입니다...</div>
+              <div id="dashboard-comm-mini" class="articles-mini-list">
+                <div class="skeleton-loader">커뮤니티 & 썰 소식 확인 중...</div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-flex-1" style="margin-bottom: 20px;">
+          <div class="card-header">
+            <h3>시스템 감지 로그</h3>
+            <button class="btn-link" onclick="loadLogs()">새로고침</button>
+          </div>
+          <div class="card-body">
+            <div id="logs-container" class="logs-stream">
+              <div class="log-entry info">로그 데이터를 로딩 중입니다...</div>
             </div>
           </div>
         </div>
@@ -184,14 +212,27 @@
       <section id="tab-articles" class="tab-content">
         <div class="card">
           <div class="card-header-flexible">
-            <div class="category-filters">
-              <button class="filter-btn active" data-filter-cat="all">전체</button>
-              <button class="filter-btn" data-filter-cat="heisenberg">💡 하이젠버그</button>
-              <button class="filter-btn" data-filter-cat="it">💻 IT뉴스</button>
-              <button class="filter-btn" data-filter-cat="coin">🪙 코인</button>
-              <button class="filter-btn" data-filter-cat="stock">📈 주식</button>
-              <button class="filter-btn" data-filter-cat="economy">💵 경제뉴스</button>
-              <button class="filter-btn" data-filter-cat="global">🌐 해외뉴스</button>
+            <div class="category-filters" style="display:flex; flex-wrap:wrap; gap:6px;">
+              <button class="filter-btn active" data-filter-cat="all">전체 (모든소식)</button>
+              
+              <!-- Group 1 Pills -->
+              <span style="display:inline-flex; border-left:2px solid var(--accent-cyan); padding-left:6px; margin-left:4px; gap:4px; flex-wrap:wrap;">
+                <button class="filter-btn" data-filter-cat="tech_all" style="border-color:var(--accent-cyan);">📊 테크/금융 전체</button>
+                <button class="filter-btn" data-filter-cat="heisenberg">💡 하이젠버그</button>
+                <button class="filter-btn" data-filter-cat="it">💻 IT뉴스</button>
+                <button class="filter-btn" data-filter-cat="coin">🪙 코인</button>
+                <button class="filter-btn" data-filter-cat="stock">📈 주식</button>
+                <button class="filter-btn" data-filter-cat="economy">💵 경제</button>
+                <button class="filter-btn" data-filter-cat="global">🌐 해외뉴스</button>
+              </span>
+
+              <!-- Group 2 Pills -->
+              <span style="display:inline-flex; border-left:2px solid var(--accent-gold); padding-left:6px; margin-left:4px; gap:4px; flex-wrap:wrap;">
+                <button class="filter-btn" data-filter-cat="comm_all" style="border-color:var(--accent-gold); color:var(--accent-gold);">🗣️ 커뮤니티/썰 전체</button>
+                <button class="filter-btn" data-filter-cat="blind">🏢 블라인드</button>
+                <button class="filter-btn" data-filter-cat="gossip">🔥 가십/이슈</button>
+                <button class="filter-btn" data-filter-cat="mindset">🧠 멘탈/심리</button>
+              </span>
             </div>
 
             <div class="time-filter-wrapper">
