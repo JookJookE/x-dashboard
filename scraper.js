@@ -242,7 +242,7 @@ async function fetchLatestArticles(limit = 35, customScanTime = null) {
       fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple)', '글로벌 코인', '🪙 코인', 3, scanBatchTime),
       fetchGlobalNewsRssArticles('stock', '(Nasdaq OR "S&P500" OR "Stock Market" OR NVDA OR TSLA)', '글로벌 주식', '📈 주식', 3, scanBatchTime),
       fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTime),
-      fetchNewsRssArticles('blind', "'블라인드' (논란 OR 화제 OR 폭로 OR 썰 OR 이직 OR 연봉 OR 직장인)", '블라인드', '🏢 블라인드 / 직장썰', 5, scanBatchTime),
+      fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 6, scanBatchTime),
       fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 6, scanBatchTime),
       fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 5, scanBatchTime)
     ]);
