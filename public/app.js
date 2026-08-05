@@ -143,7 +143,7 @@ async function loadStatus() {
   } catch (e) {}
 }
 
-// Helper: Format Date cleanly in relative Korean time
+// Helper: Format Date cleanly in relative Korean time (KST Asia/Seoul)
 function formatRelativeTime(dateStr) {
   if (!dateStr) return '최신 소식';
   const pubDate = new Date(dateStr);
@@ -152,21 +152,19 @@ function formatRelativeTime(dateStr) {
   const diffMin = Math.floor(diffMs / (1000 * 60));
   const diffHour = Math.floor(diffMs / (1000 * 60 * 60));
 
+  if (diffMin < 0) return '방금 전';
   if (diffMin < 1) return '방금 전';
   if (diffMin < 60) return `${diffMin}분 전`;
   if (diffHour < 24) return `${diffHour}시간 전`;
   
-  // 1일 이상 된 글은 날짜와 시각 표시 (예: 8월 2일 오후 02:30)
-  return pubDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  // 1일 이상 된 글은 한국 표준시(KST)로 날짜와 시각 표시
+  return pubDate.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatTimeOnly(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  const timeStr = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  return `${month}/${day} ${timeStr}`;
+  return d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // Sidebar & Tab Navigation
