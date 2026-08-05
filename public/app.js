@@ -14,6 +14,22 @@ function getLocalReadMap() {
   }
 }
 
+function getLocalPostedMap() {
+  try {
+    return JSON.parse(localStorage.getItem('x_posted_map') || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveLocalPostedStatus(id, type) {
+  const map = getLocalPostedMap();
+  if (!map[id]) map[id] = { postedTweet: false, postedArticle: false };
+  if (type === 'tweet') map[id].postedTweet = true;
+  if (type === 'article') map[id].postedArticle = true;
+  localStorage.setItem('x_posted_map', JSON.stringify(map));
+}
+
 function saveLocalReadId(id) {
   const map = getLocalReadMap();
   map[id] = true;
@@ -373,11 +389,17 @@ async function loadArticles(forceRefresh = false) {
 
     if (data.success) {
       const localReadMap = getLocalReadMap();
+      const localPostedMap = getLocalPostedMap();
       currentArticles = data.articles.map(art => {
+        let updatedArt = { ...art };
         if (localReadMap[art.id]) {
-          return { ...art, isRead: true };
+          updatedArt.isRead = true;
         }
-        return art;
+        if (localPostedMap[art.id]) {
+          if (localPostedMap[art.id].postedTweet) updatedArt.postedTweet = true;
+          if (localPostedMap[art.id].postedArticle) updatedArt.postedArticle = true;
+        }
+        return updatedArt;
       }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
       updateUnreadStats();
@@ -1097,6 +1119,7 @@ function postViaWebIntent() {
 
   if (selectedArticle) {
     selectedArticle.postedTweet = true;
+    saveLocalPostedStatus(selectedArticle.id, 'tweet');
     fetch('/api/mark-posted', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1120,6 +1143,7 @@ function openXArticlesComposer() {
 
   if (selectedArticle) {
     selectedArticle.postedArticle = true;
+    saveLocalPostedStatus(selectedArticle.id, 'article');
     fetch('/api/mark-posted', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
