@@ -59,5 +59,6 @@ async function checkAndGenerateNewDrafts(targetCount = 5) {
 module.exports = {
   initScheduler,
   checkAndGenerateNewDrafts,
+  generateDailyDraftsJob: checkAndGenerateNewDrafts,
   getDailyDrafts
 };

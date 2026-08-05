@@ -282,7 +282,11 @@ function getCategoryTitle(cat) {
     case 'stock': return '📈 주식/증시 최신 뉴스';
     case 'economy': return '💵 경제/금리/환율 최신 뉴스';
     case 'global': return '🌐 해외뉴스 (글로벌 외신 속보)';
+    case 'blind': return '🏢 블라인드 / 직장썰';
+    case 'gossip': return '🗣️ 가십 / 연예 이슈';
     case 'mindset': return '🧠 멘탈 / 심리 / 대인관계 꿀팁';
+    case 'tech_all': return '📊 테크 & 금융 전문 소식';
+    case 'comm_all': return '🗣️ 커뮤니티 & 썰 / 멘탈';
     default: return '📰 전체 카테고리 최신 뉴스';
   }
 }
