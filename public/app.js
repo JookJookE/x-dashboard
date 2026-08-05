@@ -671,6 +671,8 @@ function selectArticleForComposer(articleId) {
   const cat = String(article.category).toLowerCase();
   if (cat === 'blind') {
     setComposerMode('capture', true);
+  } else if (cat === 'pann') {
+    setComposerMode('pann', true);
   } else if (cat === 'mindset') {
     setComposerMode('mindset', true);
   } else if (cat === 'gossip') {
