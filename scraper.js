@@ -96,7 +96,7 @@ async function fetchHeisenbergArticles(limit = 5, scanBatchTime = null) {
 
 // 2. Korean Google News RSS Feeds
 async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null) {
-  const freshQuery = `${queryStr} when:5d`;
+  const freshQuery = `${queryStr} when:2h`;
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
   try {
     const res = await axios.get(url, {
@@ -155,7 +155,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 
 // 3. Global Foreign English News RSS Feeds (월스트리트저널, 로이터, 코인데스크 외신 뉴스)
 async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null) {
-  const freshQuery = `${queryStr} when:5d`;
+  const freshQuery = `${queryStr} when:2h`;
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
   try {
     const res = await axios.get(url, {

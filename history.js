@@ -54,7 +54,15 @@ function saveStoredArticles(freshArticles) {
   const existing = getStoredArticles();
   const map = new Map(existing.map(a => [a.id, a]));
   freshArticles.forEach(a => map.set(a.id, a));
-  const merged = Array.from(map.values()).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 300);
+  
+  const fiveDaysAgo = new Date();
+  fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+  
+  const merged = Array.from(map.values())
+    .filter(a => new Date(a.date) >= fiveDaysAgo)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 500);
+    
   try {
     fs.writeFileSync(ARTICLES_DB_FILE, JSON.stringify(merged, null, 2), 'utf8');
   } catch (e) {}
