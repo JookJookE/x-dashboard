@@ -1432,10 +1432,13 @@ async function postViaWebIntent() {
   }
 
   // Thread mode: copy part2 reply text to clipboard
+  let imageCopied = false;
   if (isThreadModeActive && part2Text) {
     try {
       await navigator.clipboard.writeText(part2Text);
     } catch (e) {}
+  } else if (!isThreadModeActive) {
+    imageCopied = await copyActiveImageToClipboard();
   }
 
   if (selectedArticle) {
@@ -1452,7 +1455,9 @@ async function postViaWebIntent() {
   window.open(url, '_blank');
 
   if (isThreadModeActive && part2Text) {
-    showToast('🌐 1번 메인 트윗이 X 작성창에 채워졌습니다! 2번 답글 타래 문구는 클립보드에 자동 복사되었습니다 (Ctrl+V).');
+    showToast('🌐 1번 트윗이 채워졌습니다! 2번 답글 타래 문구는 클립보드에 자동 복사되었습니다 (Ctrl+V).');
+  } else if (!isThreadModeActive && imageCopied) {
+    showToast('🌐 X 작성창이 열립니다! 이미지가 클립보드에 복사되었으니 붙여넣기(Ctrl+V) 하세요!');
   } else {
     showToast('🌐 X.com 작성 창에 문구가 자동으로 채워졌습니다!');
   }
