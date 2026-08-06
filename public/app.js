@@ -1615,7 +1615,10 @@ function toggleThreadMode() {
 
 function updateThreadParts() {
   const textInput = document.getElementById('tweet-text-input');
-  const fullText = textInput.value.trim();
+  const rawText = textInput.value.trim();
+
+  // Strip any legacy "👇 내용" if present in raw text
+  const fullText = rawText.replace(/^👇 내용\s*/gm, '').replace(/\n👇 내용\n/g, '\n\n').trim();
 
   let part1 = '';
   let part2 = '';
@@ -1623,13 +1626,15 @@ function updateThreadParts() {
   const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
   if (lines.length >= 2) {
-    if (lines[1] === '👇' || lines[1] === '👇 내용' || lines[1].startsWith('👇 내용') || lines[1].startsWith('👇내용')) {
-      part1 = lines[0] + '\n\n' + lines[1];
-      part2 = lines.slice(2).join('\n\n');
-    } else {
-      part1 = lines[0];
-      part2 = lines.slice(1).join('\n\n');
+    let titleLine = lines[0];
+    let remainingLines = lines.slice(1);
+
+    if (remainingLines[0] === '👇' || remainingLines[0] === '👇 내용' || remainingLines[0].startsWith('👇 내용')) {
+      remainingLines = remainingLines.slice(1);
     }
+
+    part1 = titleLine + '\n\n👇';
+    part2 = remainingLines.join('\n\n');
   } else {
     part1 = fullText;
     part2 = '';
