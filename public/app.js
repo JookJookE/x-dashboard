@@ -1169,40 +1169,39 @@ async function copyActiveImageToClipboard() {
 
   try {
     const src = imgEl.src;
-    let blob;
+    let pngBlob;
 
-    if (src.startsWith('data:image/png;base64,') || src.startsWith('data:image/jpeg;base64,')) {
+    if (src.startsWith('data:image/png;base64,')) {
       const res = await fetch(src);
-      blob = await res.blob();
-    } else if (src.startsWith('data:image/svg+xml;utf8,') || src.startsWith('data:image/svg+xml;base64,')) {
+      pngBlob = await res.blob();
+    } else {
+      const fetchUrl = src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src;
       const img = new Image();
       img.crossOrigin = 'anonymous';
+
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
-        img.src = src;
+        img.src = fetchUrl;
       });
+
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth || 1200;
       canvas.height = img.naturalHeight || 675;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
-      blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    } else {
-      const res = await fetch(src);
-      blob = await res.blob();
+
+      pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     }
 
-    if (blob && navigator.clipboard && navigator.clipboard.write) {
+    if (pngBlob && navigator.clipboard && navigator.clipboard.write) {
       await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
+        new ClipboardItem({ 'image/png': pngBlob })
       ]);
       return true;
     }
   } catch (e) {
-    console.log('Clipboard image write fallback:', e);
+    console.error('Clipboard image write error:', e);
   }
   return false;
 }

@@ -246,8 +246,27 @@ app.post('/api/summarize', async (req, res) => {
       isAiGenerated: summary.isAiGenerated,
       mode: summary.mode
     });
-  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/proxy-image', async (req, res) => {
+  const imageUrl = req.query.url;
+  if (!imageUrl) return res.status(400).send('No URL provided');
+  try {
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 8000
+    });
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(Buffer.from(response.data));
+  } catch (err) {
+    res.status(500).send('Proxy fetch failed: ' + err.message);
   }
 });
 
