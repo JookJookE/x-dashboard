@@ -391,97 +391,81 @@ app.get('/api/trending-articles', async (req, res) => {
 app.get('/api/trending-images', async (req, res) => {
   try {
     const keyword = req.query.keyword;
-    const region = req.query.region || 'kr';
     if (!keyword) return res.status(400).json({ success: false, message: 'keyword 필수' });
 
-    const hl = region === 'us' ? 'en-US' : 'ko';
-    const gl = region === 'us' ? 'US' : 'KR';
-    const ceid = region === 'us' ? 'US:en' : 'KR:ko';
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
-
-    const rssRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, timeout: 8000 });
-    const items = [...rssRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
-
-    const candidates = [];
-
-    items.slice(0, 15).forEach((m) => {
-      const itemXml = m[0];
-      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
-      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
-      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
-
-      let title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim() : '';
-      const sourceIdx = title.lastIndexOf(' - ');
-      if (sourceIdx > 0) title = title.substring(0, sourceIdx);
-
-      const link = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
-      const descHtml = descMatch ? descMatch[1] : '';
-
-      const descImgMatch = descHtml.match(/src=["'](https?:\/\/[^"']+)["']/i);
-      if (descImgMatch && descImgMatch[1] && !descImgMatch[1].includes('logo') && !descImgMatch[1].includes('favicon')) {
-        let photo = descImgMatch[1].replace(/&amp;/g, '&');
-        if (photo.startsWith('//')) photo = 'https:' + photo;
-        candidates.push({ title, imageUrl: photo, link });
-      } else if (link) {
-        candidates.push({ title, link, needsFetch: true });
-      }
-    });
-
     const images = [];
+    const seen = new Set();
 
-    candidates.forEach(c => {
-      if (!c.needsFetch && c.imageUrl) {
-        images.push(c);
-      }
-    });
+    // 1. Fetch Naver Image Search results for high-res real photos
+    try {
+      const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(keyword)}`;
+      const naverRes = await axios.get(naverUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+        },
+        timeout: 6000
+      });
 
-    const fetchTargets = candidates.filter(c => c.needsFetch).slice(0, 12);
+      const html = String(naverRes.data);
+      
+      // Match originalUrl, _g_img or src
+      const matches = [
+        ...html.matchAll(/"originalUrl":"(https?:\/\/[^"]+)"/gi),
+        ...html.matchAll(/"thumbnail":"(https?:\/\/[^"]+)"/gi),
+        ...html.matchAll(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/gi)
+      ];
 
-    if (fetchTargets.length > 0) {
-      const fetched = await Promise.allSettled(fetchTargets.map(async item => {
-        try {
-          const directRes = await axios.get(item.link, {
-            headers: { 
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-            },
-            timeout: 5000,
-            maxRedirects: 5
-          });
-          const dHtml = directRes.data;
-          if (typeof dHtml !== 'string') return null;
-
-          const ogMatch = dHtml.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
-                          dHtml.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) ||
-                          dHtml.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
-          if (ogMatch && ogMatch[1]) {
-            let photo = ogMatch[1].replace(/&amp;/g, '&');
-            if (photo.startsWith('//')) photo = 'https:' + photo;
-            if (!photo.toLowerCase().includes('logo') && !photo.toLowerCase().includes('icon')) {
-              return { title: item.title, imageUrl: photo, link: item.link };
-            }
-          }
-        } catch (e) {}
-        return null;
-      }));
-
-      fetched.forEach(r => {
-        if (r.status === 'fulfilled' && r.value) {
-          images.push(r.value);
+      matches.forEach(m => {
+        let imgUrl = m[1].replace(/\\/g, '').replace(/&amp;/g, '&');
+        if (
+          imgUrl &&
+          !seen.has(imgUrl) &&
+          !imgUrl.includes('logo') &&
+          !imgUrl.includes('icon') &&
+          !imgUrl.includes('favicon') &&
+          !imgUrl.includes('googleusercontent.com') &&
+          !imgUrl.includes('ssl.pstatic.net/sstatic') &&
+          !imgUrl.includes('static.naver')
+        ) {
+          seen.add(imgUrl);
+          images.push({ title: `📷 "${keyword}" 실시간 관련 이미지`, imageUrl: imgUrl });
         }
       });
+    } catch (e) {}
+
+    // 2. Fallback / Supplement with Daum Image Search if fewer than 10
+    if (images.length < 10) {
+      try {
+        const daumUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(keyword)}`;
+        const daumRes = await axios.get(daumUrl, {
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+          },
+          timeout: 6000
+        });
+        const dHtml = String(daumRes.data);
+        const dMatches = [...dHtml.matchAll(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/gi)];
+        dMatches.forEach(m => {
+          let imgUrl = m[1].replace(/&amp;/g, '&');
+          if (
+            imgUrl &&
+            !seen.has(imgUrl) &&
+            !imgUrl.includes('logo') &&
+            !imgUrl.includes('icon') &&
+            !imgUrl.includes('favicon') &&
+            !imgUrl.includes('googleusercontent.com') &&
+            !imgUrl.includes('daumcdn.net/daumtop')
+          ) {
+            seen.add(imgUrl);
+            images.push({ title: `📷 "${keyword}" 실시간 관련 이미지`, imageUrl: imgUrl });
+          }
+        });
+      } catch (e) {}
     }
 
-    const uniqueImages = [];
-    const seenUrls = new Set();
-    images.forEach(img => {
-      if (img.imageUrl && !seenUrls.has(img.imageUrl)) {
-        seenUrls.add(img.imageUrl);
-        uniqueImages.push(img);
-      }
-    });
-
-    res.json({ success: true, keyword, images: uniqueImages.slice(0, 10) });
+    res.json({ success: true, keyword, images: images.slice(0, 10) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
