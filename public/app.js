@@ -1169,29 +1169,28 @@ async function copyActiveImageToClipboard() {
 
   try {
     const src = imgEl.src;
-    let pngBlob;
+    let inputBlob;
 
-    if (src.startsWith('data:image/png;base64,')) {
+    if (src.startsWith('data:')) {
       const res = await fetch(src);
-      pngBlob = await res.blob();
+      inputBlob = await res.blob();
+    } else if (src.startsWith('http')) {
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error('Proxy fetch HTTP ' + res.status);
+      inputBlob = await res.blob();
     } else {
-      const fetchUrl = src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src;
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
+      const res = await fetch(src);
+      inputBlob = await res.blob();
+    }
 
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = fetchUrl;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || 1200;
-      canvas.height = img.naturalHeight || 675;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    let pngBlob = inputBlob;
+    if (inputBlob.type !== 'image/png') {
+      try {
+        pngBlob = await convertBlobToPngBlob(inputBlob);
+      } catch (e) {
+        pngBlob = inputBlob;
+      }
     }
 
     if (pngBlob && navigator.clipboard && navigator.clipboard.write) {
@@ -1201,9 +1200,40 @@ async function copyActiveImageToClipboard() {
       return true;
     }
   } catch (e) {
-    console.error('Clipboard image write error:', e);
+    console.error('Clipboard image write failed:', e);
   }
   return false;
+}
+
+function convertBlobToPngBlob(blob) {
+  return new Promise(async (resolve) => {
+    try {
+      const imgBitmap = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = imgBitmap.width;
+      canvas.height = imgBitmap.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imgBitmap, 0, 0);
+      canvas.toBlob(png => resolve(png || blob), 'image/png');
+    } catch (err) {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || 1200;
+        canvas.height = img.naturalHeight || 675;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(png => resolve(png || blob), 'image/png');
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(blob);
+      };
+      img.src = url;
+    }
+  });
 }
 
 // Post via X Web Intent
