@@ -122,15 +122,13 @@ async function generateSummary(article, mode = 'block') {
 
 ⚠️ [버전 1 작성 지침 - ⚡ 이모지 블록형]:
 1. [첫 줄 - 이목을 끌 강렬한 1줄 뉴스 타이틀 훅]: 독자가 피드를 내리다 무조건 멈출 강렬한 1줄 뉴스 제목 훅을 작성하세요.
-2. [둘째 줄 - 타래 분할용 구분표시]: 반드시 정확히 "👇 내용" 이라는 텍스트를 첫 줄 제목 바로 아래 엔터 두 번 치고 넣으세요.
+2. [빈 줄 한 칸(엔터 두 번)]
 3. 🔹 [기사 속 구체적 사건 및 핵심 수치 팩트 1문장]
 4. 🧠 [산업 패러다임과 비하인드 심층 분석 1문장]
 5. 💡 [향후 시장 변수 및 핵심 투자 시사점 1문장]
 
 ⚠️ [출력 양식 예시]:
 연준 독립성 붕괴 시작되나... 트럼프-워시 '비밀 통화' 파문!
-
-👇 내용
 
 🔹 트럼프 당선인이 케빈 워시 연준 의장 후보와 수시로 통화하며 통화정책 방향을 논의해 연준의 독립성 훼손 논란이 불거졌습니다.
 
@@ -371,7 +369,7 @@ function deepExpertSummary(article, mode = 'block') {
     const threadLink = article.link ? `\n\n👇 본문 원본 및 3분 심층 리포트 풀버전 보기:\n${article.link}` : '';
     text = `${analysis.storyHook}\n\n👇 내용\n\n${analysis.storyBody}${threadLink}`;
   } else {
-    text = `${koreanTitle}\n\n👇 내용\n\n🔹 ${analysis.summary}\n\n🧠 ${analysis.analysis}\n\n💡 ${analysis.insight}`;
+    text = `${koreanTitle}\n\n🔹 ${analysis.summary}\n\n🧠 ${analysis.analysis}\n\n💡 ${analysis.insight}`;
   }
 
   return {
