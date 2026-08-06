@@ -26,6 +26,50 @@ function cleanHtml(html) {
     .trim();
 }
 
+function extractKeywords(str) {
+  if (!str) return new Set();
+  const cleaned = str
+    .replace(/\[.*?\]/g, '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/[^\w\sㄱ-ㅎ가-힣]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  const stopWords = new Set(['등', '및', '관한', '위해', '하는', '있다', '했다', '속', '까지', '으로', '에서', '에게', '과', '와', '은', '는', '이', '가', '을', '를', '사연', '논란', '기사', '뉴스', '진짜']);
+  const words = cleaned.split(' ').filter(w => w.length >= 2 && !stopWords.has(w));
+  return new Set(words);
+}
+
+function isSimilarArticleTitle(title1, title2) {
+  if (!title1 || !title2) return false;
+  
+  const clean1 = title1.replace(/\s+/g, '').toLowerCase();
+  const clean2 = title2.replace(/\s+/g, '').toLowerCase();
+  if (clean1 === clean2) return true;
+  if (clean1.length > 10 && clean2.length > 10) {
+    if (clean1.includes(clean2) || clean2.includes(clean1)) return true;
+  }
+
+  const set1 = extractKeywords(title1);
+  const set2 = extractKeywords(title2);
+  if (set1.size === 0 || set2.size === 0) return false;
+
+  let intersectionCount = 0;
+  set1.forEach(w => {
+    if (set2.has(w)) intersectionCount++;
+  });
+
+  const minSize = Math.min(set1.size, set2.size);
+  if (minSize === 0) return false;
+
+  const overlapRatio = intersectionCount / minSize;
+  
+  if (intersectionCount >= 3 || (intersectionCount >= 2 && overlapRatio >= 0.45)) {
+    return true;
+  }
+  return false;
+}
+
 async function fetchArticlePageText(link) {
   if (!link) return '';
   try {
@@ -108,7 +152,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
     const articles = [];
 
-    for (let i = 0; i < Math.min(items.length, limit); i++) {
+    for (let i = 0; i < items.length && articles.length < limit; i++) {
       const itemXml = items[i][0];
       const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
       const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
@@ -119,6 +163,9 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         let title = cleanHtml(titleMatch[1]);
         const sourceIndex = title.lastIndexOf(' - ');
         if (sourceIndex > 0) title = title.substring(0, sourceIndex);
+
+        const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
+        if (isDuplicateTopic) continue;
 
         const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
         const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
@@ -167,7 +214,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
     const articles = [];
 
-    for (let i = 0; i < Math.min(items.length, limit); i++) {
+    for (let i = 0; i < items.length && articles.length < limit; i++) {
       const itemXml = items[i][0];
       const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
       const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
@@ -182,6 +229,9 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
           sourceName = title.substring(sourceIndex + 3);
           title = title.substring(0, sourceIndex);
         }
+
+        const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
+        if (isDuplicateTopic) continue;
 
         const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
         const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
@@ -214,8 +264,8 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   }
 }
 
-async function fetchLatestArticles(limit = 35, customScanTime = null) {
-  const scanBatchTime = customScanTime || new Date().toISOString();
+async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
+  const scanBatchTimeVal = scanBatchTime || new Date().toISOString();
   addLog('INFO', '국내외 최신 소식 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
 
   try {
@@ -234,19 +284,19 @@ async function fetchLatestArticles(limit = 35, customScanTime = null) {
       gossipNews,
       mindsetNews
     ] = await Promise.all([
-      fetchHeisenbergArticles(5, scanBatchTime),
-      fetchNewsRssArticles('it', '(IT OR 테크 OR 반도체 OR AI OR 엔비디아 OR 애플 OR 빅테크)', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTime),
-      fetchNewsRssArticles('coin', '(비트코인 OR 가상자산 OR 코인 OR 이더리움 OR 암호화폐 OR 리플)', '코인', '🪙 코인', 4, scanBatchTime),
-      fetchNewsRssArticles('stock', '(주식 OR 증시 OR 코스피 OR 미국주식 OR 나스닥 OR 엔비디아 OR 테슬라)', '주식', '📈 주식', 4, scanBatchTime),
-      fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTime),
-      fetchGlobalNewsRssArticles('it', '(Nvidia OR Apple OR OpenAI OR "Artificial Intelligence" OR Tech)', '글로벌 IT', '💻 IT', 3, scanBatchTime),
-      fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple)', '글로벌 코인', '🪙 코인', 3, scanBatchTime),
-      fetchGlobalNewsRssArticles('stock', '(Nasdaq OR "S&P500" OR "Stock Market" OR NVDA OR TSLA)', '글로벌 주식', '📈 주식', 3, scanBatchTime),
-      fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTime),
-      fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 6, scanBatchTime, '5d'),
-      fetchNewsRssArticles('pann', '("네이트판" OR "사연") (파혼 OR 상견례 OR 축의금 OR "어떻게 생각" OR 이혼 OR 갈등 OR 시어머니 OR 며느리) -연예 -방송 -배우 -아이돌 -예능 -드라마 -영화 -가수', '네이트판', '⚖️ 네이트판 / 사연', 6, scanBatchTime, '5d'),
-      fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 15, scanBatchTime, '5d'),
-      fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 5, scanBatchTime, '5d')
+      fetchHeisenbergArticles(5, scanBatchTimeVal),
+      fetchNewsRssArticles('it', '(IT OR 테크 OR 반도체 OR AI OR 엔비디아 OR 애플 OR 빅테크)', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('coin', '(비트코인 OR 가상자산 OR 코인 OR 이더리움 OR 암호화폐 OR 리플)', '코인', '🪙 코인', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('stock', '(주식 OR 증시 OR 코스피 OR 미국주식 OR 나스닥 OR 엔비디아 OR 테슬라)', '주식', '📈 주식', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('it', '(Nvidia OR Apple OR OpenAI OR "Artificial Intelligence" OR Tech)', '글로벌 IT', '💻 IT', 3, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple)', '글로벌 코인', '🪙 코인', 3, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('stock', '(Nasdaq OR "S&P500" OR "Stock Market" OR NVDA OR TSLA)', '글로벌 주식', '📈 주식', 3, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTimeVal),
+      fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d'),
+      fetchNewsRssArticles('pann', '("네이트판" OR "사연") (파혼 OR 상견례 OR 축의금 OR "어떻게 생각" OR 이혼 OR 갈등 OR 시어머니 OR 며느리) -연예 -방송 -배우 -아이돌 -예능 -드라마 -영화 -가수', '네이트판', '⚖️ 네이트판 / 사연', 8, scanBatchTimeVal, '5d'),
+      fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d'),
+      fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d')
     ]);
 
     let allArticles = [
@@ -265,16 +315,17 @@ async function fetchLatestArticles(limit = 35, customScanTime = null) {
       ...mindsetNews
     ];
 
-    // Deduplicate cross-category overlap by title
-    const uniqueMap = new Map();
+    // Cross-category semantic deduplication
+    const uniqueArticles = [];
     allArticles.forEach(art => {
-      // Use clean title (ignoring spacing/case) as deduplication key
-      const dedupKey = art.title.replace(/\s+/g, '').toLowerCase();
-      if (!uniqueMap.has(dedupKey)) {
-        uniqueMap.set(dedupKey, art);
+      const isDuplicate = uniqueArticles.some(existing => 
+        existing.category === art.category && isSimilarArticleTitle(existing.title, art.title)
+      );
+      if (!isDuplicate) {
+        uniqueArticles.push(art);
       }
     });
-    allArticles = Array.from(uniqueMap.values());
+    allArticles = uniqueArticles;
 
     allArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
     const persistentArticles = saveStoredArticles(allArticles);
@@ -289,5 +340,6 @@ async function fetchLatestArticles(limit = 35, customScanTime = null) {
 
 module.exports = {
   fetchLatestArticles,
-  cleanHtml
+  cleanHtml,
+  isSimilarArticleTitle
 };

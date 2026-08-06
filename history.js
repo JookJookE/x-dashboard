@@ -58,15 +58,33 @@ function saveStoredArticles(freshArticles) {
   const fiveDaysAgo = new Date();
   fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
   
-  const merged = Array.from(map.values())
+  let merged = Array.from(map.values())
     .filter(a => new Date(a.date) >= fiveDaysAgo)
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 500);
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Semantic deduplication across DB entries per category
+  try {
+    const { isSimilarArticleTitle } = require('./scraper');
+    if (typeof isSimilarArticleTitle === 'function') {
+      const deduplicated = [];
+      merged.forEach(art => {
+        const isDup = deduplicated.some(existing => 
+          existing.category === art.category && isSimilarArticleTitle(existing.title, art.title)
+        );
+        if (!isDup) {
+          deduplicated.push(art);
+        }
+      });
+      merged = deduplicated;
+    }
+  } catch (e) {}
+
+  const finalStored = merged.slice(0, 500);
     
   try {
-    fs.writeFileSync(ARTICLES_DB_FILE, JSON.stringify(merged, null, 2), 'utf8');
+    fs.writeFileSync(ARTICLES_DB_FILE, JSON.stringify(finalStored, null, 2), 'utf8');
   } catch (e) {}
-  return merged;
+  return finalStored;
 }
 
 function getFirstCollectedMap() {
