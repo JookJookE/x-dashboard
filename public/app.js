@@ -1156,10 +1156,44 @@ async function generateArticleCaptureCard(mode = 'photo') {
   else if (mode === 'text') toastMsg = '📄 [기사 캡처 (제목+본문)] 카드 생성 중...';
   showToast(toastMsg);
 
+  // 1. Fetch and Load Image FIRST (if photo mode)
+  let finalImageUrl = selectedArticle.imageUrl;
+  if (mode === 'photo' && !finalImageUrl) {
+    try {
+      const res = await fetch('/api/extract-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: selectedArticle.title, url: selectedArticle.link })
+      });
+      const data = await res.json();
+      if (data.success && data.imageUrl) {
+        finalImageUrl = data.imageUrl;
+        selectedArticle.imageUrl = finalImageUrl; // Cache it
+      }
+    } catch (e) {}
+  }
+
+  let img = null;
+  if (mode === 'photo' && finalImageUrl) {
+    try {
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(finalImageUrl)}`;
+      img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        img.src = proxyUrl;
+      });
+      if (img.naturalWidth === 0) img = null;
+    } catch (e) {
+      img = null;
+    }
+  }
+
+  // 2. Setup Canvas & Calculate Heights
   const canvas = document.createElement('canvas');
   canvas.width = 1000;
   
-  // Calculate dynamic height for title-only mode based on title lines
   const title = selectedArticle.title || '';
   const tempCtx = canvas.getContext('2d');
   tempCtx.font = 'bold 32px "Pretendard", "Noto Sans KR", sans-serif';
@@ -1177,29 +1211,43 @@ async function generateArticleCaptureCard(mode = 'photo') {
   }
   lineCount = Math.min(lineCount, 3);
   
-  const height = mode === 'title' ? (200 + (lineCount * 46)) : 850;
-  canvas.height = height;
+  let currentY = 125;
+  currentY += (lineCount * 46); // Title lines
+  currentY += 10; // Reporter gap
+  currentY += 22; // Divider gap
+  currentY += 30; // Bottom padding
+
+  let photoHeight = 480;
+  if (mode === 'title') {
+    canvas.height = 200 + (lineCount * 46);
+  } else if (mode === 'photo' && img) {
+    // Dynamic height based on original image ratio (no cropping!)
+    const photoWidth = 880;
+    photoHeight = (img.naturalHeight / img.naturalWidth) * photoWidth;
+    if (photoHeight > 3000) photoHeight = 3000; // safety cap
+    canvas.height = currentY + photoHeight + 40;
+  } else {
+    canvas.height = currentY + 550; // text mode fallback height
+  }
 
   const ctx = canvas.getContext('2d');
 
-  // Background: Pristine news reader layout (#ffffff)
+  // 3. Draw Background & Top UI
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Top Category / Source Badge
   const categoryName = selectedArticle.source || '디지털뉴스룸';
   ctx.font = 'bold 22px "Pretendard", "Noto Sans KR", sans-serif';
   ctx.fillStyle = '#2563eb';
   ctx.textAlign = 'left';
   ctx.fillText(`[ ${categoryName} ]`, 60, 65);
 
-  // Top Right Portal UI Icons
   ctx.font = '20px sans-serif';
   ctx.fillStyle = '#64748b';
   ctx.textAlign = 'right';
   ctx.fillText('💬 8   🔊   🖨️   공유', 940, 65);
 
-  // Article Title
+  // 4. Draw Title
   ctx.font = 'bold 32px "Pretendard", "Noto Sans KR", sans-serif';
   ctx.fillStyle = '#0f172a';
   ctx.textAlign = 'left';
@@ -1219,93 +1267,44 @@ async function generateArticleCaptureCard(mode = 'photo') {
   }
   lines.push(line);
 
-  let currentY = 125;
+  let drawY = 125;
   lines.slice(0, 3).forEach((l) => {
-    ctx.fillText(l.trim(), 60, currentY);
-    currentY += 46;
+    ctx.fillText(l.trim(), 60, drawY);
+    drawY += 46;
   });
 
-  // Reporter & Date Line
-  currentY += 10;
+  // 5. Draw Reporter & Divider
+  drawY += 10;
   ctx.font = '17px "Pretendard", "Noto Sans KR", sans-serif';
   ctx.fillStyle = '#64748b';
   const reporterText = `${selectedArticle.author || selectedArticle.source || '디지털뉴스룸 기자'} · ${new Date(selectedArticle.date || Date.now()).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}`;
-  ctx.fillText(reporterText, 60, currentY);
+  ctx.fillText(reporterText, 60, drawY);
 
-  // Divider Line
-  currentY += 22;
+  drawY += 22;
   ctx.strokeStyle = '#e2e8f0';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(60, currentY);
-  ctx.lineTo(940, currentY);
+  ctx.moveTo(60, drawY);
+  ctx.lineTo(940, drawY);
   ctx.stroke();
 
-  currentY += 30;
+  drawY += 30;
 
-  let finalImageUrl = selectedArticle.imageUrl;
-  if (mode === 'photo' && !finalImageUrl) {
-    try {
-      const res = await fetch('/api/extract-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: selectedArticle.title, url: selectedArticle.link })
-      });
-      const data = await res.json();
-      if (data.success && data.imageUrl) {
-        finalImageUrl = data.imageUrl;
-        selectedArticle.imageUrl = finalImageUrl; // Cache it
-      }
-    } catch (e) {}
-  }
+  // 6. Draw Content (Photo or Text)
+  if (mode === 'photo' && img) {
+    const photoWidth = 880;
+    ctx.save();
+    drawRoundRect(ctx, 60, drawY, photoWidth, photoHeight, 10, true, false);
+    ctx.clip();
+    // Draw full image scaled proportionally without cropping
+    ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 60, drawY, photoWidth, photoHeight);
+    ctx.restore();
 
-  if (mode === 'photo' && finalImageUrl) {
-    try {
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(finalImageUrl)}`;
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-        img.src = proxyUrl;
-      });
-
-      if (img.naturalWidth > 0) {
-        const photoWidth = 880;
-        const photoHeight = 480;
-        ctx.save();
-        drawRoundRect(ctx, 60, currentY, photoWidth, photoHeight, 10, true, false);
-        ctx.clip();
-
-        const imgRatio = img.naturalWidth / img.naturalHeight;
-        const containerRatio = photoWidth / photoHeight;
-        let sWidth, sHeight, sx, sy;
-        if (imgRatio > containerRatio) {
-          sHeight = img.naturalHeight;
-          sWidth = img.naturalHeight * containerRatio;
-          sx = (img.naturalWidth - sWidth) / 2;
-          sy = 0;
-        } else {
-          sWidth = img.naturalWidth;
-          sHeight = img.naturalWidth / containerRatio;
-          sx = 0;
-          sy = (img.naturalHeight - sHeight) / 2;
-        }
-        ctx.drawImage(img, sx, sy, sWidth, sHeight, 60, currentY, photoWidth, photoHeight);
-        ctx.restore();
-
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1;
-        drawRoundRect(ctx, 60, currentY, photoWidth, photoHeight, 10, false, true);
-      } else {
-        renderTextExcerpt(ctx, selectedArticle, currentY);
-      }
-    } catch (e) {
-      renderTextExcerpt(ctx, selectedArticle, currentY);
-    }
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    drawRoundRect(ctx, 60, drawY, photoWidth, photoHeight, 10, false, true);
   } else if (mode === 'photo' || mode === 'text') {
-    renderTextExcerpt(ctx, selectedArticle, currentY);
+    renderTextExcerpt(ctx, selectedArticle, drawY);
   }
 
   const dataUrl = canvas.toDataURL('image/png');
@@ -1333,7 +1332,30 @@ async function generateArticleCaptureCard(mode = 'photo') {
 }
 
 function renderTextExcerpt(ctx, article, startY) {
-  const snippet = article.contentSnippet || article.excerpt || article.title;
+  let snippet = article.contentSnippet || article.excerpt || article.title;
+  
+  // Clean snippet from ugly RSS artifacts
+  snippet = snippet
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(new RegExp(article.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
+    .replace(new RegExp((article.source || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
+    .replace(/v\.daum\.net/gi, '')
+    .replace(/n\.news\.naver\.com/gi, '')
+    .replace(/boannews\.com/gi, '')
+    .replace(/\[단독\]/gi, '')
+    .replace(/\[인터뷰\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!snippet || snippet.length < 5) {
+    snippet = "본문 요약 내용이 없습니다. 원본 링크를 참고해 주세요.";
+  }
+
   ctx.font = '22px "Pretendard", "Noto Sans KR", sans-serif';
   ctx.fillStyle = '#334155';
 
@@ -1352,7 +1374,8 @@ function renderTextExcerpt(ctx, article, startY) {
   sLines.push(sLine);
 
   let snippetY = startY + 10;
-  sLines.slice(0, 7).forEach((sl) => {
+  // Render up to 12 lines for long posts like Nate Pann
+  sLines.slice(0, 12).forEach((sl) => {
     ctx.fillText(sl.trim(), 60, snippetY);
     snippetY += 40;
   });
