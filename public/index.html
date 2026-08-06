@@ -406,14 +406,20 @@
 
               <!-- Main Direct Action Buttons -->
               <div class="form-actions-inline" style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
-                <button id="btn-post-webintent" class="btn btn-primary" style="flex:2; font-weight:800; padding:12px;" title="트윗 작성창에 문구가 100% 자동 채워집니다">
+                <button id="btn-post-webintent" class="btn btn-primary" style="flex:1.5; font-weight:800; padding:12px; min-width:180px;" title="트윗 작성창에 문구가 100% 자동 채워집니다">
                   🌐 X 작성창 열기 (100% 자동채움)
                 </button>
-                <button id="btn-copy-tweet" class="btn btn-secondary" style="flex:1;">
+                <button id="btn-post-article" class="btn btn-accent" style="flex:1.5; font-weight:800; padding:12px; min-width:180px;" title="글 자동복사 + X 아티클 에디터 이동" onclick="openXArticlesComposer()">
+                  📰 X 아티클 에디터 열기 (복사 후 Ctrl+V)
+                </button>
+                <button id="btn-copy-tweet" class="btn btn-secondary" style="flex:1; min-width:130px;">
                   📋 전체 문구 복사
                 </button>
-                <button id="btn-save-user-draft" class="btn btn-outline" style="border-color:var(--accent-gold); color:var(--accent-gold); font-weight:700; flex:1;" onclick="saveCurrentTweetToUserDrafts()">
-                  ⭐ 임시 보관함에 저장
+                <button id="btn-save-user-draft" class="btn btn-outline" style="border-color:var(--accent-gold); color:var(--accent-gold); font-weight:700; flex:1; min-width:140px;" onclick="saveCurrentTweetToUserDrafts()">
+                  ⭐ 임시 보관함 저장
+                </button>
+                <button id="btn-copy-thread-link" class="btn btn-outline" style="border-color:var(--accent-glow); color:var(--text-main); flex:1; min-width:150px;" onclick="copyThreadReplyLink()">
+                  💬 댓글(타래)용 링크 복사
                 </button>
               </div>
             </div>
