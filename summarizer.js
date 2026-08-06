@@ -195,29 +195,63 @@ function generateHooksAndTags(article, text) {
   const hookB = `${cleanTitle} 다들 어떻게 생각하시나요? 👀`;
   const hookC = `충격) ${cleanTitle.substring(0, 40)}... 😱`;
 
-  const category = (article.category || '').toLowerCase();
-  let defaultTags = ['#트위터썰', '#이슈', '#갑론을박'];
-
-  if (category === 'blind') {
-    defaultTags = ['#블라인드', '#직장인썰', '#사내갈등'];
-  } else if (category === 'pann') {
-    defaultTags = ['#네이트판', '#사연', '#네티즌갑론을박'];
-  } else if (category === 'gossip') {
-    defaultTags = ['#가십', '#연예계근황', '#화제이슈'];
-  } else if (category === 'mindset') {
-    defaultTags = ['#멘탈', '#생각정리', '#인간관계'];
-  } else if (category === 'coin' || category === 'globalcoin') {
-    defaultTags = ['$BTC', '#가상자산', '#비트코인'];
-  } else if (category === 'stock' || category === 'globalstock') {
-    defaultTags = ['$NVDA', '#미국주식', '#증시'];
-  } else if (category === 'it' || category === 'globalit' || category === 'heisenberg') {
-    defaultTags = ['#테크', '#AI', '#빅테크'];
-  }
+  const smartTags = extractSmartArticleHashtags(article, text);
 
   return {
     hooks: [hookA, hookB, hookC],
-    tags: defaultTags
+    tags: smartTags
   };
+}
+
+function extractSmartArticleHashtags(article, text) {
+  const fullContent = `${article.title || ''} ${article.contentSnippet || ''} ${text || ''}`;
+  const title = article.title || '';
+  const cleanTitle = title.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+
+  const foundTags = [];
+
+  // 1. Detect major domain entities & tickers
+  if (/트럼프|바이든|해리스|미국 대선/i.test(fullContent)) foundTags.push('#트럼프');
+  if (/연준|파월|기준금리|금리|통화정책|워시/i.test(fullContent)) foundTags.push('#연준', '#기준금리');
+  if (/엔비디아|Nvidia/i.test(fullContent)) foundTags.push('$NVDA', '#엔비디아');
+  if (/비트코인|BTC|Bitcoin/i.test(fullContent)) foundTags.push('$BTC', '#비트코인');
+  if (/이더리움|ETH/i.test(fullContent)) foundTags.push('$ETH', '#이더리움');
+  if (/테슬라|Tesla|머스크/i.test(fullContent)) foundTags.push('$TSLA', '#테슬라');
+  if (/삼성전자/i.test(fullContent)) foundTags.push('#삼성전자');
+  if (/SK하이닉스|하이닉스/i.test(fullContent)) foundTags.push('#SK하이닉스');
+  if (/부동산|아파트|집값|분양/i.test(fullContent)) foundTags.push('#부동산', '#아파트');
+  if (/블라인드|이직|퇴사|회사/i.test(fullContent)) foundTags.push('#블라인드', '#직장인썰');
+  if (/네이트판|시댁|남편|아내|결혼/i.test(fullContent)) foundTags.push('#네이트판', '#사연');
+  if (/말복|삼계탕|전복/i.test(fullContent)) foundTags.push('#말복', '#삼계탕');
+  if (/연예|배우|가수|아이돌|김혜수|이승철|정준원/i.test(fullContent)) foundTags.push('#연예이슈', '#핫이슈');
+
+  // 2. Extract key nouns from clean title
+  const words = cleanTitle
+    .replace(/[^\w\sㄱ-ㅎ가-힣]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 2 && !/속보|단독|특징주|이슈|무단전재|재배포|클릭|포토|영상/i.test(w));
+
+  words.forEach(w => {
+    if (foundTags.length < 5) {
+      const tag = `#${w}`;
+      if (!foundTags.includes(tag) && !foundTags.includes(`$${w}`)) {
+        foundTags.push(tag);
+      }
+    }
+  });
+
+  const category = (article.category || '').toLowerCase();
+  if (foundTags.length === 0) {
+    if (category.includes('coin')) foundTags.push('$BTC', '#가상자산');
+    else if (category.includes('stock')) foundTags.push('#미국주식', '#증시');
+    else if (category.includes('blind')) foundTags.push('#블라인드', '#직장인썰');
+    else if (category.includes('pann')) foundTags.push('#네이트판', '#사연');
+    else foundTags.push('#뉴스속보', '#핫이슈');
+  }
+
+  // Deduplicate and return top 3-4 hashtags
+  const uniqueTags = [...new Set(foundTags)];
+  return uniqueTags.slice(0, 4);
 }
 
 function translateTitleToKorean(title) {
