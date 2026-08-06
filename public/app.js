@@ -1141,6 +1141,182 @@ function generateHeadlineCardForSelected() {
   showToast('📰 기사 헤드라인 캡처 카드 이미지가 생성되었습니다!');
 }
 
+async function generateArticleCaptureCard(withPhoto = true) {
+  if (!selectedArticle) {
+    showToast('먼저 기사를 선택해 주세요.');
+    return;
+  }
+
+  const placeholder = document.getElementById('active-image-placeholder');
+  const display = document.getElementById('active-image-display');
+
+  showToast(withPhoto ? '📸 [기사 캡처 (제목+사진)] 카드 생성 중...' : '📝 [기사 캡처 (제목만)] 카드 생성 중...');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1000;
+  const height = withPhoto ? 850 : 620;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+
+  // Background: Pristine news reader layout (#ffffff)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Top Category / Source Badge
+  const categoryName = selectedArticle.source || '디지털뉴스룸';
+  ctx.font = 'bold 22px "Pretendard", "Noto Sans KR", sans-serif';
+  ctx.fillStyle = '#2563eb';
+  ctx.textAlign = 'left';
+  ctx.fillText(`[ ${categoryName} ]`, 60, 65);
+
+  // Top Right Portal UI Icons
+  ctx.font = '20px sans-serif';
+  ctx.fillStyle = '#64748b';
+  ctx.textAlign = 'right';
+  ctx.fillText('💬 8   🔊   🖨️   공유', 940, 65);
+
+  // Article Title
+  const title = selectedArticle.title || '';
+  ctx.font = 'bold 32px "Pretendard", "Noto Sans KR", sans-serif';
+  ctx.fillStyle = '#0f172a';
+  ctx.textAlign = 'left';
+
+  const titleWords = title.split(' ');
+  let line = '';
+  const lines = [];
+  const maxWidth = 880;
+
+  for (let n = 0; n < titleWords.length; n++) {
+    const testLine = line + titleWords[n] + ' ';
+    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+      lines.push(line);
+      line = titleWords[n] + ' ';
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line);
+
+  let currentY = 125;
+  lines.slice(0, 3).forEach((l) => {
+    ctx.fillText(l.trim(), 60, currentY);
+    currentY += 46;
+  });
+
+  // Reporter & Date Line
+  currentY += 10;
+  ctx.font = '17px "Pretendard", "Noto Sans KR", sans-serif';
+  ctx.fillStyle = '#64748b';
+  const reporterText = `${selectedArticle.author || selectedArticle.source || '디지털뉴스룸 기자'} · ${new Date(selectedArticle.date || Date.now()).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+  ctx.fillText(reporterText, 60, currentY);
+
+  // Divider Line
+  currentY += 22;
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(60, currentY);
+  ctx.lineTo(940, currentY);
+  ctx.stroke();
+
+  currentY += 30;
+
+  if (withPhoto && selectedArticle.imageUrl) {
+    try {
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(selectedArticle.imageUrl)}`;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        img.src = proxyUrl;
+      });
+
+      if (img.naturalWidth > 0) {
+        const photoWidth = 880;
+        const photoHeight = 480;
+        ctx.save();
+        drawRoundRect(ctx, 60, currentY, photoWidth, photoHeight, 10, true, false);
+        ctx.clip();
+
+        const imgRatio = img.naturalWidth / img.naturalHeight;
+        const containerRatio = photoWidth / photoHeight;
+        let sWidth, sHeight, sx, sy;
+        if (imgRatio > containerRatio) {
+          sHeight = img.naturalHeight;
+          sWidth = img.naturalHeight * containerRatio;
+          sx = (img.naturalWidth - sWidth) / 2;
+          sy = 0;
+        } else {
+          sWidth = img.naturalWidth;
+          sHeight = img.naturalWidth / containerRatio;
+          sx = 0;
+          sy = (img.naturalHeight - sHeight) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, 60, currentY, photoWidth, photoHeight);
+        ctx.restore();
+
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        drawRoundRect(ctx, 60, currentY, photoWidth, photoHeight, 10, false, true);
+      } else {
+        renderTextExcerpt(ctx, selectedArticle, currentY);
+      }
+    } catch (e) {
+      renderTextExcerpt(ctx, selectedArticle, currentY);
+    }
+  } else {
+    renderTextExcerpt(ctx, selectedArticle, currentY);
+  }
+
+  const dataUrl = canvas.toDataURL('image/png');
+
+  if (placeholder) placeholder.style.display = 'none';
+  if (display) {
+    display.style.display = 'block';
+    display.innerHTML = `
+      <div style="margin-top:5px;">
+        <img src="${dataUrl}" style="max-width:100%; max-height:320px; object-fit:contain; border-radius:10px; border:1px solid rgba(56, 189, 248, 0.4); box-shadow:0 6px 18px rgba(0,0,0,0.5);" />
+        <div style="margin-top:8px; display:flex; justify-content:center; gap:8px;">
+          <a href="${dataUrl}" download="news-capture-${withPhoto ? 'photo' : 'text'}-${Date.now()}.png" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--accent-cyan); border-color:var(--accent-cyan);">
+            📥 ${withPhoto ? '📸 기사 캡처 (제목+사진)' : '📝 기사 캡처 (제목만)'} 이미지 다운로드
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
+  showToast(withPhoto ? '📸 [기사 캡처 (제목+사진)] 카드가 생성되었습니다!' : '📝 [기사 캡처 (제목만)] 카드가 생성되었습니다!');
+}
+
+function renderTextExcerpt(ctx, article, startY) {
+  const snippet = article.contentSnippet || article.excerpt || article.title;
+  ctx.font = '22px "Pretendard", "Noto Sans KR", sans-serif';
+  ctx.fillStyle = '#334155';
+
+  const snippetWords = snippet.split(' ');
+  let sLine = '';
+  const sLines = [];
+  for (let n = 0; n < snippetWords.length; n++) {
+    const testLine = sLine + snippetWords[n] + ' ';
+    if (ctx.measureText(testLine).width > 880 && n > 0) {
+      sLines.push(sLine);
+      sLine = snippetWords[n] + ' ';
+    } else {
+      sLine = testLine;
+    }
+  }
+  sLines.push(sLine);
+
+  let snippetY = startY + 10;
+  sLines.slice(0, 7).forEach((sl) => {
+    ctx.fillText(sl.trim(), 60, snippetY);
+    snippetY += 40;
+  });
+}
+
 function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke) {
   if (typeof radius === 'number') {
     radius = {tl: radius, tr: radius, br: radius, bl: radius};

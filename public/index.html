@@ -421,7 +421,9 @@
                   <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button class="btn btn-outline btn-sm" onclick="fetchOriginalImageForSelected()">🖼️ 원본 기사 사진</button>
                     <button class="btn btn-outline btn-sm" onclick="generateThumbnailForSelected()">🎨 AI 인포그래픽 썸네일</button>
-                    <button class="btn btn-outline btn-sm" onclick="generateHeadlineCardForSelected()">📰 뉴스 헤드라인 카드</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateHeadlineCardForSelected()">📰 헤드라인 카드</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard(true)">📸 기사 캡처 (제목+사진)</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard(false)">📝 기사 캡처 (제목만)</button>
                   </div>
                 </div>
 
