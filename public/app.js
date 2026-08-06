@@ -1620,23 +1620,19 @@ function updateThreadParts() {
   let part1 = '';
   let part2 = '';
 
-  const marker = '👇 내용';
-  if (fullText.includes(marker)) {
-    const parts = fullText.split(marker);
-    part1 = parts[0].trim();
-    part2 = parts.slice(1).join(marker).trim();
-  } else {
-    const dblBreak = fullText.indexOf('\n\n');
-    const sglBreak = fullText.indexOf('\n');
-    let splitIdx = dblBreak !== -1 ? dblBreak : sglBreak;
+  const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    if (splitIdx > 0) {
-      part1 = fullText.substring(0, splitIdx).trim();
-      part2 = fullText.substring(splitIdx).trim();
+  if (lines.length >= 2) {
+    if (lines[1] === '👇' || lines[1] === '👇 내용' || lines[1].startsWith('👇 내용') || lines[1].startsWith('👇내용')) {
+      part1 = lines[0] + '\n\n' + lines[1];
+      part2 = lines.slice(2).join('\n\n');
     } else {
-      part1 = fullText;
-      part2 = '';
+      part1 = lines[0];
+      part2 = lines.slice(1).join('\n\n');
     }
+  } else {
+    part1 = fullText;
+    part2 = '';
   }
 
   const p1El = document.getElementById('thread-part-1');
