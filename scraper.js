@@ -194,7 +194,11 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       if (titleMatch) {
         let title = cleanHtml(titleMatch[1]);
         const sourceIndex = title.lastIndexOf(' - ');
-        if (sourceIndex > 0) title = title.substring(0, sourceIndex);
+        let sourceName = '';
+        if (sourceIndex > 0) {
+          sourceName = title.substring(sourceIndex + 3).trim();
+          title = title.substring(0, sourceIndex).trim();
+        }
 
         const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
         if (isDuplicateTopic) continue;
@@ -220,6 +224,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
           fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
           link,
           title,
+          source: sourceName,
           contentSnippet: rawSnippet.substring(0, 1500),
           isPosted: isPosted(id)
         });
@@ -258,8 +263,8 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
         const sourceIndex = title.lastIndexOf(' - ');
         let sourceName = '';
         if (sourceIndex > 0) {
-          sourceName = title.substring(sourceIndex + 3);
-          title = title.substring(0, sourceIndex);
+          sourceName = title.substring(sourceIndex + 3).trim();
+          title = title.substring(0, sourceIndex).trim();
         }
 
         const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
@@ -283,6 +288,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
           fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
           link,
           title: `[외신 ${sourceName ? sourceName : '속보'}] ${title}`,
+          source: sourceName,
           contentSnippet: `Global News Source (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
           isGlobal: true,
           isPosted: isPosted(id)
