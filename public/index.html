@@ -195,6 +195,16 @@
           </div>
         </div>
 
+        <!-- Custom On-Demand Search Bar -->
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-body" style="padding: 14px 18px;">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <input type="text" id="custom-search-input" class="form-control" placeholder="🔍 실시간 검색하고 싶은 키워드 직접 입력 (예: 무죄, 파혼, 엔비디아, 축의금)..." style="flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:#fff; padding:10px 14px; border-radius:8px; font-size:13px;" onkeyup="if(event.key==='Enter') performCustomSearch()">
+              <button class="btn btn-accent" onclick="performCustomSearch()" style="white-space:nowrap; padding:10px 18px; font-weight:700;">🔍 뉴스 검색</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Section 3: Real-time Trending Keywords -->
         <div class="dashboard-sections" style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
           <!-- Korean Trending -->
@@ -224,13 +234,20 @@
           </div>
         </div>
 
-        <!-- Trending Articles Panel (appears on keyword click) -->
+        <!-- Trending Articles & Image Panel (appears on keyword click or search) -->
         <div id="trending-articles-panel" class="card" style="margin-bottom: 20px; display:none;">
-          <div class="card-header">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <h3 id="trending-articles-title">🔍 관련 기사</h3>
-            <button class="btn-link" onclick="closeTrendingArticles()">닫기 ✕</button>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button id="btn-fetch-trending-images" class="btn btn-outline btn-sm" style="color:var(--accent-cyan); border-color:var(--accent-cyan); font-weight:700;" onclick="loadTrendingImagesForCurrentKeyword()">🖼️ 관련 이미지 10개 보기</button>
+              <button class="btn-link" onclick="closeTrendingArticles()">닫기 ✕</button>
+            </div>
           </div>
           <div class="card-body">
+            <div id="trending-images-container" style="display:none; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.1);">
+              <h5 style="font-size:13px; font-weight:700; color:var(--accent-cyan); margin-bottom:10px;">🖼️ 실시간 뉴스 관련 대표 이미지 (클릭 시 크게 보기/다운로드)</h5>
+              <div id="trending-images-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px;"></div>
+            </div>
             <div id="trending-articles-list" class="articles-mini-list">
             </div>
           </div>

@@ -1307,7 +1307,16 @@ function renderTrendingList(containerId, trends, region) {
   `).join('');
 }
 
+let currentSearchKeyword = '';
+let currentSearchRegion = 'kr';
+
 async function fetchTrendingArticles(keyword, region, clickedEl) {
+  currentSearchKeyword = keyword;
+  currentSearchRegion = region || 'kr';
+
+  const imgContainer = document.getElementById('trending-images-container');
+  if (imgContainer) imgContainer.style.display = 'none';
+
   // Highlight clicked item
   document.querySelectorAll('.trending-item').forEach(el => el.classList.remove('active'));
   if (clickedEl) clickedEl.classList.add('active');
@@ -1347,6 +1356,51 @@ async function fetchTrendingArticles(keyword, region, clickedEl) {
     }
   } catch (e) {
     listEl.innerHTML = `<p class="placeholder-text">기사 검색 실패: ${e.message}</p>`;
+  }
+}
+
+function performCustomSearch() {
+  const inputEl = document.getElementById('custom-search-input');
+  const kw = inputEl ? inputEl.value.trim() : '';
+  if (!kw) {
+    showToast('검색할 키워드를 입력해 주세요.');
+    return;
+  }
+  fetchTrendingArticles(kw, 'kr', null);
+}
+
+async function loadTrendingImagesForCurrentKeyword() {
+  if (!currentSearchKeyword) {
+    showToast('검색어가 선택되지 않았습니다.');
+    return;
+  }
+
+  const container = document.getElementById('trending-images-container');
+  const grid = document.getElementById('trending-images-grid');
+
+  container.style.display = 'block';
+  grid.innerHTML = '<div class="skeleton-loader" style="grid-column: 1 / -1;">🖼️ 관련 이미지 10개 추출 중...</div>';
+
+  try {
+    const res = await fetch(`/api/trending-images?keyword=${encodeURIComponent(currentSearchKeyword)}&region=${currentSearchRegion}`);
+    const data = await res.json();
+
+    if (data.success && data.images.length > 0) {
+      grid.innerHTML = data.images.map(img => `
+        <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:6px; text-align:center; display:flex; flex-direction:column; justify-content:space-between;">
+          <img src="${img.imageUrl}" style="width:100%; height:90px; object-fit:cover; border-radius:6px; margin-bottom:6px;" onerror="this.onerror=null; this.parentElement.style.display='none';" />
+          <div style="font-size:10px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:4px;" title="${img.title}">${img.title}</div>
+          <a href="${img.imageUrl}" target="_blank" download="news-image.jpg" class="btn btn-outline btn-sm" style="font-size:9px; padding:2px 4px; border-color:var(--accent-cyan); color:var(--accent-cyan);">
+            📥 이미지 열기
+          </a>
+        </div>
+      `).join('');
+      showToast(`🖼️ "${currentSearchKeyword}" 관련 이미지 ${data.images.length}개를 불러왔습니다!`);
+    } else {
+      grid.innerHTML = '<p class="placeholder-text" style="grid-column: 1 / -1;">관련 이미지를 찾을 수 없습니다.</p>';
+    }
+  } catch (e) {
+    grid.innerHTML = `<p class="placeholder-text" style="grid-column: 1 / -1;">이미지 로딩 실패: ${e.message}</p>`;
   }
 }
 

@@ -388,6 +388,67 @@ app.get('/api/trending-articles', async (req, res) => {
   }
 });
 
+app.get('/api/trending-images', async (req, res) => {
+  try {
+    const keyword = req.query.keyword;
+    const region = req.query.region || 'kr';
+    if (!keyword) return res.status(400).json({ success: false, message: 'keyword 필수' });
+
+    const hl = region === 'us' ? 'en-US' : 'ko';
+    const gl = region === 'us' ? 'US' : 'KR';
+    const ceid = region === 'us' ? 'US:en' : 'KR:ko';
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
+
+    const rssRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 });
+    const items = [...rssRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+
+    const linksToFetch = [];
+
+    items.slice(0, 15).forEach((m) => {
+      const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
+      const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
+
+      let title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim() : '';
+      const sourceIdx = title.lastIndexOf(' - ');
+      if (sourceIdx > 0) title = title.substring(0, sourceIdx);
+
+      const link = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+      if (link && !link.includes('news.google.com')) {
+        linksToFetch.push({ title, link });
+      }
+    });
+
+    const images = [];
+    if (linksToFetch.length > 0) {
+      const fetched = await Promise.allSettled(linksToFetch.slice(0, 12).map(async item => {
+        const directRes = await axios.get(item.link, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 4000
+        });
+        const dHtml = directRes.data;
+        const ogMatch = dHtml.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+                        dHtml.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+        if (ogMatch && ogMatch[1] && !ogMatch[1].toLowerCase().includes('logo')) {
+          let photo = ogMatch[1].replace(/&amp;/g, '&');
+          if (photo.startsWith('//')) photo = 'https:' + photo;
+          return { title: item.title, imageUrl: photo, link: item.link };
+        }
+        return null;
+      }));
+
+      fetched.forEach(r => {
+        if (r.status === 'fulfilled' && r.value) {
+          images.push(r.value);
+        }
+      });
+    }
+
+    res.json({ success: true, keyword, images: images.slice(0, 10) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
   console.log(`🚀 X 트윗 생성기 대시보드 실행 중`);
