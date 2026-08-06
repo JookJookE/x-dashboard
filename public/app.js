@@ -1141,7 +1141,7 @@ function generateHeadlineCardForSelected() {
   showToast('📰 기사 헤드라인 캡처 카드 이미지가 생성되었습니다!');
 }
 
-async function generateArticleCaptureCard(withPhoto = true) {
+async function generateArticleCaptureCard(mode = 'photo') {
   if (!selectedArticle) {
     showToast('먼저 기사를 선택해 주세요.');
     return;
@@ -1150,7 +1150,11 @@ async function generateArticleCaptureCard(withPhoto = true) {
   const placeholder = document.getElementById('active-image-placeholder');
   const display = document.getElementById('active-image-display');
 
-  showToast(withPhoto ? '📸 [기사 캡처 (제목+사진)] 카드 생성 중...' : '📝 [기사 캡처 (제목만)] 카드 생성 중...');
+  let toastMsg = '';
+  if (mode === 'photo') toastMsg = '📸 [기사 캡처 (제목+사진)] 카드 생성 중...';
+  else if (mode === 'title') toastMsg = '📝 [기사 캡처 (제목만)] 카드 생성 중...';
+  else if (mode === 'text') toastMsg = '📄 [기사 캡처 (제목+본문)] 카드 생성 중...';
+  showToast(toastMsg);
 
   const canvas = document.createElement('canvas');
   canvas.width = 1000;
@@ -1173,7 +1177,7 @@ async function generateArticleCaptureCard(withPhoto = true) {
   }
   lineCount = Math.min(lineCount, 3);
   
-  const height = withPhoto ? 850 : (200 + (lineCount * 46));
+  const height = mode === 'title' ? (200 + (lineCount * 46)) : 850;
   canvas.height = height;
 
   const ctx = canvas.getContext('2d');
@@ -1240,7 +1244,7 @@ async function generateArticleCaptureCard(withPhoto = true) {
   currentY += 30;
 
   let finalImageUrl = selectedArticle.imageUrl;
-  if (withPhoto && !finalImageUrl) {
+  if (mode === 'photo' && !finalImageUrl) {
     try {
       const res = await fetch('/api/extract-image', {
         method: 'POST',
@@ -1255,7 +1259,7 @@ async function generateArticleCaptureCard(withPhoto = true) {
     } catch (e) {}
   }
 
-  if (withPhoto && finalImageUrl) {
+  if (mode === 'photo' && finalImageUrl) {
     try {
       const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(finalImageUrl)}`;
       const img = new Image();
@@ -1295,12 +1299,12 @@ async function generateArticleCaptureCard(withPhoto = true) {
         ctx.lineWidth = 1;
         drawRoundRect(ctx, 60, currentY, photoWidth, photoHeight, 10, false, true);
       } else {
-        if (withPhoto) renderTextExcerpt(ctx, selectedArticle, currentY);
+        renderTextExcerpt(ctx, selectedArticle, currentY);
       }
     } catch (e) {
-      if (withPhoto) renderTextExcerpt(ctx, selectedArticle, currentY);
+      renderTextExcerpt(ctx, selectedArticle, currentY);
     }
-  } else if (withPhoto) {
+  } else if (mode === 'photo' || mode === 'text') {
     renderTextExcerpt(ctx, selectedArticle, currentY);
   }
 
@@ -1313,15 +1317,19 @@ async function generateArticleCaptureCard(withPhoto = true) {
       <div style="margin-top:5px;">
         <img src="${dataUrl}" style="max-width:100%; max-height:320px; object-fit:contain; border-radius:10px; border:1px solid rgba(56, 189, 248, 0.4); box-shadow:0 6px 18px rgba(0,0,0,0.5);" />
         <div style="margin-top:8px; display:flex; justify-content:center; gap:8px;">
-          <a href="${dataUrl}" download="news-capture-${withPhoto ? 'photo' : 'text'}-${Date.now()}.png" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--accent-cyan); border-color:var(--accent-cyan);">
-            📥 ${withPhoto ? '📸 기사 캡처 (제목+사진)' : '📝 기사 캡처 (제목만)'} 이미지 다운로드
+          <a href="${dataUrl}" download="news-capture-${mode}-${Date.now()}.png" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--accent-cyan); border-color:var(--accent-cyan);">
+            📥 ${mode === 'photo' ? '📸 기사 캡처 (제목+사진)' : mode === 'title' ? '📝 기사 캡처 (제목만)' : '📄 기사 캡처 (제목+본문)'} 이미지 다운로드
           </a>
         </div>
       </div>
     `;
   }
 
-  showToast(withPhoto ? '📸 [기사 캡처 (제목+사진)] 카드가 생성되었습니다!' : '📝 [기사 캡처 (제목만)] 카드가 생성되었습니다!');
+  let doneMsg = '';
+  if (mode === 'photo') doneMsg = '📸 [기사 캡처 (제목+사진)] 카드가 생성되었습니다!';
+  else if (mode === 'title') doneMsg = '📝 [기사 캡처 (제목만)] 카드가 생성되었습니다!';
+  else if (mode === 'text') doneMsg = '📄 [기사 캡처 (제목+본문)] 카드가 생성되었습니다!';
+  showToast(doneMsg);
 }
 
 function renderTextExcerpt(ctx, article, startY) {

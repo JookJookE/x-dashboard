@@ -420,10 +420,10 @@
                   <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">🖼️ 트윗 첨부 포토 선택 (클릭 시 1초 만에 캡처/생성 및 미리보기):</label>
                   <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button class="btn btn-outline btn-sm" onclick="fetchOriginalImageForSelected()">🖼️ 원본 기사 사진</button>
-                    <button class="btn btn-outline btn-sm" onclick="generateThumbnailForSelected()">🎨 AI 인포그래픽 썸네일</button>
                     <button class="btn btn-outline btn-sm" onclick="generateHeadlineCardForSelected()">📰 뉴스 헤드라인 카드</button>
-                    <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard(true)">📸 기사 캡처 (제목+사진)</button>
-                    <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard(false)">📝 기사 캡처 (제목만)</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard('photo')">📸 기사 캡처 (제목+사진)</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard('title')">📝 기사 캡처 (제목만)</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard('text')">📄 기사 캡처 (제목+본문)</button>
                   </div>
                 </div>
 
