@@ -351,16 +351,22 @@
                 <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">트윗 생성 스타일 선택 (기사 선택 시 스마트 자동 지정):</label>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button id="btn-mode-block" class="btn btn-outline mode-btn active" onclick="setComposerMode('block')">
-                    ⚡ 이모지 요약 (뉴스/팩트)
+                    ⚡ 1. 이모지 요약 (뉴스/팩트)
                   </button>
                   <button id="btn-mode-story" class="btn btn-outline mode-btn" onclick="setComposerMode('story')">
-                    🔥 1인칭 후킹 (주식/코인)
+                    🔥 2. 1인칭 후킹 (주식/코인)
                   </button>
                   <button id="btn-mode-talk" class="btn btn-outline mode-btn" onclick="setComposerMode('talk')">
-                    🗣️ 생생한 썰 (블라인드/가십)
+                    🗣️ 3. 생생한 썰 (가십/이슈)
+                  </button>
+                  <button id="btn-mode-mindset" class="btn btn-outline mode-btn" onclick="setComposerMode('mindset')">
+                    🧠 4. 멘탈/공감 (심리/관계)
+                  </button>
+                  <button id="btn-mode-capture" class="btn btn-outline mode-btn" onclick="setComposerMode('capture')">
+                    📸 5. 블라인드 (직장썰/폭로)
                   </button>
                   <button id="btn-mode-pann" class="btn btn-outline mode-btn" onclick="setComposerMode('pann')">
-                    ⚖️ 네이트판 갈등 (사연/논란)
+                    ⚖️ 6. 네이트판 (사연/갈등)
                   </button>
                 </div>
               </div>
