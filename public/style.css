@@ -406,8 +406,10 @@ body {
 }
 
 .dashboard-sections {
-  display: flex;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .card-flex-1 { flex: 1; }
@@ -594,7 +596,28 @@ body {
   }
 
   .dashboard-sections {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 10px 12px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stat-value {
+    font-size: 14px;
+    white-space: nowrap;
   }
 
   .composer-layout {

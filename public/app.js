@@ -629,15 +629,15 @@ function renderArticlesDashboardTech(articles) {
   }
 
   miniListEl.innerHTML = articles.map(art => `
-    <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
-      <div>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px;">
+    <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <div style="flex:1; min-width:0;">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px; flex-wrap:wrap;">
           <span class="badge badge-info" style="font-size:9px;">${art.categoryTag || art.category}</span>
           <span style="font-size: 10px; color: var(--accent-cyan); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
         </div>
-        <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px;">${art.title}</h5>
+        <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px; line-height:1.35;">${art.title}</h5>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="selectArticleForComposer('${art.id}')">생성</button>
+      <button class="btn btn-secondary btn-sm" style="white-space:nowrap; flex-shrink:0;" onclick="selectArticleForComposer('${art.id}')">생성</button>
     </div>
   `).join('');
 }
@@ -651,15 +651,15 @@ function renderArticlesDashboardComm(articles) {
   }
 
   miniListEl.innerHTML = articles.map(art => `
-    <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
-      <div>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px;">
+    <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <div style="flex:1; min-width:0;">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px; flex-wrap:wrap;">
           <span class="badge badge-info" style="font-size:9px; background:rgba(250, 204, 21, 0.2); color:#facc15;">${art.categoryTag || art.category}</span>
           <span style="font-size: 10px; color: var(--accent-gold); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
         </div>
-        <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px;">${art.title}</h5>
+        <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px; line-height:1.35;">${art.title}</h5>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="selectArticleForComposer('${art.id}')">생성</button>
+      <button class="btn btn-secondary btn-sm" style="white-space:nowrap; flex-shrink:0;" onclick="selectArticleForComposer('${art.id}')">생성</button>
     </div>
   `).join('');
 }

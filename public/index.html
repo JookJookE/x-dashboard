@@ -167,12 +167,12 @@
           </div>
         </div>
 
-        <div class="dashboard-sections" style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div class="dashboard-sections">
           <!-- Section 1: Tech & Finance Mini List -->
           <div class="card card-flex-1">
             <div class="card-header">
-              <h3>📊 테크 & 금융 최신 소식 (IT/주식/코인)</h3>
-              <button class="btn-link" onclick="selectCategoryNav('tech_all')">전체보기 &rarr;</button>
+              <h3>📊 테크 & 금융 최신 소식</h3>
+              <button class="btn-link" style="white-space:nowrap; flex-shrink:0;" onclick="selectCategoryNav('tech_all')">전체보기 &rarr;</button>
             </div>
             <div class="card-body">
               <div id="dashboard-tech-mini" class="articles-mini-list">
@@ -184,8 +184,8 @@
           <!-- Section 2: Community & Mental Mini List -->
           <div class="card card-flex-1">
             <div class="card-header">
-              <h3>🗣️ 커뮤니티 & 썰 / 멘탈 소식 (블라인드/가십/심리)</h3>
-              <button class="btn-link" onclick="selectCategoryNav('comm_all')">전체보기 &rarr;</button>
+              <h3>🗣️ 커뮤니티 & 썰 / 멘탈 소식</h3>
+              <button class="btn-link" style="white-space:nowrap; flex-shrink:0;" onclick="selectCategoryNav('comm_all')">전체보기 &rarr;</button>
             </div>
             <div class="card-body">
               <div id="dashboard-comm-mini" class="articles-mini-list">
@@ -206,12 +206,12 @@
         </div>
 
         <!-- Section 3: Real-time Trending Keywords -->
-        <div class="dashboard-sections" style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div class="dashboard-sections">
           <!-- Korean Trending -->
           <div class="card card-flex-1">
             <div class="card-header">
               <h3>🇰🇷 한국 실시간 급상승 검색어</h3>
-              <span id="trending-kr-time" style="font-size:11px; color:var(--text-dim);"></span>
+              <span id="trending-kr-time" style="font-size:11px; color:var(--text-dim); white-space:nowrap;"></span>
             </div>
             <div class="card-body">
               <div id="trending-kr-list" class="trending-list">
