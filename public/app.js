@@ -1222,9 +1222,25 @@ async function generateArticleCaptureCard(withPhoto = true) {
 
   currentY += 30;
 
-  if (withPhoto && selectedArticle.imageUrl) {
+  let finalImageUrl = selectedArticle.imageUrl;
+  if (withPhoto && !finalImageUrl) {
     try {
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(selectedArticle.imageUrl)}`;
+      const res = await fetch('/api/extract-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: selectedArticle.title, url: selectedArticle.link })
+      });
+      const data = await res.json();
+      if (data.success && data.imageUrl) {
+        finalImageUrl = data.imageUrl;
+        selectedArticle.imageUrl = finalImageUrl; // Cache it
+      }
+    } catch (e) {}
+  }
+
+  if (withPhoto && finalImageUrl) {
+    try {
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(finalImageUrl)}`;
       const img = new Image();
       img.crossOrigin = 'anonymous';
 
