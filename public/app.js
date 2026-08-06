@@ -1154,7 +1154,26 @@ async function generateArticleCaptureCard(withPhoto = true) {
 
   const canvas = document.createElement('canvas');
   canvas.width = 1000;
-  const height = withPhoto ? 850 : 620;
+  
+  // Calculate dynamic height for title-only mode based on title lines
+  const title = selectedArticle.title || '';
+  const tempCtx = canvas.getContext('2d');
+  tempCtx.font = 'bold 32px "Pretendard", "Noto Sans KR", sans-serif';
+  const titleWords = title.split(' ');
+  let lineCount = 1;
+  let tempLine = '';
+  for (let n = 0; n < titleWords.length; n++) {
+    const testLine = tempLine + titleWords[n] + ' ';
+    if (tempCtx.measureText(testLine).width > 880 && n > 0) {
+      lineCount++;
+      tempLine = titleWords[n] + ' ';
+    } else {
+      tempLine = testLine;
+    }
+  }
+  lineCount = Math.min(lineCount, 3);
+  
+  const height = withPhoto ? 850 : (200 + (lineCount * 46));
   canvas.height = height;
 
   const ctx = canvas.getContext('2d');
@@ -1278,12 +1297,12 @@ async function generateArticleCaptureCard(withPhoto = true) {
         ctx.lineWidth = 1;
         drawRoundRect(ctx, 60, currentY, photoWidth, photoHeight, 10, false, true);
       } else {
-        renderTextExcerpt(ctx, selectedArticle, currentY);
+        if (withPhoto) renderTextExcerpt(ctx, selectedArticle, currentY);
       }
     } catch (e) {
-      renderTextExcerpt(ctx, selectedArticle, currentY);
+      if (withPhoto) renderTextExcerpt(ctx, selectedArticle, currentY);
     }
-  } else {
+  } else if (withPhoto) {
     renderTextExcerpt(ctx, selectedArticle, currentY);
   }
 
