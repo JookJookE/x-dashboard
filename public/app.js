@@ -1616,23 +1616,26 @@ function toggleThreadMode() {
 function updateThreadParts() {
   const textInput = document.getElementById('tweet-text-input');
   const fullText = textInput.value.trim();
-  const paragraphs = fullText.split(/\n\s*\n/).filter(p => p.trim());
 
   let part1 = '';
   let part2 = '';
 
-  if (paragraphs.length >= 2) {
-    part1 = paragraphs[0].trim();
-    part2 = paragraphs.slice(1).join('\n\n').trim();
+  const dblBreak = fullText.indexOf('\n\n');
+  const sglBreak = fullText.indexOf('\n');
+
+  let splitIdx = -1;
+  if (dblBreak !== -1) {
+    splitIdx = dblBreak;
+  } else if (sglBreak !== -1) {
+    splitIdx = sglBreak;
+  }
+
+  if (splitIdx > 0) {
+    part1 = fullText.substring(0, splitIdx).trim();
+    part2 = fullText.substring(splitIdx).trim();
   } else {
-    const firstBreak = fullText.indexOf('\n');
-    if (firstBreak > 0) {
-      part1 = fullText.substring(0, firstBreak).trim();
-      part2 = fullText.substring(firstBreak).trim();
-    } else {
-      part1 = fullText;
-      part2 = '';
-    }
+    part1 = fullText;
+    part2 = '';
   }
 
   const p1El = document.getElementById('thread-part-1');
