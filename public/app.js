@@ -293,9 +293,14 @@ function switchTab(tabId) {
     const titleMap = {
       dashboard: '대시보드',
       articles: is6HourFilterActive ? '⚡ 최근 6시간 이내 수집 속보' : getCategoryTitle(selectedCategory),
-      composer: '트윗 작성 & 복사'
+      composer: '트윗 작성 & 복사',
+      'saved-drafts': '⭐ 나만의 임시 보관함'
     };
     document.getElementById('page-title').innerText = titleMap[tabId] || '대시보드';
+
+    if (tabId === 'saved-drafts') {
+      loadSavedUserDrafts();
+    }
   }
 }
 
@@ -746,6 +751,10 @@ async function generateSummaryForSelected() {
 
     if (data.success) {
       textInput.value = data.summary;
+      if (data.hooks) renderViralHooksUI(data.hooks);
+      if (data.tags) renderRecommendedHashtagsUI(data.tags);
+      if (isThreadModeActive) updateThreadParts();
+
       const badgeEl = document.getElementById('ai-badge');
       if (badgeEl) {
         if (currentComposerMode === 'pann') badgeEl.innerText = '⚖️ 네이트판 갈등 유도형';
@@ -1417,4 +1426,244 @@ function closeTrendingArticles() {
   const panel = document.getElementById('trending-articles-panel');
   if (panel) panel.style.display = 'none';
   document.querySelectorAll('.trending-item').forEach(el => el.classList.remove('active'));
+}
+
+// ===== New Features: Viral Hooks, Thread Splitter, Hashtags & Saved Drafts =====
+let currentHooks = [];
+let currentTags = [];
+let isThreadModeActive = false;
+
+function renderViralHooksUI(hooks) {
+  const container = document.getElementById('viral-hooks-list');
+  if (!container) return;
+  if (!hooks || hooks.length === 0) {
+    container.innerHTML = '<p style="font-size:11px; color:var(--text-dim);">후킹 문구를 생성할 수 없습니다.</p>';
+    return;
+  }
+  currentHooks = hooks;
+  const labels = ['🪝 A안: 원본 조합 후킹 첫 문장', '🪝 B안: 도파민/갑론을박 질문형 첫 문장', '🪝 C안: 팩트 충격 제보형 첫 문장'];
+  container.innerHTML = hooks.map((h, idx) => `
+    <button class="btn btn-outline btn-sm" style="text-align:left; justify-content:flex-start; font-size:12px; white-space:normal; border-color:rgba(6,182,212,0.3);" onclick="applyViralHook(${idx})">
+      <strong>${labels[idx] || `🪝 ${idx+1}안`}:</strong> ${h}
+    </button>
+  `).join('');
+}
+
+function applyViralHook(index) {
+  if (!currentHooks[index]) return;
+  const newHook = currentHooks[index];
+  const textInput = document.getElementById('tweet-text-input');
+  const lines = textInput.value.split('\n');
+  lines[0] = newHook;
+  textInput.value = lines.join('\n');
+  updateCharCount();
+
+  if (isThreadModeActive) {
+    updateThreadParts();
+  }
+  showToast(`🪝 후킹 첫 문장이 [${index === 0 ? 'A안' : index === 1 ? 'B안' : 'C안'}]으로 첫 줄 교체 되었습니다!`);
+}
+
+function renderRecommendedHashtagsUI(tags) {
+  const container = document.getElementById('recommended-hashtags-list');
+  if (!container) return;
+  if (!tags || tags.length === 0) {
+    container.innerHTML = '<span style="font-size:11px; color:var(--text-dim);">추천 해시태그 없음</span>';
+    return;
+  }
+  currentTags = tags;
+  container.innerHTML = tags.map(tag => `
+    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:2px 8px; border-color:rgba(250,204,21,0.4); color:var(--accent-gold);" onclick="insertHashtagToTweet('${tag}')">
+      ${tag} ➕
+    </button>
+  `).join('');
+}
+
+function insertHashtagToTweet(tag) {
+  const textInput = document.getElementById('tweet-text-input');
+  if (!textInput.value.includes(tag)) {
+    textInput.value = textInput.value.trim() + ' ' + tag;
+    updateCharCount();
+    if (isThreadModeActive) updateThreadParts();
+    showToast(`🏷️ '${tag}' 해시태그가 본문에 추가되었습니다.`);
+  }
+}
+
+function toggleThreadMode() {
+  isThreadModeActive = !isThreadModeActive;
+  const singleContainer = document.getElementById('single-tweet-container');
+  const threadContainer = document.getElementById('thread-tweet-container');
+  const btnToggle = document.getElementById('btn-toggle-thread-mode');
+
+  if (isThreadModeActive) {
+    singleContainer.style.display = 'none';
+    threadContainer.style.display = 'flex';
+    btnToggle.innerText = '📝 단일 트윗으로 합치기';
+    btnToggle.style.color = 'var(--accent-cyan)';
+    btnToggle.style.borderColor = 'var(--accent-cyan)';
+    updateThreadParts();
+    showToast('🧵 2단 타래(Thread) 분할 모드가 켜졌습니다!');
+  } else {
+    singleContainer.style.display = 'block';
+    threadContainer.style.display = 'none';
+    btnToggle.innerText = '🧵 2단 타래(Thread)로 분할하기';
+    btnToggle.style.color = 'var(--accent-gold)';
+    btnToggle.style.borderColor = 'var(--accent-gold)';
+    showToast('📝 단일 트윗 모드로 전환되었습니다.');
+  }
+}
+
+function updateThreadParts() {
+  const textInput = document.getElementById('tweet-text-input');
+  const fullText = textInput.value.trim();
+  const paragraphs = fullText.split(/\n\s*\n/).filter(p => p.trim());
+
+  let part1 = '';
+  let part2 = '';
+
+  if (paragraphs.length >= 2) {
+    part1 = paragraphs.slice(0, 2).join('\n\n');
+    part2 = paragraphs.slice(2).join('\n\n');
+  } else {
+    const half = Math.floor(fullText.length / 2);
+    const spaceIdx = fullText.indexOf(' ', half);
+    if (spaceIdx > 0) {
+      part1 = fullText.substring(0, spaceIdx).trim();
+      part2 = fullText.substring(spaceIdx).trim();
+    } else {
+      part1 = fullText;
+      part2 = '';
+    }
+  }
+
+  const p1El = document.getElementById('thread-part-1');
+  const p2El = document.getElementById('thread-part-2');
+  if (p1El) p1El.value = part1;
+  if (p2El) p2El.value = part2;
+}
+
+function copyThreadPart(partNum) {
+  const elId = partNum === 1 ? 'thread-part-1' : 'thread-part-2';
+  const text = document.getElementById(elId)?.value?.trim();
+  if (!text) {
+    showToast(`${partNum}번 타래 문구가 비어 있습니다.`);
+    return;
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(`📋 ${partNum}번 ${partNum === 1 ? '메인' : '답글'} 타래 문구가 복사되었습니다!`);
+  });
+}
+
+// User Saved Drafts (⭐ 임시 보관함)
+async function saveCurrentTweetToUserDrafts() {
+  const text = document.getElementById('tweet-text-input').value.trim();
+  if (!text) {
+    showToast('보관할 트윗 내용이 없습니다.');
+    return;
+  }
+  const title = selectedArticle ? selectedArticle.title : text.substring(0, 30);
+  try {
+    const res = await fetch('/api/user-drafts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        text,
+        hooks: currentHooks,
+        tags: currentTags,
+        mode: currentComposerMode
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('⭐ 트윗이 \'나만의 임시 보관함\'에 성공적으로 저장되었습니다!');
+    } else {
+      showToast('저장 실패: ' + data.message);
+    }
+  } catch (e) {
+    showToast('저장 시 에러 발생: ' + e.message);
+  }
+}
+
+async function loadSavedUserDrafts() {
+  const gridEl = document.getElementById('saved-drafts-grid');
+  if (!gridEl) return;
+  gridEl.innerHTML = '<div class="skeleton-loader">보관된 트윗 초안을 불러오는 중...</div>';
+  try {
+    const res = await fetch('/api/user-drafts');
+    const data = await res.json();
+    if (data.success && data.drafts) {
+      renderSavedUserDrafts(data.drafts);
+    } else {
+      gridEl.innerHTML = '<p class="placeholder-text">보관함을 가져오지 못했습니다.</p>';
+    }
+  } catch (e) {
+    gridEl.innerHTML = `<p class="placeholder-text">오류: ${e.message}</p>`;
+  }
+}
+
+function renderSavedUserDrafts(drafts) {
+  const gridEl = document.getElementById('saved-drafts-grid');
+  if (!gridEl) return;
+  if (!drafts || drafts.length === 0) {
+    gridEl.innerHTML = '<p class="placeholder-text">보관된 트윗이 없습니다. AI 작성 탭에서 [⭐ 임시 보관함에 저장] 버튼을 누르면 여기에 저장됩니다.</p>';
+    return;
+  }
+
+  gridEl.innerHTML = drafts.map(d => `
+    <div class="article-card" style="border-color: rgba(250, 204, 21, 0.4); background: rgba(250, 204, 21, 0.03);">
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span class="badge" style="background:#facc15; color:#000; font-weight:800; font-size:10px;">⭐ 보관됨</span>
+          <span style="font-size:11px; color:var(--text-dim);">${formatTimeOnly(d.createdAt)}</span>
+        </div>
+        <h4 class="article-title" style="margin-bottom:8px;">${d.title}</h4>
+        <div style="font-size:12px; color:var(--text-muted); background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; white-space:pre-wrap; max-height:140px; overflow-y:auto; font-family:monospace;">${d.text}</div>
+      </div>
+      <div class="article-footer" style="margin-top:10px; gap:6px; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="loadSavedDraftToComposer('${d.id}')">⚡ 작성 탭으로 불러오기</button>
+        <button class="btn btn-outline btn-sm" onclick="copyTextDirectly('${encodeURIComponent(d.text)}')">📋 복사</button>
+        <button class="btn btn-outline btn-sm" style="color:#f87171; border-color:#f87171;" onclick="deleteSavedDraftById('${d.id}')">🗑️ 삭제</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function copyTextDirectly(encodedText) {
+  const text = decodeURIComponent(encodedText);
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 트윗 문구가 복사되었습니다!');
+  });
+}
+
+async function loadSavedDraftToComposer(draftId) {
+  try {
+    const res = await fetch('/api/user-drafts');
+    const data = await res.json();
+    if (data.success && data.drafts) {
+      const draft = data.drafts.find(d => String(d.id) === String(draftId));
+      if (draft) {
+        switchTab('composer');
+        document.getElementById('tweet-text-input').value = draft.text;
+        updateCharCount();
+        if (draft.hooks) renderViralHooksUI(draft.hooks);
+        if (draft.tags) renderRecommendedHashtagsUI(draft.tags);
+        showToast('⚡ 보관된 트윗이 작성 탭으로 불러와졌습니다!');
+      }
+    }
+  } catch (e) {}
+}
+
+async function deleteSavedDraftById(draftId) {
+  if (!confirm('이 보관 트윗을 삭제하시겠습니까?')) return;
+  try {
+    const res = await fetch(`/api/user-drafts/${draftId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('🗑️ 보관함에서 삭제되었습니다.');
+      renderSavedUserDrafts(data.drafts);
+    }
+  } catch (e) {
+    showToast('삭제 실패: ' + e.message);
+  }
 }

@@ -191,6 +191,46 @@ function addLog(level, message) {
   return logEntry;
 }
 
+const SAVED_DRAFTS_FILE = path.join(DATA_DIR, 'saved_drafts.json');
+
+function getSavedDrafts() {
+  if (!fs.existsSync(SAVED_DRAFTS_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(SAVED_DRAFTS_FILE, 'utf8'));
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSavedDraft(draftData) {
+  const drafts = getSavedDrafts();
+  const newDraft = {
+    id: `draft-${Date.now()}`,
+    title: draftData.title || '임시 저장 트윗',
+    text: draftData.text || '',
+    hooks: draftData.hooks || [],
+    tags: draftData.tags || [],
+    imageUrl: draftData.imageUrl || '',
+    mode: draftData.mode || 'talk',
+    createdAt: new Date().toISOString()
+  };
+  drafts.unshift(newDraft);
+  const trimmed = drafts.slice(0, 100);
+  try {
+    fs.writeFileSync(SAVED_DRAFTS_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
+  } catch (e) {}
+  return newDraft;
+}
+
+function deleteSavedDraft(draftId) {
+  let drafts = getSavedDrafts();
+  drafts = drafts.filter(d => String(d.id) !== String(draftId));
+  try {
+    fs.writeFileSync(SAVED_DRAFTS_FILE, JSON.stringify(drafts, null, 2), 'utf8');
+  } catch (e) {}
+  return drafts;
+}
+
 module.exports = {
   getHistory,
   getStoredArticles,
@@ -204,5 +244,8 @@ module.exports = {
   markPostingStatus,
   markArticleAsUsed,
   getLogs,
-  addLog
+  addLog,
+  getSavedDrafts,
+  saveSavedDraft,
+  deleteSavedDraft
 };

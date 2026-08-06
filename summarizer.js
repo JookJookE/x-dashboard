@@ -170,12 +170,49 @@ $NVDA $BTC $ETH #미국주식 #가상자산 #비트코인
 
     let summaryText = generatedText.trim();
     addLog('SUCCESS', `[${article.categoryTag || article.category}] Gemini AI 한글 트윗 생성 완료 (${summaryText.length}자)`);
-    return { text: summaryText, isAiGenerated: true, mode };
+    const extra = generateHooksAndTags(article, summaryText);
+    return { text: summaryText, hooks: extra.hooks, tags: extra.tags, isAiGenerated: true, mode };
   } catch (err) {
     const errorDetails = err.response?.data?.error?.message || err.message;
     addLog('ERROR', `Gemini AI 요약 실패 (${errorDetails}), 스마트 파서 사용`);
-    return deepExpertSummary(article, mode);
+    const fallback = deepExpertSummary(article, mode);
+    const extra = generateHooksAndTags(article, fallback.text);
+    return { text: fallback.text, hooks: extra.hooks, tags: extra.tags, isAiGenerated: false, mode };
   }
+}
+
+function generateHooksAndTags(article, text) {
+  const title = article.title || '';
+  const cleanTitle = title.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+  const firstLine = text ? text.split('\n')[0] : cleanTitle;
+
+  const hookA = `${firstLine}`;
+  const hookB = `${cleanTitle} 다들 어떻게 생각하시나요? 👀`;
+  const hookC = `충격) ${cleanTitle.substring(0, 40)}... 😱`;
+
+  const category = (article.category || '').toLowerCase();
+  let defaultTags = ['#트위터썰', '#이슈', '#갑론을박'];
+
+  if (category === 'blind') {
+    defaultTags = ['#블라인드', '#직장인썰', '#사내갈등'];
+  } else if (category === 'pann') {
+    defaultTags = ['#네이트판', '#사연', '#네티즌갑론을박'];
+  } else if (category === 'gossip') {
+    defaultTags = ['#가십', '#연예계근황', '#화제이슈'];
+  } else if (category === 'mindset') {
+    defaultTags = ['#멘탈', '#생각정리', '#인간관계'];
+  } else if (category === 'coin' || category === 'globalcoin') {
+    defaultTags = ['$BTC', '#가상자산', '#비트코인'];
+  } else if (category === 'stock' || category === 'globalstock') {
+    defaultTags = ['$NVDA', '#미국주식', '#증시'];
+  } else if (category === 'it' || category === 'globalit' || category === 'heisenberg') {
+    defaultTags = ['#테크', '#AI', '#빅테크'];
+  }
+
+  return {
+    hooks: [hookA, hookB, hookC],
+    tags: defaultTags
+  };
 }
 
 function translateTitleToKorean(title) {

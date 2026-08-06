@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
 const { getConfig, saveConfig } = require('./config');
-const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, getStoredArticles, saveStoredArticles, getReadStatusMap, markAsRead, markAllAsRead } = require('./history');
+const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, getStoredArticles, saveStoredArticles, getReadStatusMap, markAsRead, markAllAsRead, getSavedDrafts, saveSavedDraft, deleteSavedDraft } = require('./history');
 const { fetchLatestArticles } = require('./scraper');
 const { generateSummary } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
@@ -238,7 +238,14 @@ app.post('/api/summarize', async (req, res) => {
     }
     const mode = article.mode || 'block';
     const summary = await generateSummary(article, mode);
-    res.json({ success: true, summary: summary.text, isAiGenerated: summary.isAiGenerated, mode: summary.mode });
+    res.json({
+      success: true,
+      summary: summary.text,
+      hooks: summary.hooks || [],
+      tags: summary.tags || [],
+      isAiGenerated: summary.isAiGenerated,
+      mode: summary.mode
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -274,6 +281,31 @@ app.post('/api/generate-daily-drafts', async (req, res) => {
 
 app.get('/api/logs', (req, res) => {
   res.json({ success: true, logs: getLogs() });
+});
+
+// ===== User Saved Drafts (⭐ 임시 보관함) =====
+app.get('/api/user-drafts', (req, res) => {
+  res.json({ success: true, drafts: getSavedDrafts() });
+});
+
+app.post('/api/user-drafts', (req, res) => {
+  try {
+    const draft = saveSavedDraft(req.body);
+    addLog('SUCCESS', `⭐ 트윗이 '나만의 임시 보관함'에 저장되었습니다: "${draft.title}"`);
+    res.json({ success: true, draft, message: '보관함에 저장되었습니다.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/user-drafts/:id', (req, res) => {
+  try {
+    const drafts = deleteSavedDraft(req.params.id);
+    addLog('INFO', `🗑️ 임시 보관함에서 항목이 삭제되었습니다. (남은 항목: ${drafts.length}건)`);
+    res.json({ success: true, drafts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // Initialize background 07:00 AM scheduler
