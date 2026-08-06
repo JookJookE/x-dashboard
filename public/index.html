@@ -339,159 +339,71 @@
 
           <!-- Right: AI Tweet Composer -->
           <div class="card">
-            <div class="card-header">
-              <h3>AI 전문가 트윗 요약 & 복사</h3>
-              <button id="btn-generate-summary" class="btn btn-accent btn-sm">
-                <span>✨</span> AI 요약 다시 생성
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>⚡ 완성형 AI 트윗 에디터</h3>
+              <button id="btn-generate-summary" class="btn btn-accent btn-sm" onclick="generateSummaryForSelected()">
+                <span>✨</span> AI 트윗 다시 생성
               </button>
             </div>
             <div class="card-body">
               <!-- Tweet Style Version Selector -->
               <div style="margin-bottom: 15px;">
-                <label style="font-size:13px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">트윗 생성 버전 선택 (모든 카테고리 적용 가능):</label>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">트윗 생성 스타일 선택 (기사 선택 시 스마트 자동 지정):</label>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button id="btn-mode-block" class="btn btn-outline mode-btn active" onclick="setComposerMode('block')">
-                    ⚡ 버전 1: 이모지 블록 요약형
+                    ⚡ 이모지 요약 (뉴스/팩트)
                   </button>
                   <button id="btn-mode-story" class="btn btn-outline mode-btn" onclick="setComposerMode('story')">
-                    🔥 버전 2: 1인칭 후킹 리포트형
+                    🔥 1인칭 후킹 (주식/코인)
                   </button>
                   <button id="btn-mode-talk" class="btn btn-outline mode-btn" onclick="setComposerMode('talk')">
-                    🗣️ 버전 3: 생생한 썰/소통형
-                  </button>
-                  <button id="btn-mode-mindset" class="btn btn-outline mode-btn" onclick="setComposerMode('mindset')">
-                    🧠 버전 4: 멘탈/공감 꿀팁형
-                  </button>
-                  <button id="btn-mode-capture" class="btn btn-outline mode-btn" onclick="setComposerMode('capture')">
-                    📸 버전 5: 캡처 이미지 첨부 / 블라인드 썰 공유형
+                    🗣️ 생생한 썰 (블라인드/가십)
                   </button>
                   <button id="btn-mode-pann" class="btn btn-outline mode-btn" onclick="setComposerMode('pann')">
-                    ⚖️ 버전 6: AITA 네이트판 갈등 유도형
+                    ⚖️ 네이트판 갈등 (사연/논란)
                   </button>
-                </div>
-              </div>
-
-              <!-- AI Viral Hook 3-Variant Selector Box -->
-              <div id="viral-hooks-box" style="margin-bottom: 15px; padding: 12px; background: rgba(6, 182, 212, 0.06); border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 10px;">
-                <label style="font-size:12px; font-weight:700; color:var(--accent-cyan); display:block; margin-bottom:8px;">🪝 AI 바이럴 후킹 첫 줄 A/B/C 선택 (클릭 시 첫 문장 즉시 교체):</label>
-                <div id="viral-hooks-list" style="display:flex; flex-direction:column; gap:6px;">
-                  <button class="btn btn-outline btn-sm" style="text-align:left; justify-content:flex-start; font-size:12px;" onclick="applyViralHook(0)">🪝 A안: AI 기본 조합 후킹 첫 문장</button>
-                  <button class="btn btn-outline btn-sm" style="text-align:left; justify-content:flex-start; font-size:12px;" onclick="applyViralHook(1)">🪝 B안: 도파민/갑론을박 질문형 첫 문장</button>
-                  <button class="btn btn-outline btn-sm" style="text-align:left; justify-content:flex-start; font-size:12px;" onclick="applyViralHook(2)">🪝 C안: 팩트 충격 제보형 첫 문장</button>
                 </div>
               </div>
 
               <div class="form-group">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                  <label for="tweet-text-input" style="margin-bottom:0;">생성된 트윗 문구 (외부 링크 100% 제거됨):</label>
-                  <button id="btn-toggle-thread-mode" class="btn btn-outline btn-sm" style="color:var(--accent-gold); border-color:var(--accent-gold); font-weight:700;" onclick="toggleThreadMode()">
-                    🧵 2단 타래(Thread)로 분할하기
-                  </button>
-                </div>
-                
-                <!-- Single Tweet View -->
-                <div id="single-tweet-container">
-                  <textarea id="tweet-text-input" rows="8" placeholder="AI 요약 문구가 여기에 작성됩니다..."></textarea>
-                  <div class="char-count-wrapper">
-                    <span id="char-counter" class="char-counter">0 / 280자</span>
-                    <span id="ai-badge" class="badge badge-info" style="display:inline-block;">스마트 본문 파싱 완료</span>
-                  </div>
-                </div>
-
-                <!-- Thread Split View (Hidden by default) -->
-                <div id="thread-tweet-container" style="display:none; flex-direction:column; gap:12px;">
-                  <div style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(6,182,212,0.3);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                      <span style="font-size:12px; font-weight:800; color:var(--accent-cyan);">🧵 1번 메인 트윗 (후킹 & 핵심 썰 요약)</span>
-                      <button class="btn btn-outline btn-sm" onclick="copyThreadPart(1)">📋 1번 복사</button>
-                    </div>
-                    <textarea id="thread-part-1" rows="4" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:8px; border-radius:6px; font-size:13px;"></textarea>
-                  </div>
-
-                  <div style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(250,204,21,0.3);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                      <span style="font-size:12px; font-weight:800; color:var(--accent-gold);">🧵 2번 타래 답글 (상세 사연 & 질문 & 해시태그)</span>
-                      <button class="btn btn-outline btn-sm" onclick="copyThreadPart(2)">📋 2번 복사</button>
-                    </div>
-                    <textarea id="thread-part-2" rows="5" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:8px; border-radius:6px; font-size:13px;"></textarea>
-                  </div>
-                </div>
-
-                <!-- Recommended Hashtags Section -->
-                <div id="recommended-hashtags-box" style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                  <span style="font-size:11px; font-weight:700; color:var(--text-muted);">🏷️ 추천 알짜 해시태그 (클릭 시 본문에 자동 추가):</span>
-                  <div id="recommended-hashtags-list" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+                <label for="tweet-text-input">100% 완성된 최종 트윗 문구 (후킹 첫 줄 + 알짜 해시태그 포함):</label>
+                <textarea id="tweet-text-input" rows="8" placeholder="왼쪽 기사를 선택하면 최적의 트윗 문구가 1초 만에 자동 생성됩니다..."></textarea>
+                <div class="char-count-wrapper">
+                  <span id="char-counter" class="char-counter">0 / 280자</span>
+                  <span id="ai-badge" class="badge badge-info" style="display:inline-block;">스마트 본문 파싱 완료</span>
                 </div>
               </div>
 
-                <!-- Thumbnail Image Generator Section -->
-                <div id="thumbnail-section" style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-                    <label id="thumbnail-label" style="font-size:13px; font-weight:700; color:var(--text-muted);">🖼️🎨 트윗 첨부용 이미지 (원본 이미지, AI 썸네일 & 기사 카드 3종 지원):</label>
-                    <div id="thumbnail-action-box" style="display:flex; gap:8px; flex-wrap:wrap;">
-                      <button id="btn-fetch-original-image" class="btn btn-outline btn-sm" onclick="fetchOriginalImageForSelected()">
-                        🖼️ 원본 이미지 가져오기
-                      </button>
-                      <button id="btn-generate-image" class="btn btn-outline btn-sm" onclick="generateThumbnailForSelected()">
-                        ✨ AI 썸네일 1초 생성
-                      </button>
-                      <button id="btn-generate-headline-card" class="btn btn-outline btn-sm" onclick="generateHeadlineCardForSelected()">
-                        📰 기사 카드 이미지 1초 생성
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Triple Preview Grid -->
-                  <div id="thumbnail-dual-container" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:10px;">
-                    <!-- Left: Original Article Image Box -->
-                    <div id="original-image-box" style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); text-align:center;">
-                      <h5 style="font-size:12px; font-weight:bold; color:#ff75d8; margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:4px;">
-                        <span>🖼️</span> 원본 기사 대표 사진
-                      </h5>
-                      <div id="original-image-preview">
-                        <p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[🖼️ 원본 이미지 가져오기] 버튼을 누르면 기사 원본 사진이 표시됩니다.</p>
-                      </div>
-                    </div>
-
-                    <!-- Middle: AI Generated Thumbnail Box -->
-                    <div id="ai-image-box" style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); text-align:center;">
-                      <h5 style="font-size:12px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:4px;">
-                        <span>🎨</span> 16:9 AI 썸네일 이미지
-                      </h5>
-                      <div id="ai-image-preview">
-                        <p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[✨ AI 썸네일 1초 생성] 버튼을 누르면 고화질 인포그래픽이 표시됩니다.</p>
-                      </div>
-                    </div>
-
-                    <!-- Right: News Headline Card Box -->
-                    <div id="card-image-box" style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); text-align:center;">
-                      <h5 style="font-size:12px; font-weight:bold; color:var(--accent-purple); margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:4px;">
-                        <span>📰</span> 기사 헤드라인 캡처 카드
-                      </h5>
-                      <div id="card-image-preview">
-                        <p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[📰 기사 카드 이미지 1초 생성] 버튼을 누르면 뉴스 헤드라인 카드가 표시됩니다.</p>
-                      </div>
-                    </div>
+              <!-- Integrated Single Image Preview & Switcher Section -->
+              <div id="thumbnail-section" style="margin-top:16px; padding:14px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                  <label style="font-size:12px; font-weight:700; color:var(--text-muted);">🖼️ 트윗 첨부 포토 선택 (클릭 시 생성 및 미리보기):</label>
+                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" onclick="fetchOriginalImageForSelected()">🖼️ 원본 기사 사진</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateThumbnailForSelected()">🎨 AI 인포그래픽 썸네일</button>
+                    <button class="btn btn-outline btn-sm" onclick="generateHeadlineCardForSelected()">📰 뉴스 헤드라인 카드</button>
                   </div>
                 </div>
 
-                <div class="form-actions-inline" style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
-                  <button id="btn-copy-tweet" class="btn btn-secondary">
-                    📋 전체 문구 복사
-                  </button>
-                  <button id="btn-save-user-draft" class="btn btn-outline" style="border-color:var(--accent-gold); color:var(--accent-gold); font-weight:700;" onclick="saveCurrentTweetToUserDrafts()">
-                    ⭐ 임시 보관함에 저장 (피크타임용)
-                  </button>
-                  <button id="btn-copy-thread-link" class="btn btn-outline" style="border-color:var(--accent-glow); color:var(--text-main);" onclick="copyThreadReplyLink()">
-                    💬 댓글(타래)용 링크만 복사
-                  </button>
-                  <button id="btn-post-webintent" class="btn btn-primary" title="트윗 작성창에 문구가 100% 자동 채워집니다">
-                    🌐 X 작성창 열기 (문구 100% 자동채움)
-                  </button>
-                  <button id="btn-post-article" class="btn btn-accent" title="글 자동복사 + X 아티클 에디터 이동">
-                    📰 X 아티클 에디터 열기 (복사 후 Ctrl+V)
-                  </button>
+                <!-- Single Active Image Preview Container -->
+                <div id="active-image-preview-container" style="background:rgba(0,0,0,0.3); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); text-align:center; min-height:80px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                  <p id="active-image-placeholder" style="font-size:11px; color:var(--text-dim); margin:10px 0;">위 이미지 버튼을 터치하면 포토가 1초 만에 생성되어 여기에 나타납니다.</p>
+                  <div id="active-image-display" style="display:none; width:100%;"></div>
                 </div>
+              </div>
+
+              <!-- Main Direct Action Buttons -->
+              <div class="form-actions-inline" style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                <button id="btn-post-webintent" class="btn btn-primary" style="flex:2; font-weight:800; padding:12px;" title="트윗 작성창에 문구가 100% 자동 채워집니다">
+                  🌐 X 작성창 열기 (100% 자동채움)
+                </button>
+                <button id="btn-copy-tweet" class="btn btn-secondary" style="flex:1;">
+                  📋 전체 문구 복사
+                </button>
+                <button id="btn-save-user-draft" class="btn btn-outline" style="border-color:var(--accent-gold); color:var(--accent-gold); font-weight:700; flex:1;" onclick="saveCurrentTweetToUserDrafts()">
+                  ⭐ 임시 보관함에 저장
+                </button>
+              </div>
             </div>
           </div>
         </div>

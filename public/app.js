@@ -818,14 +818,15 @@ function copyThreadReplyLink() {
 }
 
 function updateThumbnailSectionUI(article) {
-  const origBox = document.getElementById('original-image-preview');
-  const aiBox = document.getElementById('ai-image-preview');
-
-  if (origBox) {
-    origBox.innerHTML = `<p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[🖼️ 원본 이미지 가져오기] 버튼을 누르면 기사 원본 사진이 여기에 표시됩니다.</p>`;
+  const display = document.getElementById('active-image-display');
+  const placeholder = document.getElementById('active-image-placeholder');
+  if (display) {
+    display.style.display = 'none';
+    display.innerHTML = '';
   }
-  if (aiBox) {
-    aiBox.innerHTML = `<p style="font-size:11px; color:var(--text-muted); margin:15px 0;">[✨ AI 썸네일 1초 생성] 버튼을 누르면 고화질 인포그래픽이 여기에 표시됩니다.</p>`;
+  if (placeholder) {
+    placeholder.style.display = 'block';
+    placeholder.innerText = '위 이미지 버튼을 터치하면 포토가 1초 만에 생성되어 여기에 나타납니다.';
   }
 }
 
@@ -834,10 +835,15 @@ async function fetchOriginalImageForSelected() {
     showToast('선택된 기사 링크가 없습니다.');
     return;
   }
-  const boxEl = document.getElementById('original-image-preview');
+  const display = document.getElementById('active-image-display');
+  const placeholder = document.getElementById('active-image-placeholder');
   const btnEl = document.getElementById('btn-fetch-original-image');
 
-  if (boxEl) boxEl.innerHTML = `<p style="font-size:11px; color:#ff2a74; margin:15px 0;">🖼️ 기사의 원본 대표 이미지를 찾는 중입니다...</p>`;
+  if (placeholder) {
+    placeholder.style.display = 'block';
+    placeholder.innerText = '🖼️ 기사의 원본 대표 이미지를 찾는 중입니다...';
+  }
+  if (display) display.style.display = 'none';
   if (btnEl) btnEl.disabled = true;
 
   try {
@@ -849,32 +855,33 @@ async function fetchOriginalImageForSelected() {
     const data = await res.json();
 
     if (data.success && data.imageUrl) {
-      boxEl.innerHTML = `
-        <div style="margin-top:5px;">
-          <img src="${data.imageUrl}" style="max-width:100%; max-height:220px; object-fit:contain; border-radius:10px; border:1px solid rgba(255,255,255,0.2); box-shadow:0 6px 18px rgba(0,0,0,0.4);" />
-          <div style="margin-top:8px; display:flex; justify-content:center;">
-            <a href="${data.imageUrl}" target="_blank" download="news-photo.jpg" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--text-main); border-color:#ff2a74;">
-              📥 원본 사진 다운로드
-            </a>
+      if (placeholder) placeholder.style.display = 'none';
+      if (display) {
+        display.style.display = 'block';
+        display.innerHTML = `
+          <div style="margin-top:5px;">
+            <img src="${data.imageUrl}" style="max-width:100%; max-height:300px; object-fit:contain; border-radius:10px; border:1px solid rgba(255,255,255,0.2); box-shadow:0 6px 18px rgba(0,0,0,0.4);" />
+            <div style="margin-top:8px; display:flex; justify-content:center;">
+              <a href="${data.imageUrl}" target="_blank" download="news-photo.jpg" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--text-main); border-color:#ff2a74;">
+                📥 원본 사진 다운로드
+              </a>
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      }
       showToast('🖼️ 원본 뉴스 이미지를 성공적으로 가져왔습니다!');
     } else {
-      boxEl.innerHTML = `
-        <div style="padding:10px; background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); border-radius:8px; text-align:center;">
-          <p style="font-size:12px; color:#f87171; font-weight:bold; margin-bottom:4px;">⚠️ 대표 사진을 찾을 수 없습니다.</p>
-          <p style="font-size:11px; color:var(--text-dim); margin:0;">우측의 [✨ AI 썸네일 1초 생성] 버튼을 이용해 보세요.</p>
-        </div>
-      `;
+      if (placeholder) {
+        placeholder.style.display = 'block';
+        placeholder.innerText = '⚠️ 원문 기사에서 대표 이미지를 찾지 못했습니다. [🎨 AI 인포그래픽]을 사용해 보세요.';
+      }
       showToast('⚠️ 원문 기사에서 대표 이미지를 찾지 못했습니다.');
     }
   } catch (e) {
-    boxEl.innerHTML = `
-      <div style="padding:10px; background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); border-radius:8px; text-align:center;">
-        <p style="font-size:12px; color:#f87171; font-weight:bold; margin:0;">⚠️ 추출 오류: ${e.message}</p>
-      </div>
-    `;
+    if (placeholder) {
+      placeholder.style.display = 'block';
+      placeholder.innerText = `⚠️ 추출 오류: ${e.message}`;
+    }
   } finally {
     if (btnEl) btnEl.disabled = false;
   }
@@ -886,10 +893,15 @@ async function generateThumbnailForSelected() {
     showToast('선택된 기사가 없습니다.');
     return;
   }
-  const boxEl = document.getElementById('ai-image-preview');
+  const display = document.getElementById('active-image-display');
+  const placeholder = document.getElementById('active-image-placeholder');
   const btnEl = document.getElementById('btn-generate-image');
 
-  if (boxEl) boxEl.innerHTML = `<p style="font-size:11px; color:var(--accent-glow); margin:15px 0;">🎨 시선집중 16:9 AI 인포그래픽 썸네일을 생성하고 있습니다...</p>`;
+  if (placeholder) {
+    placeholder.style.display = 'block';
+    placeholder.innerText = '🎨 시선집중 16:9 AI 인포그래픽 썸네일을 생성하고 있습니다...';
+  }
+  if (display) display.style.display = 'none';
   if (btnEl) btnEl.disabled = true;
 
   try {
@@ -904,22 +916,32 @@ async function generateThumbnailForSelected() {
     });
     const data = await res.json();
     if (data.success && data.imageUrl) {
-      boxEl.innerHTML = `
-        <div style="margin-top:5px;">
-          <img src="${data.imageUrl}" style="max-width:100%; max-height:220px; object-fit:contain; border-radius:10px; border:1px solid rgba(255,255,255,0.2); box-shadow:0 6px 18px rgba(0,0,0,0.4);" />
-          <div style="margin-top:8px; display:flex; justify-content:center;">
-            <a href="${data.imageUrl}" target="_blank" download="tweet-thumbnail.svg" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--text-main); border-color:var(--accent-glow);">
-              📥 AI 썸네일 다운로드
-            </a>
+      if (placeholder) placeholder.style.display = 'none';
+      if (display) {
+        display.style.display = 'block';
+        display.innerHTML = `
+          <div style="margin-top:5px;">
+            <img src="${data.imageUrl}" style="max-width:100%; max-height:300px; object-fit:contain; border-radius:10px; border:1px solid rgba(255,255,255,0.2); box-shadow:0 6px 18px rgba(0,0,0,0.4);" />
+            <div style="margin-top:8px; display:flex; justify-content:center;">
+              <a href="${data.imageUrl}" target="_blank" download="tweet-thumbnail.svg" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--text-main); border-color:var(--accent-glow);">
+                📥 AI 썸네일 다운로드
+              </a>
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      }
       showToast('🎨 고화질 AI 대표 썸네일 이미지가 성공적으로 생성되었습니다!');
     } else {
-      if (boxEl) boxEl.innerHTML = `<p style="font-size:11px; color:red; margin:0;">생성 실패: ${data.message}</p>`;
+      if (placeholder) {
+        placeholder.style.display = 'block';
+        placeholder.innerText = `생성 실패: ${data.message}`;
+      }
     }
   } catch (e) {
-    if (boxEl) boxEl.innerHTML = `<p style="font-size:11px; color:red; margin:0;">생성 오류: ${e.message}</p>`;
+    if (placeholder) {
+      placeholder.style.display = 'block';
+      placeholder.innerText = `생성 오류: ${e.message}`;
+    }
   } finally {
     if (btnEl) btnEl.disabled = false;
   }
@@ -932,10 +954,14 @@ function generateHeadlineCardForSelected() {
     return;
   }
 
-  const previewEl = document.getElementById('card-image-preview');
-  if (previewEl) {
-    previewEl.innerHTML = `<p style="font-size:11px; color:#facc15; margin:15px 0;">📰 기사 헤드라인 캡처 카드를 생성 중입니다...</p>`;
+  const display = document.getElementById('active-image-display');
+  const placeholder = document.getElementById('active-image-placeholder');
+
+  if (placeholder) {
+    placeholder.style.display = 'block';
+    placeholder.innerText = '📰 기사 헤드라인 캡처 카드를 생성 중입니다...';
   }
+  if (display) display.style.display = 'none';
 
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
@@ -1097,10 +1123,12 @@ function generateHeadlineCardForSelected() {
 
   const dataUrl = canvas.toDataURL('image/png');
 
-  if (previewEl) {
-    previewEl.innerHTML = `
+  if (placeholder) placeholder.style.display = 'none';
+  if (display) {
+    display.style.display = 'block';
+    display.innerHTML = `
       <div style="margin-top:5px;">
-        <img src="${dataUrl}" style="max-width:100%; max-height:220px; object-fit:contain; border-radius:10px; border:1px solid rgba(168, 85, 247, 0.4); box-shadow:0 6px 18px rgba(0,0,0,0.5);" />
+        <img src="${dataUrl}" style="max-width:100%; max-height:300px; object-fit:contain; border-radius:10px; border:1px solid rgba(168, 85, 247, 0.4); box-shadow:0 6px 18px rgba(0,0,0,0.5);" />
         <div style="margin-top:8px; display:flex; justify-content:center; gap:8px;">
           <a href="${dataUrl}" download="news-card-${Date.now()}.png" class="btn btn-outline btn-sm" style="font-size:11px; color:var(--accent-purple); border-color:var(--accent-purple);">
             📥 뉴스 카드 이미지 다운로드
