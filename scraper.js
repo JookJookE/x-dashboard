@@ -221,10 +221,17 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
         const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
         let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
+        const originalSnippet = rawSnippet;
 
         if (rawSnippet.length < 30 && link) {
-          rawSnippet = await fetchArticlePageText(link);
+          const fetched = await fetchArticlePageText(link);
+          if (fetched && fetched.length > 15) {
+            rawSnippet = fetched;
+          } else {
+            rawSnippet = originalSnippet;
+          }
         }
+        
         if (!rawSnippet || rawSnippet.length < 15) {
           rawSnippet = title;
         }

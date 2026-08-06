@@ -1335,23 +1335,29 @@ function renderTextExcerpt(ctx, article, startY) {
   let snippet = article.contentSnippet || article.excerpt || article.title;
   
   // Clean snippet from ugly RSS artifacts
-  snippet = snippet
+  let cleaned = snippet
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(new RegExp(article.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
-    .replace(new RegExp((article.source || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
     .replace(/v\.daum\.net/gi, '')
     .replace(/n\.news\.naver\.com/gi, '')
     .replace(/boannews\.com/gi, '')
     .replace(/\[단독\]/gi, '')
     .replace(/\[인터뷰\]/gi, '')
+    .replace(new RegExp((article.source || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
     .replace(/\s+/g, ' ')
     .trim();
 
+  // Only remove the title if it leaves us with actual content!
+  let titleRemoved = cleaned.replace(new RegExp(article.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '').trim();
+  if (titleRemoved.length > 10) {
+    cleaned = titleRemoved;
+  }
+
+  snippet = cleaned;
   if (!snippet || snippet.length < 5) {
     snippet = "본문 요약 내용이 없습니다. 원본 링크를 참고해 주세요.";
   }
