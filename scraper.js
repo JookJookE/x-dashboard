@@ -105,20 +105,35 @@ function isSimilarArticleTitle(title1, title2) {
 async function fetchArticlePageText(link) {
   if (!link) return '';
   try {
+    const iconv = require('iconv-lite');
     const res = await axios.get(link, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
       timeout: 6000,
-      maxRedirects: 5
+      maxRedirects: 5,
+      responseType: 'arraybuffer'
     });
-    let cleaned = cleanHtml(res.data);
-    cleaned = cleaned.replace(/^[\s\S]*?(1분 요약|분 요약)/i, '');
+
+    let html = '';
+    const contentType = res.headers['content-type'] || '';
+    if (contentType.toLowerCase().includes('euc-kr')) {
+      html = iconv.decode(res.data, 'EUC-KR');
+    } else {
+      html = res.data.toString('utf-8');
+      if (html.toLowerCase().includes('charset=euc-kr')) {
+        html = iconv.decode(res.data, 'EUC-KR');
+      }
+    }
+
+    // Strip common non-article areas before stripping tags
+    html = html.replace(/<(nav|header|footer|aside|form)[^>]*>[\s\S]*?<\/\1>/gi, '');
+
+    let cleaned = cleanHtml(html);
+    
+    // Remove specific boilerplate words but DO NOT use [\s\S]* which destroys the whole article
     cleaned = cleaned.replace(/Semiconductor|Biotechnology|Robotics|Opinion|Membership|Newsletter|Energy|Future/gi, '');
-    cleaned = cleaned.replace(/프로필 보기[\s\S]*?1분 요약/gi, '');
-    cleaned = cleaned.replace(/출신대학 :[\s\S]*?연구분야 :/gi, '');
-    cleaned = cleaned.replace(/전공 :[\s\S]*?읽을 시간 :/gi, '');
-    cleaned = cleaned.replace(/기자|구독|무단전재|재배포 금지|Copyright[\s\S]*/gi, '');
+    cleaned = cleaned.replace(/(무단 전재|무단전재|재배포 금지|Copyright|ⓒ|기자|구독)/gi, '');
     cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
     return cleaned.substring(0, 1500);
