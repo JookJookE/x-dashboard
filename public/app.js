@@ -1160,8 +1160,55 @@ function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke) {
   if (stroke) ctx.stroke();
 }
 
+async function copyActiveImageToClipboard() {
+  const display = document.getElementById('active-image-display');
+  if (!display || display.style.display === 'none') return false;
+
+  const imgEl = display.querySelector('img');
+  if (!imgEl || !imgEl.src) return false;
+
+  try {
+    const src = imgEl.src;
+    let blob;
+
+    if (src.startsWith('data:image/png;base64,') || src.startsWith('data:image/jpeg;base64,')) {
+      const res = await fetch(src);
+      blob = await res.blob();
+    } else if (src.startsWith('data:image/svg+xml;utf8,') || src.startsWith('data:image/svg+xml;base64,')) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = src;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || 1200;
+      canvas.height = img.naturalHeight || 675;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    } else {
+      const res = await fetch(src);
+      blob = await res.blob();
+    }
+
+    if (blob && navigator.clipboard && navigator.clipboard.write) {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      return true;
+    }
+  } catch (e) {
+    console.log('Clipboard image write fallback:', e);
+  }
+  return false;
+}
+
 // Post via X Web Intent
-function postViaWebIntent() {
+async function postViaWebIntent() {
   let text = '';
   let part2Text = '';
 
@@ -1179,10 +1226,14 @@ function postViaWebIntent() {
     return;
   }
 
+  let imageCopied = false;
   if (part2Text) {
     navigator.clipboard.writeText(part2Text).catch(() => {});
   } else {
-    navigator.clipboard.writeText(text).catch(() => {});
+    imageCopied = await copyActiveImageToClipboard();
+    if (!imageCopied) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
   }
 
   if (selectedArticle) {
@@ -1200,6 +1251,8 @@ function postViaWebIntent() {
 
   if (isThreadModeActive && part2Text) {
     showToast('🌐 1번 메인 트윗이 X 작성창에 채워졌습니다! 2번 답글 타래 문구는 클립보드에 자동 복사되었습니다 (Ctrl+V).');
+  } else if (imageCopied) {
+    showToast('🌐 X 작성창에 문구가 자동 채워졌습니다! 🖼️ 포토 이미지도 클립보드에 자동 복사되었습니다 (Ctrl+V로 바로 붙여넣기 가능).');
   } else {
     showToast('🌐 X.com 작성 창에 문구가 자동으로 채워졌습니다! [✅ X 일반글] 표시가 반영되었습니다.');
   }
