@@ -265,6 +265,9 @@ app.post('/api/summarize', async (req, res) => {
       hooks: summary.hooks || [],
       tags: summary.tags || [],
       isAiGenerated: summary.isAiGenerated,
+      mode: summary.mode
+    });
+
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
