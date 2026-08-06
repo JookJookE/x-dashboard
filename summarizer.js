@@ -170,6 +170,9 @@ $NVDA $BTC $ETH #미국주식 #가상자산 #비트코인
     }
 
     let summaryText = generatedText.trim();
+    // Strip trailing hashtag lines and #/$ hashtags from main text
+    summaryText = summaryText.replace(/(?:^|\n)\s*[#$][\w가-힣\s#$]+/g, '').replace(/#[^\s#]+/g, '').trim();
+    
     addLog('SUCCESS', `[${article.categoryTag || article.category}] Gemini AI 한글 트윗 생성 완료 (${summaryText.length}자)`);
     const extra = generateHooksAndTags(article, summaryText);
     return { text: summaryText, hooks: extra.hooks, tags: extra.tags, isAiGenerated: true, mode };
@@ -177,8 +180,9 @@ $NVDA $BTC $ETH #미국주식 #가상자산 #비트코인
     const errorDetails = err.response?.data?.error?.message || err.message;
     addLog('ERROR', `Gemini AI 요약 실패 (${errorDetails}), 스마트 파서 사용`);
     const fallback = deepExpertSummary(article, mode);
-    const extra = generateHooksAndTags(article, fallback.text);
-    return { text: fallback.text, hooks: extra.hooks, tags: extra.tags, isAiGenerated: false, mode };
+    let cleanFallback = fallback.text.replace(/(?:^|\n)\s*[#$][\w가-힣\s#$]+/g, '').replace(/#[^\s#]+/g, '').trim();
+    const extra = generateHooksAndTags(article, cleanFallback);
+    return { text: cleanFallback, hooks: extra.hooks, tags: extra.tags, isAiGenerated: false, mode };
   }
 }
 

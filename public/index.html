@@ -372,11 +372,17 @@
               </div>
 
               <div class="form-group">
-                <label for="tweet-text-input">100% 완성된 최종 트윗 문구 (후킹 첫 줄 + 알짜 해시태그 포함):</label>
+                <label for="tweet-text-input">생성된 트윗 문구 (해시태그 제외된 깨끗한 본문):</label>
                 <textarea id="tweet-text-input" rows="8" placeholder="왼쪽 기사를 선택하면 최적의 트윗 문구가 1초 만에 자동 생성됩니다..."></textarea>
                 <div class="char-count-wrapper">
                   <span id="char-counter" class="char-counter">0 / 280자</span>
                   <span id="ai-badge" class="badge badge-info" style="display:inline-block;">스마트 본문 파싱 완료</span>
+                </div>
+
+                <!-- Recommended Hashtags Selector (Optional Manual Tap) -->
+                <div id="recommended-hashtags-box" style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span style="font-size:11px; font-weight:700; color:var(--text-muted);">🏷️ 원클릭 해시태그 추가 (원하는 태그 클릭):</span>
+                  <div id="recommended-hashtags-list" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
                 </div>
               </div>
 
