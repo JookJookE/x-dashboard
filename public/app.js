@@ -1196,12 +1196,10 @@ async function generateArticleCaptureCard(withPhoto = true) {
   ctx.fillText('💬 8   🔊   🖨️   공유', 940, 65);
 
   // Article Title
-  const title = selectedArticle.title || '';
   ctx.font = 'bold 32px "Pretendard", "Noto Sans KR", sans-serif';
   ctx.fillStyle = '#0f172a';
   ctx.textAlign = 'left';
 
-  const titleWords = title.split(' ');
   let line = '';
   const lines = [];
   const maxWidth = 880;
