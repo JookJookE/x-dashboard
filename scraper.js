@@ -40,12 +40,44 @@ function extractKeywords(str) {
   return new Set(words);
 }
 
+function extractNames(str) {
+  if (!str) return [];
+  const nonNameWords = new Set([
+    '논란', '근황', '파문', '폭로', '화제', '기사', '뉴스', '연예', '방송', '배우', '가수', '아이돌',
+    '드라마', '영화', '예능', '사연', '이혼', '파혼', '상견례', '축의금', '시댁', '며느리', '남친', '여친',
+    '캐나다', '미국', '한국', '일본', '중국', '오토바이', '수영복', '한달살기', '라이딩', '행복', '고백',
+    '입었다고', '민폐', '팀장님', '운동복', '출근룩', '사진', '공개', '재조명', '발언', '과거', '충격'
+  ]);
+
+  const words = str
+    .replace(/\[.*?\]/g, '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/[^\w\sㄱ-ㅎ가-힣]/g, ' ')
+    .split(/\s+/)
+    .filter(w => /^[가-힣]{2,4}$/.test(w) && !nonNameWords.has(w));
+    
+  return Array.from(new Set(words));
+}
+
 function isSimilarArticleTitle(title1, title2) {
   if (!title1 || !title2) return false;
   
   const clean1 = title1.replace(/\s+/g, '').toLowerCase();
   const clean2 = title2.replace(/\s+/g, '').toLowerCase();
   if (clean1 === clean2) return true;
+
+  // Person Name Exception Check:
+  // If both titles contain distinct 2-4 syllable person names and have NO shared names, they are NEVER duplicates!
+  const names1 = extractNames(title1);
+  const names2 = extractNames(title2);
+
+  if (names1.length > 0 && names2.length > 0) {
+    const hasSharedName = names1.some(n1 => names2.includes(n1));
+    if (!hasSharedName) {
+      return false; // Different people -> NOT a duplicate!
+    }
+  }
+
   if (clean1.length > 10 && clean2.length > 10) {
     if (clean1.includes(clean2) || clean2.includes(clean1)) return true;
   }

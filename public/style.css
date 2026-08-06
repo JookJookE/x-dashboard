@@ -75,6 +75,10 @@ body {
   justify-content: space-between;
   flex-shrink: 0;
   transition: transform 0.3s ease;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .brand {
