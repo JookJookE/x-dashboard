@@ -372,11 +372,39 @@
               </div>
 
               <div class="form-group">
-                <label for="tweet-text-input">생성된 트윗 문구 (해시태그 제외된 깨끗한 본문):</label>
-                <textarea id="tweet-text-input" rows="8" placeholder="왼쪽 기사를 선택하면 최적의 트윗 문구가 1초 만에 자동 생성됩니다..."></textarea>
-                <div class="char-count-wrapper">
-                  <span id="char-counter" class="char-counter">0 / 280자</span>
-                  <span id="ai-badge" class="badge badge-info" style="display:inline-block;">스마트 본문 파싱 완료</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <label for="tweet-text-input" style="margin-bottom:0;">생성된 트윗 문구 (해시태그 제외된 깨끗한 본문):</label>
+                  <button id="btn-toggle-thread-mode" class="btn btn-outline btn-sm" style="color:var(--accent-gold); border-color:var(--accent-gold); font-weight:700;" onclick="toggleThreadMode()">
+                    🧵 2단 타래(Thread)로 분할하기
+                  </button>
+                </div>
+                
+                <!-- Single Tweet View -->
+                <div id="single-tweet-container">
+                  <textarea id="tweet-text-input" rows="8" placeholder="왼쪽 기사를 선택하면 최적의 트윗 문구가 1초 만에 자동 생성됩니다..."></textarea>
+                  <div class="char-count-wrapper">
+                    <span id="char-counter" class="char-counter">0 / 280자</span>
+                    <span id="ai-badge" class="badge badge-info" style="display:inline-block;">스마트 본문 파싱 완료</span>
+                  </div>
+                </div>
+
+                <!-- Thread Split View (Hidden by default) -->
+                <div id="thread-tweet-container" style="display:none; flex-direction:column; gap:12px; margin-top:8px;">
+                  <div style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(6,182,212,0.3);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <span style="font-size:12px; font-weight:800; color:var(--accent-cyan);">🧵 1번 메인 트윗 (첫 줄/제목 훅)</span>
+                      <button class="btn btn-outline btn-sm" onclick="copyThreadPart(1)">📋 1번 복사</button>
+                    </div>
+                    <textarea id="thread-part-1" rows="3" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:8px; border-radius:6px; font-size:13px;"></textarea>
+                  </div>
+
+                  <div style="background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; border:1px solid rgba(250,204,21,0.3);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <span style="font-size:12px; font-weight:800; color:var(--accent-gold);">🧵 2번 타래 답글 (상세 본문 및 원본 링크)</span>
+                      <button class="btn btn-outline btn-sm" onclick="copyThreadPart(2)">📋 2번 복사</button>
+                    </div>
+                    <textarea id="thread-part-2" rows="6" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:8px; border-radius:6px; font-size:13px;"></textarea>
+                  </div>
                 </div>
 
                 <!-- Recommended Hashtags Selector (Optional Manual Tap) -->
