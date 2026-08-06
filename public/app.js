@@ -1255,37 +1255,13 @@ async function postViaWebIntent() {
     return;
   }
 
-  // STEP 1: Copy to clipboard FIRST (before opening new window steals focus)
-  let imageCopied = false;
+  // Thread mode: copy part2 reply text to clipboard
   if (isThreadModeActive && part2Text) {
-    // Thread mode: copy part2 text to clipboard
     try {
       await navigator.clipboard.writeText(part2Text);
     } catch (e) {}
-  } else {
-    // Single tweet mode: try to copy image to clipboard
-    const hasImage = (() => {
-      const display = document.getElementById('active-image-display');
-      if (!display || display.style.display === 'none') return false;
-      const imgEl = display.querySelector('img');
-      return !!(imgEl && imgEl.src);
-    })();
-
-    if (hasImage) {
-      try {
-        imageCopied = await copyActiveImageToClipboard();
-        console.log('[postViaWebIntent] Image clipboard copy result:', imageCopied);
-      } catch (e) {
-        console.error('[postViaWebIntent] Image clipboard copy error:', e);
-        imageCopied = false;
-      }
-      // IMPORTANT: Do NOT fall back to text copy even if image copy fails.
-      // The text is already auto-filled via URL intent, so clipboard should keep image.
-    }
-    // If no image exists at all, don't copy anything - text goes via URL intent anyway
   }
 
-  // STEP 2: Mark as posted
   if (selectedArticle) {
     selectedArticle.postedTweet = true;
     saveLocalPostedStatus(selectedArticle.id, 'tweet');
@@ -1296,15 +1272,11 @@ async function postViaWebIntent() {
     }).then(() => renderFilteredArticles()).catch(() => {});
   }
 
-  // STEP 3: Open X compose window AFTER clipboard is set
   const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
 
-  // STEP 4: Show toast
   if (isThreadModeActive && part2Text) {
     showToast('🌐 1번 메인 트윗이 X 작성창에 채워졌습니다! 2번 답글 타래 문구는 클립보드에 자동 복사되었습니다 (Ctrl+V).');
-  } else if (imageCopied) {
-    showToast('🌐 X 작성창에 문구가 자동 채워졌습니다! 🖼️ 이미지가 클립보드에 복사됨 → X에서 Ctrl+V로 사진 첨부하세요!');
   } else {
     showToast('🌐 X.com 작성 창에 문구가 자동으로 채워졌습니다!');
   }
