@@ -399,40 +399,69 @@ app.get('/api/trending-images', async (req, res) => {
     const ceid = region === 'us' ? 'US:en' : 'KR:ko';
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
 
-    const rssRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 });
+    const rssRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, timeout: 8000 });
     const items = [...rssRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
 
-    const linksToFetch = [];
+    const candidates = [];
 
     items.slice(0, 15).forEach((m) => {
-      const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
-      const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
+      const itemXml = m[0];
+      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
+      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
+      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
 
       let title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim() : '';
       const sourceIdx = title.lastIndexOf(' - ');
       if (sourceIdx > 0) title = title.substring(0, sourceIdx);
 
       const link = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
-      if (link && !link.includes('news.google.com')) {
-        linksToFetch.push({ title, link });
+      const descHtml = descMatch ? descMatch[1] : '';
+
+      const descImgMatch = descHtml.match(/src=["'](https?:\/\/[^"']+)["']/i);
+      if (descImgMatch && descImgMatch[1] && !descImgMatch[1].includes('logo') && !descImgMatch[1].includes('favicon')) {
+        let photo = descImgMatch[1].replace(/&amp;/g, '&');
+        if (photo.startsWith('//')) photo = 'https:' + photo;
+        candidates.push({ title, imageUrl: photo, link });
+      } else if (link) {
+        candidates.push({ title, link, needsFetch: true });
       }
     });
 
     const images = [];
-    if (linksToFetch.length > 0) {
-      const fetched = await Promise.allSettled(linksToFetch.slice(0, 12).map(async item => {
-        const directRes = await axios.get(item.link, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          timeout: 4000
-        });
-        const dHtml = directRes.data;
-        const ogMatch = dHtml.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
-                        dHtml.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
-        if (ogMatch && ogMatch[1] && !ogMatch[1].toLowerCase().includes('logo')) {
-          let photo = ogMatch[1].replace(/&amp;/g, '&');
-          if (photo.startsWith('//')) photo = 'https:' + photo;
-          return { title: item.title, imageUrl: photo, link: item.link };
-        }
+
+    candidates.forEach(c => {
+      if (!c.needsFetch && c.imageUrl) {
+        images.push(c);
+      }
+    });
+
+    const fetchTargets = candidates.filter(c => c.needsFetch).slice(0, 12);
+
+    if (fetchTargets.length > 0) {
+      const fetched = await Promise.allSettled(fetchTargets.map(async item => {
+        try {
+          const directRes = await axios.get(item.link, {
+            headers: { 
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            },
+            timeout: 5000,
+            maxRedirects: 5
+          });
+          const dHtml = directRes.data;
+          if (typeof dHtml !== 'string') return null;
+
+          const ogMatch = dHtml.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+                          dHtml.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) ||
+                          dHtml.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
+          if (ogMatch && ogMatch[1]) {
+            let photo = ogMatch[1].replace(/&amp;/g, '&');
+            if (photo.startsWith('//')) photo = 'https:' + photo;
+            if (!photo.toLowerCase().includes('logo') && !photo.toLowerCase().includes('icon')) {
+              return { title: item.title, imageUrl: photo, link: item.link };
+            }
+          }
+        } catch (e) {}
         return null;
       }));
 
@@ -443,7 +472,16 @@ app.get('/api/trending-images', async (req, res) => {
       });
     }
 
-    res.json({ success: true, keyword, images: images.slice(0, 10) });
+    const uniqueImages = [];
+    const seenUrls = new Set();
+    images.forEach(img => {
+      if (img.imageUrl && !seenUrls.has(img.imageUrl)) {
+        seenUrls.add(img.imageUrl);
+        uniqueImages.push(img);
+      }
+    });
+
+    res.json({ success: true, keyword, images: uniqueImages.slice(0, 10) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
