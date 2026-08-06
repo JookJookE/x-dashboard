@@ -245,7 +245,7 @@ async function fetchLatestArticles(limit = 35, customScanTime = null) {
       fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTime),
       fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 6, scanBatchTime, '5d'),
       fetchNewsRssArticles('pann', '("네이트판" OR "사연") (파혼 OR 상견례 OR 축의금 OR "어떻게 생각" OR 이혼 OR 갈등 OR 시어머니 OR 며느리) -연예 -방송 -배우 -아이돌 -예능 -드라마 -영화 -가수', '네이트판', '⚖️ 네이트판 / 사연', 6, scanBatchTime, '5d'),
-      fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 6, scanBatchTime, '5d'),
+      fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 15, scanBatchTime, '5d'),
       fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 5, scanBatchTime, '5d')
     ]);
 
