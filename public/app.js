@@ -1162,13 +1162,28 @@ function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke) {
 
 // Post via X Web Intent
 function postViaWebIntent() {
-  const text = document.getElementById('tweet-text-input').value.trim();
+  let text = '';
+  let part2Text = '';
+
+  if (isThreadModeActive) {
+    const p1 = document.getElementById('thread-part-1')?.value?.trim();
+    const p2 = document.getElementById('thread-part-2')?.value?.trim();
+    text = p1 || document.getElementById('tweet-text-input').value.trim();
+    part2Text = p2 || '';
+  } else {
+    text = document.getElementById('tweet-text-input').value.trim();
+  }
+
   if (!text) {
     showToast('트윗할 내용을 입력해 주세요.');
     return;
   }
 
-  navigator.clipboard.writeText(text).catch(() => {});
+  if (part2Text) {
+    navigator.clipboard.writeText(part2Text).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
 
   if (selectedArticle) {
     selectedArticle.postedTweet = true;
@@ -1183,7 +1198,11 @@ function postViaWebIntent() {
   const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
 
-  showToast('🌐 X.com 작성 창에 문구가 자동으로 채워졌습니다! [✅ X 일반글] 표시가 반영되었습니다.');
+  if (isThreadModeActive && part2Text) {
+    showToast('🌐 1번 메인 트윗이 X 작성창에 채워졌습니다! 2번 답글 타래 문구는 클립보드에 자동 복사되었습니다 (Ctrl+V).');
+  } else {
+    showToast('🌐 X.com 작성 창에 문구가 자동으로 채워졌습니다! [✅ X 일반글] 표시가 반영되었습니다.');
+  }
 }
 
 // Open X Articles Editor (Long-form post)
@@ -1550,14 +1569,13 @@ function updateThreadParts() {
   let part2 = '';
 
   if (paragraphs.length >= 2) {
-    part1 = paragraphs.slice(0, 2).join('\n\n');
-    part2 = paragraphs.slice(2).join('\n\n');
+    part1 = paragraphs[0].trim();
+    part2 = paragraphs.slice(1).join('\n\n').trim();
   } else {
-    const half = Math.floor(fullText.length / 2);
-    const spaceIdx = fullText.indexOf(' ', half);
-    if (spaceIdx > 0) {
-      part1 = fullText.substring(0, spaceIdx).trim();
-      part2 = fullText.substring(spaceIdx).trim();
+    const firstBreak = fullText.indexOf('\n');
+    if (firstBreak > 0) {
+      part1 = fullText.substring(0, firstBreak).trim();
+      part2 = fullText.substring(firstBreak).trim();
     } else {
       part1 = fullText;
       part2 = '';
