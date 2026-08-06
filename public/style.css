@@ -77,12 +77,16 @@ body {
   transition: transform 0.3s ease;
   position: sticky;
   top: 0;
-  align-self: flex-start;
-  max-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 .sidebar::-webkit-scrollbar {
-  display: none;
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
 }
 
 .brand {
