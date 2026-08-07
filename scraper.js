@@ -394,11 +394,11 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
   try {
     let bingQuery = queryStr;
     if (categoryKey === 'blind') {
-      bingQuery = '블라인드 직장인 이직 연봉';
+      bingQuery = '블라인드 직장인';
     } else if (categoryKey === 'gossip') {
-      bingQuery = '연예인 근황 이슈 방송 화제';
+      bingQuery = '연예인 근황';
     } else if (categoryKey === 'mindset') {
-      bingQuery = '심리학 멘탈 대인관계 자존감';
+      bingQuery = '심리학 멘탈';
     } else {
       bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
     }
