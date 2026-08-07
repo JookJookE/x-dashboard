@@ -392,7 +392,17 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 
   // 2차 시도: Bing News RSS 백업 엔진 (Render 클라우드 IP 차단 완전 회피)
   try {
-    const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    let bingQuery = queryStr;
+    if (categoryKey === 'blind') {
+      bingQuery = '블라인드 직장인 이직 연봉';
+    } else if (categoryKey === 'gossip') {
+      bingQuery = '연예인 근황 이슈 방송 화제';
+    } else if (categoryKey === 'mindset') {
+      bingQuery = '심리학 멘탈 대인관계 자존감';
+    } else {
+      bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    }
+
     const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=ko-KR`;
     const bingRes = await axios.get(bingUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
