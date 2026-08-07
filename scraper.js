@@ -185,7 +185,60 @@ async function fetchHeisenbergArticles(limit = 5, scanBatchTime = null) {
   }
 }
 
-// 2. Korean Google News RSS Feeds
+// 2. Nate Pann Talkers' Choice
+async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
+  const iconv = require('iconv-lite');
+  const url = 'https://pann.nate.com/talk/c20001?page=1'; // 톡커들의 선택
+  try {
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      timeout: 10000,
+      responseType: 'arraybuffer'
+    });
+    const html = iconv.decode(res.data, 'EUC-KR');
+    
+    // Extract links inside the list. They usually look like <a href="/talk/12345678" title="Title">
+    const matches = [...html.matchAll(/<a href=["'](\/talk\/[0-9]+)["'][^>]*title=["']([^"']+)["']/gi)];
+    
+    const articles = [];
+    const seenLinks = new Set();
+    
+    for (const match of matches) {
+      if (articles.length >= limit) break;
+      const link = `https://pann.nate.com${match[1]}`;
+      const title = cleanHtml(match[2]);
+      
+      if (seenLinks.has(link) || title.length < 5) continue;
+      seenLinks.add(link);
+      
+      const id = `pann-${match[1].replace('/talk/', '')}`;
+      if (isPosted(id)) continue;
+      
+      // Attempt to fetch body text for snippet
+      const rawSnippet = await fetchArticlePageText(link) || title;
+      
+      articles.push({
+        id,
+        category: 'pann',
+        categoryTag: '⚖️ 네이트판 / 사연',
+        date: new Date().toISOString(),
+        fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
+        link,
+        title,
+        source: '네이트판',
+        contentSnippet: rawSnippet.substring(0, 1500),
+        isPosted: false
+      });
+    }
+    
+    return articles;
+  } catch (err) {
+    console.error('Error fetching Nate Pann:', err.message);
+    return [];
+  }
+}
+
+// 3. Korean Google News RSS Feeds
 async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
@@ -354,7 +407,7 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
       fetchGlobalNewsRssArticles('stock', '(Nasdaq OR "S&P500" OR "Stock Market" OR NVDA OR TSLA)', '글로벌 주식', '📈 주식', 3, scanBatchTimeVal),
       fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTimeVal),
       fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d'),
-      fetchNewsRssArticles('pann', '("네이트판" OR "사연") (파혼 OR 상견례 OR 축의금 OR "어떻게 생각" OR 이혼 OR 갈등 OR 시어머니 OR 며느리) -연예 -방송 -배우 -아이돌 -예능 -드라마 -영화 -가수', '네이트판', '⚖️ 네이트판 / 사연', 8, scanBatchTimeVal, '5d'),
+      fetchNatePannArticles(8, scanBatchTimeVal),
       fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d'),
       fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d')
     ]);
