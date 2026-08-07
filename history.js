@@ -56,18 +56,12 @@ function saveStoredArticles(freshArticles) {
   freshArticles.forEach(a => map.set(a.id, a));
   
   const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 3600 * 1000);
-  const threeHoursAgo = new Date(Date.now() - 3.5 * 3600 * 1000);
-  const techCategories = new Set(['it', 'coin', 'stock', 'economy', 'globalIt', 'globalCoin', 'globalStock', 'globalEconomy']);
 
   let merged = Array.from(map.values())
     .filter(a => {
       const artDate = new Date(a.date);
       if (isNaN(artDate.getTime())) return false;
-      // Tech & Finance categories strictly enforce 2h timeframe rule (3.5h max buffer)
-      if (techCategories.has(a.category)) {
-        return artDate >= threeHoursAgo;
-      }
-      // Community categories retain 5 days
+      // All categories retain 5 days DB retention
       return artDate >= fiveDaysAgo;
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
