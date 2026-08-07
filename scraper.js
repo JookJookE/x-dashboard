@@ -299,6 +299,59 @@ function parseGoogleNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal
   return articles;
 }
 
+// Helper to parse XML from Bing News RSS
+function parseBingNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal = false) {
+  const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+  const articles = [];
+
+  for (let i = 0; i < items.length && articles.length < limit; i++) {
+    const itemXml = items[i][0];
+    const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
+    const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
+    const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
+    const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
+    const sourceMatch = itemXml.match(/<news:source[^>]*>(.*?)<\/news:source>/i) || itemXml.match(/<source[^>]*>(.*?)<\/source>/i);
+
+    if (titleMatch) {
+      let title = cleanHtml(titleMatch[1]);
+      let sourceName = sourceMatch ? cleanHtml(sourceMatch[1]) : '';
+      if (!sourceName && title.includes(' - ')) {
+        const idx = title.lastIndexOf(' - ');
+        sourceName = title.substring(idx + 3).trim();
+        title = title.substring(0, idx).trim();
+      }
+
+      const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
+      if (isDuplicateTopic) continue;
+
+      const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
+      const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
+      let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
+
+      if (!rawSnippet || rawSnippet.length < 15) {
+        rawSnippet = title;
+      }
+
+      const id = isGlobal ? `global-${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}` : `${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
+
+      articles.push({
+        id,
+        category: isGlobal ? 'global' : categoryKey,
+        categoryTag: isGlobal ? `🌐 해외뉴스 (${tag.replace('🌐 외신 ', '')})` : tag,
+        title: isGlobal ? `[외신 ${sourceName || '미국뉴스'}] ${title}` : title,
+        source: sourceName || (isGlobal ? '해외언론' : '뉴스'),
+        link,
+        date: isoDate,
+        excerpt: rawSnippet.substring(0, 300),
+        contentSnippet: isGlobal ? `Global News Source (${sourceName}): ${rawSnippet.substring(0, 1500)}` : `${categoryName} (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
+        isGlobal,
+        isPosted: isPosted(id)
+      });
+    }
+  }
+  return articles;
+}
+
 // Helper for proxy request with 429 retry
 async function fetchProxyWithRetry(proxyUrl) {
   try {
@@ -312,18 +365,18 @@ async function fetchProxyWithRetry(proxyUrl) {
   }
 }
 
-// 3. Korean Google News RSS Feeds (1차 직통 수집 ➔ 실패 시 2차 우회 수집 하이브리드 방식)
+// 3. Korean News RSS Feeds (1차 구글 직통 ➔ 2차 Bing News 백업 ➔ 3차 rss2json 백업)
 async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
 
-  // 1차 시도: 구글 뉴스 직통 수집 (100개 풀 원본)
+  // 1차 시도: 구글 뉴스 직통 수집 (내 컴퓨터 / 허용 IP)
   try {
     const https = require('https');
     const directRes = await axios.get(googleUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 7000
+      timeout: 5000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -334,10 +387,30 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ 우회 전환] ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ Bing 백업 전환] ${categoryName} 구글 연결 제한. Bing 뉴스 엔진으로 자동 전환합니다.`);
   }
 
-  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (429 재시도 적용 백업)
+  // 2차 시도: Bing News RSS 백업 엔진 (Render 클라우드 IP 차단 완전 회피)
+  try {
+    const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=ko-KR`;
+    const bingRes = await axios.get(bingUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      timeout: 6000
+    });
+
+    if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
+      const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, false);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `🔄 [Bing 백업 수집 성공] ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (bingErr) {
+    addLog('WARN', `⚠️ [Bing 백업 실패 ➔ rss2json 전환] ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
+  }
+
+  // 3차 시도: rss2json 우회 수집 (최종 백업)
   const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
   try {
     const res = await fetchProxyWithRetry(proxyUrl);
@@ -403,18 +476,18 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
   }
 }
 
-// 3. Global Foreign English News RSS Feeds (1차 직통 수집 ➔ 실패 시 2차 우회 수집 하이브리드 방식)
+// 4. Global Foreign English News RSS Feeds (1차 구글 직통 ➔ 2차 Bing News 백업 ➔ 3차 rss2json 백업)
 async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
 
-  // 1차 시도: 구글 뉴스 직통 수집 (100개 풀 원본)
+  // 1차 시도: 구글 뉴스 직통 수집 (내 컴퓨터 / 허용 IP)
   try {
     const https = require('https');
     const directRes = await axios.get(googleUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 7000
+      timeout: 5000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -425,10 +498,30 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ 우회 전환] Global ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ Bing 백업 전환] Global ${categoryName} 구글 연결 제한. Bing 글로벌 뉴스 엔진으로 자동 전환합니다.`);
   }
 
-  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (429 재시도 적용 백업)
+  // 2차 시도: Bing Global News RSS 백업 엔진
+  try {
+    const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=en-US`;
+    const bingRes = await axios.get(bingUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      timeout: 6000
+    });
+
+    if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
+      const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, true);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `🔄 [Bing 백업 수집 성공] Global ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (bingErr) {
+    addLog('WARN', `⚠️ [Bing 백업 실패 ➔ rss2json 전환] Global ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
+  }
+
+  // 3차 시도: rss2json 우회 수집 (최종 백업)
   const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
   try {
     const res = await fetchProxyWithRetry(proxyUrl);
