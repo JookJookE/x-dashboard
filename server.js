@@ -405,34 +405,39 @@ app.get('/api/trending-articles', async (req, res) => {
     const hl = region === 'us' ? 'en-US' : 'ko';
     const gl = region === 'us' ? 'US' : 'KR';
     const ceid = region === 'us' ? 'US:en' : 'KR:ko';
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
+    
+    const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
+    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
 
-    const https = require('https');
     const rssRes = await axios.get(url, { 
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
-      }, 
-      httpsAgent: new https.Agent({ family: 4 }),
-      timeout: 15000 
+      timeout: 10000 
     });
-    const items = [...rssRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+    
+    if (rssRes.data.status !== 'ok') return res.status(500).json({ success: false, message: 'Google News blocked or empty' });
+    const items = rssRes.data.items || [];
 
-    const articles = items.slice(0, 5).map((m, idx) => {
-      const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
-      const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
-      const dateMatch = m[0].match(/<pubDate>(.*?)<\/pubDate>/i);
-      const descMatch = m[0].match(/<description>(.*?)<\/description>/i);
+    const articles = items.slice(0, 5).map((item, idx) => {
+      const titleMatch = [null, item.title || ''];
+      const linkMatch = [null, item.link || ''];
+      const dateMatch = [null, item.pubDate || ''];
+      const descMatch = [null, item.description || ''];
 
       let title = titleMatch ? titleMatch[1] : '';
       title = title.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
-      const sourceIdx = title.lastIndexOf(' - ');
-      if (sourceIdx > 0) title = title.substring(0, sourceIdx);
+      
+      const sourceIndex = title.lastIndexOf(' - ');
+      let sourceName = '';
+      if (sourceIndex > 0) {
+        sourceName = title.substring(sourceIndex + 3).trim();
+        title = title.substring(0, sourceIndex).trim();
+      }
 
-      const link = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+      let rawSnippet = descMatch ? descMatch[1] : '';
+      rawSnippet = rawSnippet.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
+
+      const link = linkMatch ? linkMatch[1] : '';
       const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
-      let snippet = descMatch ? descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').trim() : title;
+      const id = `trending-${Buffer.from(title).toString('hex').substring(0, 12)}`;
 
       return {
         id: `trending-${idx}-${Date.now()}`,

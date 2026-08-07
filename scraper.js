@@ -248,27 +248,25 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
 }
 
 // 3. Korean Google News RSS Feeds
-async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '2h') {
+async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '1d') {
   const freshQuery = `${queryStr} when:${timeframe}`;
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
+  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
   try {
-    const https = require('https');
     const res = await axios.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      httpsAgent: new https.Agent({ family: 4 }),
-      timeout: 15000
+      timeout: 10000
     });
 
-    const xml = res.data;
-    const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+    if (res.data.status !== 'ok') return [];
+    const items = res.data.items || [];
     const articles = [];
 
     for (let i = 0; i < items.length && articles.length < limit; i++) {
-      const itemXml = items[i][0];
-      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
-      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
-      const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
-      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
+      const itemXml = items[i];
+      const titleMatch = [null, itemXml.title || ''];
+      const linkMatch = [null, itemXml.link || ''];
+      const dateMatch = [null, itemXml.pubDate || ''];
+      const descMatch = [null, itemXml.description || ''];
 
       if (titleMatch) {
         let title = cleanHtml(titleMatch[1]);
@@ -285,17 +283,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
         const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
         let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
-        const originalSnippet = rawSnippet;
 
-        if (rawSnippet.length < 30 && link) {
-          const fetched = await fetchArticlePageText(link);
-          if (fetched && fetched.length > 15) {
-            rawSnippet = fetched;
-          } else {
-            rawSnippet = originalSnippet;
-          }
-        }
-        
         if (!rawSnippet || rawSnippet.length < 15) {
           rawSnippet = title;
         }
@@ -306,12 +294,12 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
           id,
           category: categoryKey,
           categoryTag: tag,
-          date: isoDate,
-          fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
-          link,
           title,
-          source: sourceName,
-          contentSnippet: rawSnippet.substring(0, 1500),
+          source: sourceName || '뉴스',
+          link,
+          date: isoDate,
+          excerpt: rawSnippet.substring(0, 300),
+          contentSnippet: `${categoryName} (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
           isPosted: isPosted(id)
         });
       }
@@ -324,27 +312,25 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 }
 
 // 3. Global Foreign English News RSS Feeds (월스트리트저널, 로이터, 코인데스크 외신 뉴스)
-async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null, timeframe = '2h') {
+async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null, timeframe = '1d') {
   const freshQuery = `${queryStr} when:${timeframe}`;
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
+  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
   try {
-    const https = require('https');
     const res = await axios.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      httpsAgent: new https.Agent({ family: 4 }),
-      timeout: 15000
+      timeout: 10000
     });
 
-    const xml = res.data;
-    const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+    if (res.data.status !== 'ok') return [];
+    const items = res.data.items || [];
     const articles = [];
 
     for (let i = 0; i < items.length && articles.length < limit; i++) {
-      const itemXml = items[i][0];
-      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
-      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
-      const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
-      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
+      const itemXml = items[i];
+      const titleMatch = [null, itemXml.title || ''];
+      const linkMatch = [null, itemXml.link || ''];
+      const dateMatch = [null, itemXml.pubDate || ''];
+      const descMatch = [null, itemXml.description || ''];
 
       if (titleMatch) {
         let title = cleanHtml(titleMatch[1]);
@@ -372,11 +358,11 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
           id,
           category: 'global',
           categoryTag: `🌐 해외뉴스 (${tag.replace('🌐 외신 ', '')})`,
-          date: isoDate,
-          fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
+          title: `[외신 ${sourceName || '미국뉴스'}] ${title}`,
+          source: sourceName || '해외언론',
           link,
-          title: `[외신 ${sourceName ? sourceName : '속보'}] ${title}`,
-          source: sourceName,
+          date: isoDate,
+          excerpt: rawSnippet.substring(0, 300),
           contentSnippet: `Global News Source (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
           isGlobal: true,
           isPosted: isPosted(id)
@@ -395,21 +381,35 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
   addLog('INFO', '국내외 최신 소식 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
 
   try {
-    const heisenberg = await fetchHeisenbergArticles(5, scanBatchTimeVal);
-    const itNews = await fetchNewsRssArticles('it', '(IT OR 테크 OR 반도체 OR AI OR 엔비디아 OR 애플 OR 빅테크)', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal);
-    const coinNews = await fetchNewsRssArticles('coin', '(비트코인 OR 가상자산 OR 코인 OR 이더리움 OR 암호화폐 OR 리플)', '코인', '🪙 코인', 4, scanBatchTimeVal);
-    const stockNews = await fetchNewsRssArticles('stock', '(주식 OR 증시 OR 코스피 OR 미국주식 OR 나스닥 OR 엔비디아 OR 테슬라)', '주식', '📈 주식', 4, scanBatchTimeVal);
-    const economyNews = await fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTimeVal);
-    
-    const globalIt = await fetchGlobalNewsRssArticles('it', '(Nvidia OR Apple OR OpenAI OR "Artificial Intelligence" OR Tech)', '글로벌 IT', '💻 IT', 3, scanBatchTimeVal);
-    const globalCoin = await fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple)', '글로벌 코인', '🪙 코인', 3, scanBatchTimeVal);
-    const globalStock = await fetchGlobalNewsRssArticles('stock', '(Nasdaq OR "S&P500" OR "Stock Market" OR NVDA OR TSLA)', '글로벌 주식', '📈 주식', 3, scanBatchTimeVal);
-    const globalEconomy = await fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTimeVal);
-    
-    const blindNews = await fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d');
-    const pannNews = await fetchNatePannArticles(8, scanBatchTimeVal);
-    const gossipNews = await fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d');
-    const mindsetNews = await fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d');
+    const [
+      heisenberg,
+      itNews,
+      coinNews,
+      stockNews,
+      economyNews,
+      globalIt,
+      globalCoin,
+      globalStock,
+      globalEconomy,
+      blindNews,
+      pannNews,
+      gossipNews,
+      mindsetNews
+    ] = await Promise.all([
+      fetchHeisenbergArticles(5, scanBatchTimeVal),
+      fetchNewsRssArticles('it', '(IT OR 테크 OR 반도체 OR AI OR 엔비디아 OR 애플 OR 빅테크)', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('coin', '(비트코인 OR 가상자산 OR 코인 OR 이더리움 OR 암호화폐 OR 리플)', '코인', '🪙 코인', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('stock', '(주식 OR 증시 OR 코스피 OR 미국주식 OR 나스닥 OR 엔비디아 OR 테슬라)', '주식', '📈 주식', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('it', '(Nvidia OR Apple OR OpenAI OR "Artificial Intelligence" OR Tech)', '글로벌 IT', '💻 IT', 3, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple)', '글로벌 코인', '🪙 코인', 3, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('stock', '(Nasdaq OR "S&P500" OR "Stock Market" OR NVDA OR TSLA)', '글로벌 주식', '📈 주식', 3, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('economy', '(Fed OR "Federal Reserve" OR "Interest Rate" OR Inflation)', '글로벌 경제', '💵 경제', 3, scanBatchTimeVal),
+      fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d'),
+      fetchNatePannArticles(8, scanBatchTimeVal),
+      fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d'),
+      fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d')
+    ]);
 
     let allArticles = [
       ...heisenberg,
