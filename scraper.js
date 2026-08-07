@@ -321,9 +321,9 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
   try {
     const https = require('https');
     const directRes = await axios.get(googleUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      httpsAgent: new https.Agent({ family: 4 }),
-      timeout: 3500
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
+      timeout: 7000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -334,7 +334,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ 우회 전환] ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
   }
 
   // 2차 시도: 직통 실패 시 rss2json 우회 수집 (429 재시도 적용 백업)
@@ -412,9 +412,9 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   try {
     const https = require('https');
     const directRes = await axios.get(googleUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      httpsAgent: new https.Agent({ family: 4 }),
-      timeout: 3500
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
+      timeout: 7000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -425,7 +425,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] Global ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ 우회 전환] Global ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
   }
 
   // 2차 시도: 직통 실패 시 rss2json 우회 수집 (429 재시도 적용 백업)
