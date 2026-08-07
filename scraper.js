@@ -374,11 +374,13 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 
   // 1차 시도: 구글 뉴스 직통 수집 (내 컴퓨터 / 허용 IP)
   try {
-    const https = require('https');
     const directRes = await axios.get(googleUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 1500
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+      },
+      timeout: 5000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -394,10 +396,14 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
   try {
-    const cfUrl = `${CF_WORKER_URL}${googleUrl}`;
+    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
     const cfRes = await axios.get(cfUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      timeout: 8000
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+      },
+      timeout: 6000
     });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
@@ -408,7 +414,22 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       }
     }
   } catch (cfErr) {
-    addLog('WARN', `🚫 [구글 프록시 지연 ➔ Bing 백업 전환] ${categoryName} 구글 연결 지연. Bing 뉴스 엔진으로 자동 전환합니다.`);
+    // 2차 프록시 실패 시 3차 rss2json 구글 릴레이 시도
+  }
+
+  // 3차 시도: rss2json 구글 뉴스 릴레이 수집
+  try {
+    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+    const r2jRes = await axios.get(r2jUrl, { timeout: 5000 });
+    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
+      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, false);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `⚡ [구글 릴레이 성공] ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (r2jErr) {
+    addLog('WARN', `🚫 [구글 수집 지연 ➔ Bing 백업 전환] ${categoryName} 구글 연결 지연. Bing 뉴스 엔진으로 자동 전환합니다.`);
   }
 
   // 3차 시도: Bing News RSS 백업 엔진
@@ -514,11 +535,13 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
 
   // 1차 시도: 구글 뉴스 직통 수집 (내 컴퓨터 / 허용 IP)
   try {
-    const https = require('https');
     const directRes = await axios.get(googleUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 1500
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      timeout: 5000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -534,10 +557,14 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
   try {
-    const cfUrl = `${CF_WORKER_URL}${googleUrl}`;
+    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
     const cfRes = await axios.get(cfUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      timeout: 8000
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      timeout: 6000
     });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
@@ -548,6 +575,21 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
       }
     }
   } catch (cfErr) {
+    // 2차 프록시 실패 시 3차 rss2json 구글 릴레이 시도
+  }
+
+  // 3차 시도: rss2json 글로벌 구글 뉴스 릴레이 수집
+  try {
+    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+    const r2jRes = await axios.get(r2jUrl, { timeout: 5000 });
+    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
+      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, true);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `⚡ [구글 릴레이 성공] Global ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (r2jErr) {
     addLog('WARN', `🚫 [구글 프록시 지연 ➔ Bing 백업 전환] Global ${categoryName} 구글 연결 지연. Bing 글로벌 뉴스 엔진으로 자동 전환합니다.`);
   }
 
