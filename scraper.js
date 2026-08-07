@@ -195,7 +195,7 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
       timeout: 10000,
       responseType: 'arraybuffer'
     });
-    const html = iconv.decode(res.data, 'EUC-KR');
+    const html = res.data.toString('utf-8');
     
     // Extract links inside the list. They usually look like <a href="/talk/12345678" title="Title">
     const matches = [...html.matchAll(/<a href=["'](\/talk\/[0-9]+)["'][^>]*title=["']([^"']+)["']/gi)];
