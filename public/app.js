@@ -1913,27 +1913,38 @@ function updateThreadParts() {
   const textInput = document.getElementById('tweet-text-input');
   const rawText = textInput.value.trim();
 
-  // Strip any legacy "👇 내용" if present in raw text
-  const fullText = rawText.replace(/^👇 내용\s*/gm, '').replace(/\n👇 내용\n/g, '\n\n').trim();
-
   let part1 = '';
   let part2 = '';
 
-  const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-  if (lines.length >= 2) {
-    let titleLine = lines[0];
-    let remainingLines = lines.slice(1);
-
-    if (remainingLines[0] === '👇' || remainingLines[0] === '👇 내용' || remainingLines[0].startsWith('👇 내용')) {
-      remainingLines = remainingLines.slice(1);
+  if (currentComposerMode === 'hybrid') {
+    // For hybrid mode, put everything in part 1, and ONLY the URL in part 2
+    const urlMatch = rawText.match(/(https?:\/\/[^\s]+)$/);
+    if (urlMatch) {
+      part1 = rawText.substring(0, rawText.length - urlMatch[0].length).trim();
+      part2 = urlMatch[0];
+    } else {
+      part1 = rawText;
+      part2 = '';
     }
-
-    part1 = titleLine + '\n\n👇';
-    part2 = remainingLines.join('\n\n');
   } else {
-    part1 = fullText;
-    part2 = '';
+    // Strip any legacy "👇 내용" if present in raw text
+    const fullText = rawText.replace(/^👇 내용\s*/gm, '').replace(/\n👇 내용\n/g, '\n\n').trim();
+    const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    if (lines.length >= 2) {
+      let titleLine = lines[0];
+      let remainingLines = lines.slice(1);
+
+      if (remainingLines[0] === '👇' || remainingLines[0] === '👇 내용' || remainingLines[0].startsWith('👇 내용')) {
+        remainingLines = remainingLines.slice(1);
+      }
+
+      part1 = titleLine + '\n\n👇';
+      part2 = remainingLines.join('\n\n');
+    } else {
+      part1 = fullText;
+      part2 = '';
+    }
   }
 
   const p1El = document.getElementById('thread-part-1');
