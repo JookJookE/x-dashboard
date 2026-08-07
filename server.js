@@ -411,8 +411,7 @@ app.get('/api/trending-articles', async (req, res) => {
     const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
 
     let items = [];
-    let isDirect = false;
-    let isCfProxy = false;
+    let fetchSource = '';
 
     // 1차 시도: 구글 뉴스 직통 수집 (2초 타임아웃)
     try {
@@ -436,15 +435,15 @@ app.get('/api/trending-articles', async (req, res) => {
               description: descMatch ? descMatch[1] : ''
             };
           });
-          isDirect = true;
+          fetchSource = 'direct';
         }
       }
     } catch (directErr) {
-      addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] "${keyword}" 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+      addLog('WARN', `🚫 [1차 구글 직통 차단 ➔ 2차 Cloudflare 전환] "${keyword}" 구글 직통 불가. Cloudflare Worker 우회로 전환합니다.`);
     }
 
     // 2차 시도: Cloudflare Worker 구글 원본 우회 수집
-    if (!isDirect || items.length === 0) {
+    if (!fetchSource || items.length === 0) {
       try {
         const CF_WORKER_URL = 'https://bold-morning-65d1.la5454la.workers.dev/?url=';
         const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
@@ -467,14 +466,16 @@ app.get('/api/trending-articles', async (req, res) => {
                 description: descMatch ? descMatch[1] : ''
               };
             });
-            isCfProxy = true;
+            fetchSource = 'cf';
           }
         }
-      } catch (cfErr) {}
+      } catch (cfErr) {
+        addLog('WARN', `🚫 [2차 Cloudflare 지연 ➔ 3차 Bing 전환] "${keyword}" Cloudflare 지연. Bing으로 전환합니다.`);
+      }
     }
 
     // 3차 시도: Bing 뉴스 RSS 수집
-    if (items.length === 0) {
+    if (!fetchSource || items.length === 0) {
       try {
         const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(keyword)}&format=rss&setlang=${region === 'us' ? 'en-US' : 'ko-KR'}`;
         const bingRes = await axios.get(bingUrl, {
@@ -496,18 +497,22 @@ app.get('/api/trending-articles', async (req, res) => {
                 description: descMatch ? descMatch[1] : ''
               };
             });
+            fetchSource = 'bing';
           }
         }
-      } catch (bErr) {}
+      } catch (bErr) {
+        addLog('WARN', `⚠️ [3차 Bing 백업 실패 ➔ 4차 rss2json 전환] "${keyword}" Bing 지연 (${bErr.message}).`);
+      }
     }
 
     // 4차 시도: rss2json 백업 우회
-    if (items.length === 0) {
+    if (!fetchSource || items.length === 0) {
       try {
         const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
         const rssRes = await axios.get(proxyUrl, { timeout: 6000 });
         if (rssRes.data.status === 'ok') {
           items = rssRes.data.items || [];
+          if (items.length > 0) fetchSource = 'rss2json';
         }
       } catch (r2jErr) {}
     }
@@ -545,10 +550,14 @@ app.get('/api/trending-articles', async (req, res) => {
       };
     }).filter(a => a.title.length > 0);
 
-    if (isDirect) {
-      addLog('SUCCESS', `⚡ [구글 직통 성공] "${keyword}" 키워드 뉴스 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
+    if (fetchSource === 'direct') {
+      addLog('SUCCESS', `⚡ [1차 구글 직통 성공] "${keyword}" 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
+    } else if (fetchSource === 'cf') {
+      addLog('SUCCESS', `🚀 [2차 Cloudflare 구글 성공] "${keyword}" Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
+    } else if (fetchSource === 'bing') {
+      addLog('SUCCESS', `🔄 [3차 Bing 백업 성공] "${keyword}" Bing News 엔진 수집 완료 (${articles.length}건)`);
     } else {
-      addLog('SUCCESS', `🔄 [우회 수집 성공] "${keyword}" 키워드 뉴스 백업 우회 통로로 수집 완료 (${articles.length}건)`);
+      addLog('SUCCESS', `🌐 [4차 rss2json 성공] "${keyword}" rss2json 백업 수집 완료 (${articles.length}건)`);
     }
 
     res.json({ success: true, keyword, articles });

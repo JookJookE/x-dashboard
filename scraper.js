@@ -431,12 +431,12 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, false);
       if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 직통 성공] ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `⚡ [1차 구글 직통 성공] ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (directErr) {
-    // 1차 직통 실패 시 2차 Cloudflare Worker 구글 원본 수집 시도
+    addLog('WARN', `🚫 [1차 구글 직통 차단 ➔ 2차 Cloudflare 전환] ${categoryName} 구글 직통 불가. Cloudflare Worker 우회로 전환합니다.`);
   }
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
@@ -454,27 +454,12 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(cfRes.data, categoryKey, tag, categoryName, limit, false);
       if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 원본 프록시 성공] ${categoryName} Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `🚀 [2차 Cloudflare 구글 성공] ${categoryName} Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (cfErr) {
-    // 2차 프록시 실패 시 3차 rss2json 구글 릴레이 시도
-  }
-
-  // 3차 시도: rss2json 구글 뉴스 릴레이 수집
-  try {
-    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
-    const r2jRes = await axios.get(r2jUrl, { timeout: 5000 });
-    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
-      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, false);
-      if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 릴레이 성공] ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
-        return articles;
-      }
-    }
-  } catch (r2jErr) {
-    addLog('WARN', `🚫 [구글 수집 지연 ➔ Bing 백업 전환] ${categoryName} 구글 연결 지연. Bing 뉴스 엔진으로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [2차 Cloudflare 지연 ➔ 3차 Bing 전환] ${categoryName} Cloudflare 연결 지연 (${cfErr.message}). Bing으로 전환합니다.`);
   }
 
   // 3차 시도: Bing News RSS 백업 엔진
@@ -499,15 +484,28 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
       const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, false);
       if (articles.length > 0) {
-        addLog('SUCCESS', `🔄 [Bing 백업 수집 성공] ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `🔄 [3차 Bing 백업 성공] ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (bingErr) {
-    addLog('WARN', `⚠️ [Bing 백업 실패 ➔ rss2json 전환] ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
+    addLog('WARN', `⚠️ [3차 Bing 백업 실패 ➔ 4차 rss2json 전환] ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
   }
 
-  // 3차 시도: rss2json 우회 수집 (최종 백업)
+  // 4차 시도: rss2json 구글 뉴스 릴레이 수집
+  try {
+    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+    const r2jRes = await axios.get(r2jUrl, { timeout: 5000 });
+    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
+      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, false);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `🌐 [4차 rss2json 구글 성공] ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (r2jErr) {
+    addLog('WARN', `🚫 [4차 rss2json 지연] ${categoryName} rss2json 우회 응답 실패 (${r2jErr.message})`);
+  }
   const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
   try {
     const res = await fetchProxyWithRetry(proxyUrl);
@@ -592,12 +590,12 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, true);
       if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 직통 성공] Global ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `⚡ [1차 구글 직통 성공] Global ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (directErr) {
-    // 1차 직통 실패 시 2차 Cloudflare Worker 구글 원본 수집 시도
+    addLog('WARN', `🚫 [1차 구글 직통 차단 ➔ 2차 Cloudflare 전환] Global ${categoryName} 구글 직통 불가. Cloudflare Worker 우회로 전환합니다.`);
   }
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
@@ -615,27 +613,12 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(cfRes.data, categoryKey, tag, categoryName, limit, true);
       if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 원본 프록시 성공] Global ${categoryName} Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `🚀 [2차 Cloudflare 구글 성공] Global ${categoryName} Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (cfErr) {
-    // 2차 프록시 실패 시 3차 rss2json 구글 릴레이 시도
-  }
-
-  // 3차 시도: rss2json 글로벌 구글 뉴스 릴레이 수집
-  try {
-    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
-    const r2jRes = await axios.get(r2jUrl, { timeout: 5000 });
-    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
-      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, true);
-      if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 릴레이 성공] Global ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
-        return articles;
-      }
-    }
-  } catch (r2jErr) {
-    addLog('WARN', `🚫 [구글 프록시 지연 ➔ Bing 백업 전환] Global ${categoryName} 구글 연결 지연. Bing 글로벌 뉴스 엔진으로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [2차 Cloudflare 지연 ➔ 3차 Bing 전환] Global ${categoryName} Cloudflare 연결 지연 (${cfErr.message}). Bing으로 전환합니다.`);
   }
 
   // 3차 시도: Bing Global News RSS 백업 엔진
@@ -650,12 +633,27 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
       const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, true);
       if (articles.length > 0) {
-        addLog('SUCCESS', `🔄 [Bing 백업 수집 성공] Global ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `🔄 [3차 Bing 백업 성공] Global ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (bingErr) {
-    addLog('WARN', `⚠️ [Bing 백업 실패 ➔ rss2json 전환] Global ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
+    addLog('WARN', `⚠️ [3차 Bing 백업 실패 ➔ 4차 rss2json 전환] Global ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
+  }
+
+  // 4차 시도: rss2json 글로벌 구글 뉴스 릴레이 수집
+  try {
+    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+    const r2jRes = await axios.get(r2jUrl, { timeout: 5000 });
+    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
+      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, true);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `🌐 [4차 rss2json 구글 성공] Global ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (r2jErr) {
+    addLog('WARN', `🚫 [4차 rss2json 지연] Global ${categoryName} rss2json 우회 응답 실패 (${r2jErr.message})`);
   }
 
   // 3차 시도: rss2json 우회 수집 (최종 백업)
