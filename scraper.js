@@ -383,13 +383,13 @@ function parseBingNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal =
         rawSnippet = title;
       }
 
-      // Enforce 2h timeframe rule for Tech & Finance categories (max 2.5h buffer)
+      // Enforce 2h timeframe rule for Tech & Finance categories (skip old articles ONLY if we already have at least 2 fresh articles)
       const techCatSet = new Set(['it', 'coin', 'stock', 'economy']);
       if (techCatSet.has(categoryKey) || isGlobal) {
         const parsedDateObj = new Date(isoDate);
-        const cutOff2h = new Date(Date.now() - 2.5 * 3600 * 1000);
-        if (!isNaN(parsedDateObj.getTime()) && parsedDateObj < cutOff2h) {
-          continue; // Skip old articles!
+        const cutOff2h = new Date(Date.now() - 3.5 * 3600 * 1000);
+        if (!isNaN(parsedDateObj.getTime()) && parsedDateObj < cutOff2h && articles.length >= 2) {
+          continue; // Skip old articles if we already have fresh ones
         }
       }
 
@@ -563,71 +563,24 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       }
     }
   } catch (r2jErr) {
-    addLog('WARN', `🚫 [4차 rss2json 지연] ${categoryName} rss2json 우회 응답 실패 (${r2jErr.message})`);
+    addLog('WARN', `🚫 [4차 rss2json 지연] ${categoryName} rss2json 우회 응답 지연 (${r2jErr.message})`);
   }
-  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+
   try {
+    const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
     const res = await fetchProxyWithRetry(proxyUrl);
 
-    if (res.data.status !== 'ok') {
-      addLog('WARN', `⚠️ [우회 수집 실패] ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
-      return [];
-    }
-    const items = res.data.items || [];
-    const articles = [];
-
-    for (let i = 0; i < items.length && articles.length < limit; i++) {
-      const itemXml = items[i];
-      const titleMatch = [null, itemXml.title || ''];
-      const linkMatch = [null, itemXml.link || ''];
-      const dateMatch = [null, itemXml.pubDate || ''];
-      const descMatch = [null, itemXml.description || ''];
-
-      if (titleMatch) {
-        let title = cleanHtml(titleMatch[1]);
-        const sourceIndex = title.lastIndexOf(' - ');
-        let sourceName = '';
-        if (sourceIndex > 0) {
-          sourceName = title.substring(sourceIndex + 3).trim();
-          title = title.substring(0, sourceIndex).trim();
-        }
-
-        const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
-        if (isDuplicateTopic) continue;
-
-        const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
-        const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
-        let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
-
-        if (!rawSnippet || rawSnippet.length < 15) {
-          rawSnippet = title;
-        }
-
-        const id = `${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
-
-        articles.push({
-          id,
-          category: categoryKey,
-          categoryTag: tag,
-          title,
-          source: sourceName || '뉴스',
-          link,
-          date: isoDate,
-          excerpt: rawSnippet.substring(0, 300),
-          contentSnippet: `${categoryName} (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
-          isPosted: isPosted(id)
-        });
+    if (res && res.data && res.data.status === 'ok' && Array.isArray(res.data.items)) {
+      const articles = parseRss2JsonItems(res.data.items, categoryKey, tag, categoryName, limit, false);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `🔄 [우회 수집 성공] ${categoryName} RSS 백업 우회 통로로 수집 완료 (${articles.length}건)`);
+        return articles;
       }
     }
-    if (articles.length > 0) {
-      addLog('SUCCESS', `🔄 [우회 수집 성공] ${categoryName} RSS 백업 우회 통로로 수집 완료 (${articles.length}건)`);
-    }
-    return articles;
   } catch (err) {
-    addLog('ERROR', `❌ [수집 최종 실패] ${categoryName} RSS 통신 오류: ${err.message}`);
-    console.error(`Error fetching ${categoryName} RSS:`, err.message);
-    return [];
+    addLog('WARN', `⚠️ [우회 수집 지연] ${categoryName} RSS 최종 백업 지연 (${err.message})`);
   }
+  return [];
 }
 
 // 4. Global Foreign English News RSS Feeds (1차 구글 직통 ➔ 2차 CF Worker 구글 원본 ➔ 3차 Bing 백업 ➔ 4차 rss2json 백업)
