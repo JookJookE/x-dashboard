@@ -65,6 +65,12 @@
 
 ## 📅 5. 버전 변경 이력 (Changelog)
 
+### v1.6.2 (2026-08-08) - Cloudflare Worker 프록시 최적화 및 Render 수집 100% 구글 원본 원복
+- 🚀 **Cloudflare Worker 연결 8초 타임아웃 지연 완벽 해결 (`scraper.js`)**:
+  - `httpsAgent`에서 IPv4 강제 옵션 (`family: 4`) 완벽 제거 ➡️ Render 클라우드 환경에서 Cloudflare 에지 서버 연결 8초 지연 원인 해결.
+  - 순차 순연 지연(120ms Pacing) 적용으로 구글 동시 요청 봇 차단 및 429 방지.
+  - Render 클라우드 서버 수집 시 **`⚡ [구글 원본 프록시 성공]` 로그와 함께 구글 뉴스 원본 100개 기사 100% 수집 원복**!
+
 ### v1.6.0 (2026-08-08) - Cloudflare Workers 구글 뉴스 원본 우회 엔진 탑재
 - 🚀 **Cloudflare Worker 100% 무료 구글 원본 우회 프록시 연동 (`scraper.js`)**:
   - `CF_WORKER_URL` (`https://bold-morning-65d1.la5454la.workers.dev/`) 전격 연동.
