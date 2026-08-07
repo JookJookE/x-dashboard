@@ -402,6 +402,8 @@ app.get('/api/trending-articles', async (req, res) => {
     const region = req.query.region || 'kr';
     if (!keyword) return res.status(400).json({ success: false, message: 'keyword 필수' });
 
+    addLog('INFO', `🔍 [실시간 수동/인기 검색] "${keyword}" 기사 수집 시도`);
+
     const hl = region === 'us' ? 'en-US' : 'ko';
     const gl = region === 'us' ? 'US' : 'KR';
     const ceid = region === 'us' ? 'US:en' : 'KR:ko';
@@ -439,7 +441,7 @@ app.get('/api/trending-articles', async (req, res) => {
         }
       }
     } catch (directErr) {
-      // 1차 직통 실패 시 무시하고 2차 우회로 전환
+      addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] "${keyword}" 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
     }
 
     // 2차 시도: 직통 실패 시 rss2json 백업 우회
@@ -452,6 +454,7 @@ app.get('/api/trending-articles', async (req, res) => {
     }
 
     if (items.length === 0) {
+      addLog('ERROR', `❌ [검색 실패] "${keyword}" 관련 기사를 찾을 수 없거나 차단됨`);
       return res.status(500).json({ success: false, message: 'Google News blocked or empty' });
     }
 
@@ -482,6 +485,12 @@ app.get('/api/trending-articles', async (req, res) => {
         contentSnippet: `${keyword} 뉴스 (${sourceName || '뉴스'}): ${rawSnippet.substring(0, 1500)}`
       };
     }).filter(a => a.title.length > 0);
+
+    if (isDirect) {
+      addLog('SUCCESS', `⚡ [구글 직통 성공] "${keyword}" 키워드 뉴스 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
+    } else {
+      addLog('SUCCESS', `🔄 [우회 수집 성공] "${keyword}" 키워드 뉴스 백업 우회 통로로 수집 완료 (${articles.length}건)`);
+    }
 
     res.json({ success: true, keyword, articles });
   } catch (err) {
