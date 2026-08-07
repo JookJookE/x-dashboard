@@ -1218,6 +1218,12 @@ async function generateArticleCaptureCard(mode = 'photo') {
   currentY += 30; // Bottom padding
 
   let photoHeight = 480;
+  let textLines = [];
+  if (mode === 'text' || mode === 'photo') {
+    tempCtx.font = '22px "Pretendard", "Noto Sans KR", sans-serif';
+    textLines = getSnippetLines(tempCtx, selectedArticle);
+  }
+
   if (mode === 'title') {
     canvas.height = 200 + (lineCount * 46);
   } else if (mode === 'photo' && img) {
@@ -1227,7 +1233,8 @@ async function generateArticleCaptureCard(mode = 'photo') {
     if (photoHeight > 3000) photoHeight = 3000; // safety cap
     canvas.height = currentY + photoHeight + 40;
   } else {
-    canvas.height = currentY + 550; // text mode fallback height
+    const linesToRender = Math.min(textLines.length, 35); // 35 lines max to avoid canvas crashing
+    canvas.height = currentY + (linesToRender * 40) + 40;
   }
 
   const ctx = canvas.getContext('2d');
@@ -1304,7 +1311,7 @@ async function generateArticleCaptureCard(mode = 'photo') {
     ctx.lineWidth = 1;
     drawRoundRect(ctx, 60, drawY, photoWidth, photoHeight, 10, false, true);
   } else if (mode === 'photo' || mode === 'text') {
-    renderTextExcerpt(ctx, selectedArticle, drawY);
+    renderTextExcerpt(ctx, textLines, drawY);
   }
 
   const dataUrl = canvas.toDataURL('image/png');
@@ -1331,7 +1338,7 @@ async function generateArticleCaptureCard(mode = 'photo') {
   showToast(doneMsg);
 }
 
-function renderTextExcerpt(ctx, article, startY) {
+function getSnippetLines(ctx, article) {
   let snippet = article.contentSnippet || article.excerpt || article.title;
   
   // Clean snippet from ugly RSS artifacts
@@ -1362,9 +1369,6 @@ function renderTextExcerpt(ctx, article, startY) {
     snippet = "본문 요약 내용이 없습니다. 원본 링크를 참고해 주세요.";
   }
 
-  ctx.font = '22px "Pretendard", "Noto Sans KR", sans-serif';
-  ctx.fillStyle = '#334155';
-
   const snippetWords = snippet.split(' ');
   let sLine = '';
   const sLines = [];
@@ -1378,10 +1382,16 @@ function renderTextExcerpt(ctx, article, startY) {
     }
   }
   sLines.push(sLine);
+  return sLines;
+}
+
+function renderTextExcerpt(ctx, textLines, startY) {
+  ctx.font = '22px "Pretendard", "Noto Sans KR", sans-serif';
+  ctx.fillStyle = '#334155';
 
   let snippetY = startY + 10;
-  // Render up to 12 lines for long posts like Nate Pann
-  sLines.slice(0, 12).forEach((sl) => {
+  // Render up to 35 lines for long posts like Nate Pann
+  textLines.slice(0, 35).forEach((sl) => {
     ctx.fillText(sl.trim(), 60, snippetY);
     snippetY += 40;
   });

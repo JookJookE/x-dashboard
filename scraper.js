@@ -134,7 +134,7 @@ async function fetchArticlePageText(link) {
     // Custom cleanup for Nate Pann menus that slip through
     if (link.includes('pann.nate.com')) {
       cleaned = cleaned.replace(/^[\s\S]*?이전글\s*다음글\s*/i, '');
-      cleaned = cleaned.replace(/(추천\s*\d+\s*반대\s*\d+\s*신고)[\s\S]*$/i, '');
+      cleaned = cleaned.replace(/(추천\s*추천수|추천\s*\d+\s*반대|URL복사|목록\s*\|\s*인쇄|댓글달기)[\s\S]*$/i, '');
     }
 
     // Remove specific boilerplate words but DO NOT use [\s\S]* which destroys the whole article
