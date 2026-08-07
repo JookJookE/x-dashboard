@@ -65,11 +65,15 @@
 
 ## 📅 5. 버전 변경 이력 (Changelog)
 
-### v1.6.2 (2026-08-08) - Cloudflare Worker 프록시 최적화 및 Render 수집 100% 구글 원본 원복
-- 🚀 **Cloudflare Worker 연결 8초 타임아웃 지연 완벽 해결 (`scraper.js`)**:
-  - `httpsAgent`에서 IPv4 강제 옵션 (`family: 4`) 완벽 제거 ➡️ Render 클라우드 환경에서 Cloudflare 에지 서버 연결 8초 지연 원인 해결.
-  - 순차 순연 지연(120ms Pacing) 적용으로 구글 동시 요청 봇 차단 및 429 방지.
-  - Render 클라우드 서버 수집 시 **`⚡ [구글 원본 프록시 성공]` 로그와 함께 구글 뉴스 원본 100개 기사 100% 수집 원복**!
+### v1.6.3 (2026-08-08) - 구글 뉴스 RSS 파싱 함수 버그 수정 & 수동 검색 및 타임아웃 최적화
+- 🐛 **`parseRss2JsonItems` 미정의 오류 수정 (`scraper.js`)**:
+  - `parseRss2JsonItems` 파싱 함수 누락으로 인해 rss2json 릴레이 시 ReferenceError로 인해 Bing으로 우회 전환되던 런타임 예외 수정.
+- ⚡ **직통 수집 타임아웃 2초 단축 및 Cloudflare 헤더 표준화 (`scraper.js`, `server.js`)**:
+  - 1차 직통 연결 타임아웃을 5000ms ➡️ 2000ms로 단축하여 Render 클라우드 IP 차단 환경에서 지연 없이 즉시 Cloudflare/Bing으로 속전속결 백업 처리.
+  - `/api/trending-articles` 수동 검색에도 `CF_WORKER_URL` 2차 프록시 및 Bing RSS 3차 백업 다단계 릴레이 적용.
+  - `httpsAgent` IPv4 강제 옵션(`family: 4`) 완벽 제거.
+- 🛠️ **Cloudflare Worker 전용 Google RSS 요청 헤더 가이드 제공**:
+  - Cloudflare Worker 스크립트 작성 시 Chrome User-Agent 지정 코드 가이드 추가.
 
 ### v1.6.0 (2026-08-08) - Cloudflare Workers 구글 뉴스 원본 우회 엔진 탑재
 - 🚀 **Cloudflare Worker 100% 무료 구글 원본 우회 프록시 연동 (`scraper.js`)**:

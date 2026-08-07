@@ -412,14 +412,13 @@ app.get('/api/trending-articles', async (req, res) => {
 
     let items = [];
     let isDirect = false;
+    let isCfProxy = false;
 
-    // 1차 시도: 구글 뉴스 직통 수집 (3.5초 타임아웃)
+    // 1차 시도: 구글 뉴스 직통 수집 (2초 타임아웃)
     try {
-      const https = require('https');
       const directRes = await axios.get(googleUrl, { 
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, 
-        httpsAgent: new https.Agent({ family: 4 }),
-        timeout: 3500 
+        timeout: 2000 
       });
 
       if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -444,13 +443,73 @@ app.get('/api/trending-articles', async (req, res) => {
       addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] "${keyword}" 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
     }
 
-    // 2차 시도: 직통 실패 시 rss2json 백업 우회
+    // 2차 시도: Cloudflare Worker 구글 원본 우회 수집
     if (!isDirect || items.length === 0) {
-      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
-      const rssRes = await axios.get(proxyUrl, { timeout: 8000 });
-      if (rssRes.data.status === 'ok') {
-        items = rssRes.data.items || [];
-      }
+      try {
+        const CF_WORKER_URL = 'https://bold-morning-65d1.la5454la.workers.dev/?url=';
+        const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
+        const cfRes = await axios.get(cfUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 5000
+        });
+        if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
+          const rawMatches = [...cfRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+          if (rawMatches.length > 0) {
+            items = rawMatches.map(m => {
+              const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
+              const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
+              const dateMatch = m[0].match(/<pubDate>(.*?)<\/pubDate>/i);
+              const descMatch = m[0].match(/<description>(.*?)<\/description>/i);
+              return {
+                title: titleMatch ? titleMatch[1] : '',
+                link: linkMatch ? linkMatch[1] : '',
+                pubDate: dateMatch ? dateMatch[1] : '',
+                description: descMatch ? descMatch[1] : ''
+              };
+            });
+            isCfProxy = true;
+          }
+        }
+      } catch (cfErr) {}
+    }
+
+    // 3차 시도: Bing 뉴스 RSS 수집
+    if (items.length === 0) {
+      try {
+        const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(keyword)}&format=rss&setlang=${region === 'us' ? 'en-US' : 'ko-KR'}`;
+        const bingRes = await axios.get(bingUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 5000
+        });
+        if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
+          const rawMatches = [...bingRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+          if (rawMatches.length > 0) {
+            items = rawMatches.map(m => {
+              const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
+              const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
+              const dateMatch = m[0].match(/<pubDate>(.*?)<\/pubDate>/i);
+              const descMatch = m[0].match(/<description>(.*?)<\/description>/i);
+              return {
+                title: titleMatch ? titleMatch[1] : '',
+                link: linkMatch ? linkMatch[1] : '',
+                pubDate: dateMatch ? dateMatch[1] : '',
+                description: descMatch ? descMatch[1] : ''
+              };
+            });
+          }
+        }
+      } catch (bErr) {}
+    }
+
+    // 4차 시도: rss2json 백업 우회
+    if (items.length === 0) {
+      try {
+        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+        const rssRes = await axios.get(proxyUrl, { timeout: 6000 });
+        if (rssRes.data.status === 'ok') {
+          items = rssRes.data.items || [];
+        }
+      } catch (r2jErr) {}
     }
 
     if (items.length === 0) {

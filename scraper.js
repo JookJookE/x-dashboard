@@ -354,6 +354,51 @@ function parseBingNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal =
   return articles;
 }
 
+// Helper to parse rss2json items
+function parseRss2JsonItems(items, categoryKey, tag, categoryName, limit, isGlobal = false) {
+  const articles = [];
+  if (!Array.isArray(items)) return articles;
+
+  for (let i = 0; i < items.length && articles.length < limit; i++) {
+    const item = items[i];
+    let title = cleanHtml(item.title || '');
+    const sourceIndex = title.lastIndexOf(' - ');
+    let sourceName = '';
+    if (sourceIndex > 0) {
+      sourceName = title.substring(sourceIndex + 3).trim();
+      title = title.substring(0, sourceIndex).trim();
+    }
+
+    const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
+    if (isDuplicateTopic) continue;
+
+    const link = cleanHtml(item.link || '');
+    const isoDate = item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString();
+    let rawSnippet = cleanHtml(item.description || '');
+
+    if (!rawSnippet || rawSnippet.length < 15) {
+      rawSnippet = title;
+    }
+
+    const id = isGlobal ? `global-${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}` : `${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
+
+    articles.push({
+      id,
+      category: isGlobal ? 'global' : categoryKey,
+      categoryTag: isGlobal ? `🌐 해외뉴스 (${tag.replace('🌐 외신 ', '')})` : tag,
+      title: isGlobal ? `[외신 ${sourceName || '미국뉴스'}] ${title}` : title,
+      source: sourceName || (isGlobal ? '해외언론' : '뉴스'),
+      link,
+      date: isoDate,
+      excerpt: rawSnippet.substring(0, 300),
+      contentSnippet: isGlobal ? `Global News Source (${sourceName}): ${rawSnippet.substring(0, 1500)}` : `${categoryName} (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
+      isGlobal,
+      isPosted: isPosted(id)
+    });
+  }
+  return articles;
+}
+
 // Helper for proxy request with 429 retry
 async function fetchProxyWithRetry(proxyUrl) {
   try {
@@ -380,7 +425,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
       },
-      timeout: 5000
+      timeout: 2000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -541,7 +586,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9'
       },
-      timeout: 5000
+      timeout: 2000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
