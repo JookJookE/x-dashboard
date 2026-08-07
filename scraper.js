@@ -316,11 +316,12 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, false);
       if (articles.length > 0) {
+        addLog('SUCCESS', `⚡ [구글 직통 성공] ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (directErr) {
-    addLog('WARN', `⚠️ [구글 직통 제한 ➔ 우회 전환] ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
   }
 
   // 2차 시도: 직통 실패 시 rss2json 우회 수집 (백업)
@@ -329,7 +330,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     const res = await axios.get(proxyUrl, { timeout: 8000 });
 
     if (res.data.status !== 'ok') {
-      addLog('WARN', `⚠️ [수집 실패] ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
+      addLog('WARN', `⚠️ [우회 수집 실패] ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
       return [];
     }
     const items = res.data.items || [];
@@ -378,6 +379,9 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         });
       }
     }
+    if (articles.length > 0) {
+      addLog('SUCCESS', `🔄 [우회 수집 성공] ${categoryName} RSS 백업 우회 통로로 수집 완료 (${articles.length}건)`);
+    }
     return articles;
   } catch (err) {
     addLog('ERROR', `❌ [수집 최종 실패] ${categoryName} RSS 통신 오류: ${err.message}`);
@@ -403,11 +407,12 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, true);
       if (articles.length > 0) {
+        addLog('SUCCESS', `⚡ [구글 직통 성공] Global ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (directErr) {
-    addLog('WARN', `⚠️ [구글 직통 제한 ➔ 우회 전환] Global ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+    addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] Global ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
   }
 
   // 2차 시도: 직통 실패 시 rss2json 우회 수집 (백업)
@@ -416,7 +421,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     const res = await axios.get(proxyUrl, { timeout: 8000 });
 
     if (res.data.status !== 'ok') {
-      addLog('WARN', `⚠️ [수집 실패] Global ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
+      addLog('WARN', `⚠️ [우회 수집 실패] Global ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
       return [];
     }
     const items = res.data.items || [];
@@ -465,6 +470,9 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
           isPosted: isPosted(id)
         });
       }
+    }
+    if (articles.length > 0) {
+      addLog('SUCCESS', `🔄 [우회 수집 성공] Global ${categoryName} RSS 백업 우회 통로로 수집 완료 (${articles.length}건)`);
     }
     return articles;
   } catch (err) {
