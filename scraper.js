@@ -131,6 +131,12 @@ async function fetchArticlePageText(link) {
 
     let cleaned = cleanHtml(html);
     
+    // Custom cleanup for Nate Pann menus that slip through
+    if (link.includes('pann.nate.com')) {
+      cleaned = cleaned.replace(/^[\s\S]*?이전글\s*다음글\s*/i, '');
+      cleaned = cleaned.replace(/(추천\s*\d+\s*반대\s*\d+\s*신고)[\s\S]*$/i, '');
+    }
+
     // Remove specific boilerplate words but DO NOT use [\s\S]* which destroys the whole article
     cleaned = cleaned.replace(/Semiconductor|Biotechnology|Robotics|Opinion|Membership|Newsletter|Energy|Future/gi, '');
     cleaned = cleaned.replace(/(무단 전재|무단전재|재배포 금지|Copyright|ⓒ|기자|구독)/gi, '');
