@@ -733,4 +733,16 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
   addLog('INFO', `서버가 포트 ${PORT}에서 성공적으로 시작되었습니다.`);
   startCloudflareTunnel();
+
+  // Trigger initial article fetch asynchronously on server startup
+  setTimeout(async () => {
+    try {
+      addLog('INFO', '🚀 [서버 시작] 최신 뉴스 초기 수집을 시작합니다...');
+      const freshArticles = await fetchLatestArticles(35);
+      articlesCache = freshArticles;
+      addLog('SUCCESS', `🚀 [서버 시작] 최신 뉴스 초기 수집 완료 (${freshArticles.length}건)`);
+    } catch (e) {
+      addLog('WARN', `서버 시작 뉴스 수집 지연: ${e.message}`);
+    }
+  }, 2000);
 });
