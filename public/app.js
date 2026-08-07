@@ -89,6 +89,7 @@ function setComposerMode(mode, silent = false) {
   const btnMindset = document.getElementById('btn-mode-mindset');
   const btnCapture = document.getElementById('btn-mode-capture');
   const btnPann = document.getElementById('btn-mode-pann');
+  const btnHybrid = document.getElementById('btn-mode-hybrid');
 
   if (btnBlock) btnBlock.classList.remove('active');
   if (btnStory) btnStory.classList.remove('active');
@@ -96,10 +97,14 @@ function setComposerMode(mode, silent = false) {
   if (btnMindset) btnMindset.classList.remove('active');
   if (btnCapture) btnCapture.classList.remove('active');
   if (btnPann) btnPann.classList.remove('active');
+  if (btnHybrid) btnHybrid.classList.remove('active');
 
   if (mode === 'pann') {
     if (btnPann) btnPann.classList.add('active');
-    if (!silent) showToast('⚖️ 버전 6: AITA 네이트판 갈등 유도형 모드로 전환되었습니다.');
+    if (!silent) showToast('⚖️ 버전 6: 네이트판 (사연/갈등) 모드로 전환되었습니다.');
+  } else if (mode === 'hybrid') {
+    if (btnHybrid) btnHybrid.classList.add('active');
+    if (!silent) showToast('🌟 버전 7: 하이브리드 후킹 (전문가 뷰) 모드로 전환되었습니다.');
   } else if (mode === 'capture' || mode === 'blind') {
     if (btnCapture) btnCapture.classList.add('active');
     if (!silent) showToast('📸 버전 5: 캡처 이미지 첨부 / 블라인드 썰 공유형 모드로 전환되었습니다.');
@@ -111,7 +116,7 @@ function setComposerMode(mode, silent = false) {
     if (!silent) showToast('🗣️ 버전 3: 생생한 썰/소통형 모드로 전환되었습니다.');
   } else if (mode === 'story') {
     if (btnStory) btnStory.classList.add('active');
-    if (!silent) showToast('🔥 버전 2: 1인칭 후킹 리포트형 모드로 전환되었습니다.');
+    if (!silent) showToast('🔥 버전 2: 아티클 (1인칭 뷰) 모드로 전환되었습니다.');
   } else {
     if (btnBlock) btnBlock.classList.add('active');
     if (!silent) showToast('⚡ 버전 1: 이모지 블록 요약형 모드로 전환되었습니다.');
@@ -731,12 +736,13 @@ async function generateSummaryForSelected() {
   }
 
   const textInput = document.getElementById('tweet-text-input');
-  let modeLabel = '⚡ 버전 1: 이모지 블록 요약형 트윗 생성 중...';
-  if (currentComposerMode === 'story') modeLabel = '🔥 버전 2: 1인칭 후킹 리포트형 트윗 생성 중...';
-  if (currentComposerMode === 'talk') modeLabel = '🗣️ 버전 3: 생생한 썰/소통형 트윗 생성 중...';
-  if (currentComposerMode === 'mindset') modeLabel = '🧠 버전 4: 멘탈/공감 꿀팁형 트윗 생성 중...';
-  if (currentComposerMode === 'capture' || currentComposerMode === 'blind') modeLabel = '📸 버전 5: 캡처 이미지 첨부 / 블라인드 썰 공유형 트윗 생성 중...';
-  if (currentComposerMode === 'pann') modeLabel = '⚖️ 버전 6: AITA 네이트판 갈등 유도형 트윗 생성 중...';
+  let modeLabel = '⚡ 버전 1: 이모지 요약형 트윗 생성 중...';
+  if (currentComposerMode === 'story') modeLabel = '🔥 버전 2: 아티클 (1인칭 뷰) 트윗 생성 중...';
+  else if (currentComposerMode === 'talk') modeLabel = '🗣️ 버전 3: 생생한 썰/소통형 트윗 생성 중...';
+  else if (currentComposerMode === 'mindset') modeLabel = '🧠 버전 4: 멘탈/공감 꿀팁형 트윗 생성 중...';
+  else if (currentComposerMode === 'capture' || currentComposerMode === 'blind') modeLabel = '📸 버전 5: 블라인드 썰 공유형 트윗 생성 중...';
+  else if (currentComposerMode === 'pann') modeLabel = '⚖️ 버전 6: 네이트판 갈등 유도형 트윗 생성 중...';
+  else if (currentComposerMode === 'hybrid') modeLabel = '🌟 버전 7: 하이브리드 후킹 트윗 생성 중...';
 
   textInput.value = modeLabel;
   textInput.disabled = true;
