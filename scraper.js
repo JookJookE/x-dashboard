@@ -257,7 +257,10 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       timeout: 10000
     });
 
-    if (res.data.status !== 'ok') return [];
+    if (res.data.status !== 'ok') {
+      addLog('WARN', `⚠️ [수집 차단/오류] ${categoryName} RSS 응답 실패 (Status: ${res.data.status || 'unknown'})`);
+      return [];
+    }
     const items = res.data.items || [];
     const articles = [];
 
@@ -306,6 +309,14 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     }
     return articles;
   } catch (err) {
+    const status = err.response ? err.response.status : '';
+    if (status === 403 || status === 429) {
+      addLog('ERROR', `🚨 [IP 차단/제한 발생] ${categoryName} RSS 요청 거부됨 (HTTP ${status}). 서버 IP 차단 또는 과다 요청.`);
+    } else if (err.code === 'ETIMEDOUT' || err.message.includes('timeout')) {
+      addLog('WARN', `⏱️ [타임아웃 발생] ${categoryName} RSS 응답 지연 (${err.message})`);
+    } else {
+      addLog('ERROR', `❌ [수집 실패] ${categoryName} RSS 통신 오류: ${err.message}`);
+    }
     console.error(`Error fetching ${categoryName} RSS:`, err.message);
     return [];
   }
@@ -321,7 +332,10 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
       timeout: 10000
     });
 
-    if (res.data.status !== 'ok') return [];
+    if (res.data.status !== 'ok') {
+      addLog('WARN', `⚠️ [수집 차단/오류] Global ${categoryName} RSS 응답 실패 (Status: ${res.data.status || 'unknown'})`);
+      return [];
+    }
     const items = res.data.items || [];
     const articles = [];
 
@@ -371,6 +385,14 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     }
     return articles;
   } catch (err) {
+    const status = err.response ? err.response.status : '';
+    if (status === 403 || status === 429) {
+      addLog('ERROR', `🚨 [IP 차단/제한 발생] Global ${categoryName} RSS 요청 거부됨 (HTTP ${status}). 서버 IP 차단 또는 과다 요청.`);
+    } else if (err.code === 'ETIMEDOUT' || err.message.includes('timeout')) {
+      addLog('WARN', `⏱️ [타임아웃 발생] Global ${categoryName} RSS 응답 지연 (${err.message})`);
+    } else {
+      addLog('ERROR', `❌ [수집 실패] Global ${categoryName} RSS 통신 오류: ${err.message}`);
+    }
     console.error(`Error fetching Global ${categoryName} RSS:`, err.message);
     return [];
   }
