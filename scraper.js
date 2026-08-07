@@ -299,6 +299,19 @@ function parseGoogleNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal
   return articles;
 }
 
+// Helper for proxy request with 429 retry
+async function fetchProxyWithRetry(proxyUrl) {
+  try {
+    return await axios.get(proxyUrl, { timeout: 8000 });
+  } catch (err) {
+    if (err.response && err.response.status === 429) {
+      await new Promise(resolve => setTimeout(resolve, 400));
+      return await axios.get(proxyUrl, { timeout: 8000 });
+    }
+    throw err;
+  }
+}
+
 // 3. Korean Google News RSS Feeds (1차 직통 수집 ➔ 실패 시 2차 우회 수집 하이브리드 방식)
 async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
@@ -324,10 +337,10 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
   }
 
-  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (백업)
+  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (429 재시도 적용 백업)
   const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
   try {
-    const res = await axios.get(proxyUrl, { timeout: 8000 });
+    const res = await fetchProxyWithRetry(proxyUrl);
 
     if (res.data.status !== 'ok') {
       addLog('WARN', `⚠️ [우회 수집 실패] ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
@@ -415,10 +428,10 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     addLog('WARN', `🚫 [구글 직통 차단 ➔ 우회 전환] Global ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
   }
 
-  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (백업)
+  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (429 재시도 적용 백업)
   const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
   try {
-    const res = await axios.get(proxyUrl, { timeout: 8000 });
+    const res = await fetchProxyWithRetry(proxyUrl);
 
     if (res.data.status !== 'ok') {
       addLog('WARN', `⚠️ [우회 수집 실패] Global ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
@@ -482,35 +495,37 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   }
 }
 
+// Main fetcher: 3단계 쪼개기 수집으로 rss2json 429 차단 완벽 방지
 async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
   const scanBatchTimeVal = scanBatchTime || new Date().toISOString();
   addLog('INFO', '국내외 최신 소식 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
 
   try {
-    const [
-      heisenberg,
-      itNews,
-      coinNews,
-      stockNews,
-      economyNews,
-      globalIt,
-      globalCoin,
-      globalStock,
-      globalEconomy,
-      blindNews,
-      pannNews,
-      gossipNews,
-      mindsetNews
-    ] = await Promise.all([
+    // 1차 묶음: 국내 주요 테크 & 금융
+    const [heisenberg, itNews, coinNews, stockNews, economyNews] = await Promise.all([
       fetchHeisenbergArticles(5, scanBatchTimeVal),
       fetchNewsRssArticles('it', '(IT OR 테크 OR 반도체 OR AI OR 엔비디아 OR 애플 OR 빅테크)', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal),
       fetchNewsRssArticles('coin', '(비트코인 OR 가상자산 OR 코인 OR 이더리움 OR 암호화폐 OR 리플)', '코인', '🪙 코인', 4, scanBatchTimeVal),
       fetchNewsRssArticles('stock', '(주식 OR 증시 OR 코스피 OR 미국주식 OR 나스닥 OR 엔비디아 OR 테슬라)', '주식', '📈 주식', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTimeVal)
+    ]);
+
+    // 250ms 간격으로 rss2json 호출 분산 (429 분당 한도 초과 완전 방지)
+    await new Promise(r => setTimeout(r, 250));
+
+    // 2차 묶음: 글로벌 해외 외신
+    const [globalIt, globalCoin, globalStock, globalEconomy] = await Promise.all([
       fetchGlobalNewsRssArticles('it', '(Nvidia OR Apple OR OpenAI OR AI OR Tech OR Semiconductor)', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal),
       fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple OR Solana)', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal),
       fetchGlobalNewsRssArticles('stock', '(Nasdaq OR S&P500 OR Stock Market OR NVDA OR TSLA OR Apple)', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('economy', '(Fed OR Federal Reserve OR Interest Rate OR Inflation OR Powell)', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('economy', '(Fed OR Federal Reserve OR Interest Rate OR Inflation OR Powell)', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal)
+    ]);
+
+    // 250ms 간격 분산
+    await new Promise(r => setTimeout(r, 250));
+
+    // 3차 묶음: 커뮤니티 및 썰
+    const [blindNews, pannNews, gossipNews, mindsetNews] = await Promise.all([
       fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d'),
       fetchNatePannArticles(8, scanBatchTimeVal),
       fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d'),
