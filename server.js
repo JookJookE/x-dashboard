@@ -407,11 +407,15 @@ app.get('/api/trending-articles', async (req, res) => {
     const ceid = region === 'us' ? 'US:en' : 'KR:ko';
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
 
+    const https = require('https');
     const rssRes = await axios.get(url, { 
       headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
       }, 
-      timeout: 8000 
+      httpsAgent: new https.Agent({ family: 4 }),
+      timeout: 15000 
     });
     const items = [...rssRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
 
