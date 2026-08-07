@@ -1355,7 +1355,8 @@ function getSnippetLines(ctx, article) {
     .replace(/\[단독\]/gi, '')
     .replace(/\[인터뷰\]/gi, '')
     .replace(new RegExp((article.source || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
-    .replace(/\s+/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n\n')
     .trim();
 
   // Only remove the title if it leaves us with actual content!
@@ -1369,19 +1370,27 @@ function getSnippetLines(ctx, article) {
     snippet = "본문 요약 내용이 없습니다. 원본 링크를 참고해 주세요.";
   }
 
-  const snippetWords = snippet.split(' ');
-  let sLine = '';
+  const paragraphs = snippet.split('\n');
   const sLines = [];
-  for (let n = 0; n < snippetWords.length; n++) {
-    const testLine = sLine + snippetWords[n] + ' ';
-    if (ctx.measureText(testLine).width > 880 && n > 0) {
-      sLines.push(sLine);
-      sLine = snippetWords[n] + ' ';
-    } else {
-      sLine = testLine;
+  
+  for (const p of paragraphs) {
+    if (p.trim() === '') {
+      sLines.push(''); // Empty line for paragraph break
+      continue;
     }
+    const snippetWords = p.split(' ');
+    let sLine = '';
+    for (let n = 0; n < snippetWords.length; n++) {
+      const testLine = sLine + snippetWords[n] + ' ';
+      if (ctx.measureText(testLine).width > 880 && n > 0) {
+        sLines.push(sLine);
+        sLine = snippetWords[n] + ' ';
+      } else {
+        sLine = testLine;
+      }
+    }
+    if (sLine) sLines.push(sLine);
   }
-  sLines.push(sLine);
   return sLines;
 }
 

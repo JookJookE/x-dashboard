@@ -21,8 +21,11 @@ function cleanHtml(html) {
   return cleaned
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n\n')
     .trim();
 }
 
@@ -140,7 +143,7 @@ async function fetchArticlePageText(link) {
     // Remove specific boilerplate words but DO NOT use [\s\S]* which destroys the whole article
     cleaned = cleaned.replace(/Semiconductor|Biotechnology|Robotics|Opinion|Membership|Newsletter|Energy|Future/gi, '');
     cleaned = cleaned.replace(/(무단 전재|무단전재|재배포 금지|Copyright|ⓒ|기자|구독)/gi, '');
-    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
 
     return cleaned.substring(0, 1500);
   } catch (err) {
