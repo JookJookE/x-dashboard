@@ -252,9 +252,11 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
   const freshQuery = `${queryStr} when:${timeframe}`;
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
   try {
+    const https = require('https');
     const res = await axios.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      timeout: 10000
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      httpsAgent: new https.Agent({ family: 4 }),
+      timeout: 15000
     });
 
     const xml = res.data;
@@ -326,9 +328,11 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   const freshQuery = `${queryStr} when:${timeframe}`;
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
   try {
+    const https = require('https');
     const res = await axios.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      timeout: 10000
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      httpsAgent: new https.Agent({ family: 4 }),
+      timeout: 15000
     });
 
     const xml = res.data;
