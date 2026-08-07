@@ -194,9 +194,57 @@ async function fetchHeisenbergArticles(limit = 5, scanBatchTime = null) {
   }
 }
 
+async function fetchNatePannDetail(link) {
+  if (!link) return { snippet: '', date: new Date().toISOString() };
+  try {
+    const iconv = require('iconv-lite');
+    const res = await axios.get(link, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 6000,
+      maxRedirects: 5,
+      responseType: 'arraybuffer'
+    });
+
+    let html = '';
+    const contentType = res.headers['content-type'] || '';
+    if (contentType.toLowerCase().includes('euc-kr')) {
+      html = iconv.decode(res.data, 'EUC-KR');
+    } else {
+      html = res.data.toString('utf-8');
+      if (html.toLowerCase().includes('charset=euc-kr')) {
+        html = iconv.decode(res.data, 'EUC-KR');
+      }
+    }
+
+    // Extract real date from Nate Pann talk detail HTML (e.g. 2026.08.08 03:15 or 2026.08.08)
+    let extractedDateIso = new Date().toISOString();
+    const dateMatch = html.match(/(?:작성일|작성|등록|일시|<span>)[\s:]*([0-9]{4}\.[0-9]{2}\.[0-9]{2}(?:\s+[0-9]{2}:[0-9]{2})?)/i) ||
+                      html.match(/\b(202[0-9]\.[0-9]{2}\.[0-9]{2}(?:\s+[0-9]{2}:[0-9]{2})?)\b/);
+    if (dateMatch && dateMatch[1]) {
+      const rawDateStr = dateMatch[1].replace(/\./g, '-').trim();
+      const parsed = new Date(rawDateStr.length <= 10 ? `${rawDateStr}T00:00:00+09:00` : `${rawDateStr.replace(' ', 'T')}:00+09:00`);
+      if (!isNaN(parsed.getTime())) {
+        extractedDateIso = parsed.toISOString();
+      }
+    }
+
+    html = html.replace(/<(nav|header|footer|aside|form)[^>]*>[\s\S]*?<\/\1>/gi, '');
+    let cleaned = cleanHtml(html);
+    cleaned = cleaned.replace(/^[\s\S]*?이전글\s*다음글\s*/i, '');
+    cleaned = cleaned.replace(/(추천\s*추천수|추천\s*\d+\s*반대|URL복사|목록\s*\|\s*인쇄|댓글달기)[\s\S]*$/i, '');
+    cleaned = cleaned.replace(/(무단 전재|무단전재|재배포 금지|Copyright|ⓒ|기자|구독)/gi, '');
+    cleaned = cleaned.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+
+    return { snippet: cleaned.substring(0, 1500), date: extractedDateIso };
+  } catch (err) {
+    return { snippet: '', date: new Date().toISOString() };
+  }
+}
+
 // 2. Nate Pann Talkers' Choice
 async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
-  const iconv = require('iconv-lite');
   const url = 'https://pann.nate.com/talk/c20001?page=1'; // 톡커들의 선택
   try {
     const res = await axios.get(url, {
@@ -226,17 +274,17 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
     }
 
     const articles = await Promise.all(candidateArticles.map(async (item) => {
-      const rawSnippet = await fetchArticlePageText(item.link) || item.title;
+      const detail = await fetchNatePannDetail(item.link);
       return {
         id: item.id,
         category: 'pann',
         categoryTag: '⚖️ 네이트판 / 사연',
-        date: new Date().toISOString(),
+        date: detail.date || new Date().toISOString(),
         fetchedAt: getOrCreateFetchedAt(item.id, scanBatchTime || new Date().toISOString()),
         link: item.link,
         title: item.title,
         source: '네이트판',
-        contentSnippet: rawSnippet.substring(0, 1500),
+        contentSnippet: detail.snippet || item.title,
         isPosted: false
       };
     }));
@@ -333,6 +381,16 @@ function parseBingNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal =
 
       if (!rawSnippet || rawSnippet.length < 15) {
         rawSnippet = title;
+      }
+
+      // Enforce 2h timeframe rule for Tech & Finance categories (max 2.5h buffer)
+      const techCatSet = new Set(['it', 'coin', 'stock', 'economy']);
+      if (techCatSet.has(categoryKey) || isGlobal) {
+        const parsedDateObj = new Date(isoDate);
+        const cutOff2h = new Date(Date.now() - 2.5 * 3600 * 1000);
+        if (!isNaN(parsedDateObj.getTime()) && parsedDateObj < cutOff2h) {
+          continue; // Skip old articles!
+        }
       }
 
       const id = isGlobal ? `global-${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}` : `${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;

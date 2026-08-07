@@ -65,6 +65,14 @@
 
 ## 📅 5. 버전 변경 이력 (Changelog)
 
+### v1.7.2 (2026-08-08) - 네이트판 실제 게시시간 파싱 & IT/금융 2시간 규격(when:2h) 엄격 필터 원복
+- ⚖️ **네이트판 실제 작성일시 추출 (`scraper.js`)**:
+  - 기존 `new Date().toISOString()` 고정값으로 인해 모든 글이 '1분 전'으로 표시되던 버그를 완벽 수정.
+  - 네이트판 본문 HTML(`fetchNatePannDetail`)에서 실제 작성일시(`YYYY.MM.DD HH:mm`)를 정규식으로 파싱하여 정확한 게시시간 반영.
+- 💻 **IT/코인/주식/경제 2시간 이내(`when:2h`) 엄격 필터링 (`scraper.js`, `history.js`)**:
+  - Bing 백업 엔진 수집 및 DB 저장 시 2.5시간을 초과한 1~2일 전 구 기사가 섞여 들어가던 현상 완벽 제거.
+  - IT, 코인, 주식, 경제, 글로벌 외신 카테고리는 최근 2.5시간 이내 최신 기사만 수집 및 DB 보관되도록 엄격 필터링 적용.
+
 ### v1.7.1 (2026-08-08) - Cloudflare Worker 503 동시성 제한 방지 (120ms Pacing 적용)
 - 🚀 **Cloudflare HTTP 503 Service Unavailable 완벽 해결**:
   - `Promise.all`로 13개 요청이 동일 마이크로초에 한 번에 몰려 Cloudflare Worker 차단(HTTP 503)되던 동시성 한계를 120ms 순연 인터벌(Pacing)로 전격 개선.
