@@ -382,20 +382,6 @@ app.get('/api/trending', async (req, res) => {
           rank: idx + 1,
           keyword: titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '',
           traffic: trafficMatch ? trafficMatch[1] : '',
-          relatedNews: newsMatch ? newsMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''
-        };
-      }).filter(t => t.keyword);
-    }
-
-    const krTrends = krRes.status === 'fulfilled' ? parseTrendingRss(krRes.value.data) : [];
-    const usTrends = usRes.status === 'fulfilled' ? parseTrendingRss(usRes.value.data) : [];
-
-    res.json({ success: true, kr: krTrends, us: usTrends, updatedAt: new Date().toISOString() });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
 app.get('/api/trending-articles', async (req, res) => {
   try {
     const keyword = req.query.keyword;
@@ -407,23 +393,56 @@ app.get('/api/trending-articles', async (req, res) => {
     const ceid = region === 'us' ? 'US:en' : 'KR:ko';
     
     const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
-    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
 
-    const rssRes = await axios.get(url, { 
-      timeout: 10000 
-    });
-    
-    if (rssRes.data.status !== 'ok') return res.status(500).json({ success: false, message: 'Google News blocked or empty' });
-    const items = rssRes.data.items || [];
+    let items = [];
+    let isDirect = false;
+
+    // 1차 시도: 구글 뉴스 직통 수집 (3.5초 타임아웃)
+    try {
+      const https = require('https');
+      const directRes = await axios.get(googleUrl, { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, 
+        httpsAgent: new https.Agent({ family: 4 }),
+        timeout: 3500 
+      });
+
+      if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
+        const rawMatches = [...directRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+        if (rawMatches.length > 0) {
+          items = rawMatches.map(m => {
+            const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
+            const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
+            const dateMatch = m[0].match(/<pubDate>(.*?)<\/pubDate>/i);
+            const descMatch = m[0].match(/<description>(.*?)<\/description>/i);
+            return {
+              title: titleMatch ? titleMatch[1] : '',
+              link: linkMatch ? linkMatch[1] : '',
+              pubDate: dateMatch ? dateMatch[1] : '',
+              description: descMatch ? descMatch[1] : ''
+            };
+          });
+          isDirect = true;
+        }
+      }
+    } catch (directErr) {
+      // 1차 직통 실패 시 무시하고 2차 우회로 전환
+    }
+
+    // 2차 시도: 직통 실패 시 rss2json 백업 우회
+    if (!isDirect || items.length === 0) {
+      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+      const rssRes = await axios.get(proxyUrl, { timeout: 8000 });
+      if (rssRes.data.status === 'ok') {
+        items = rssRes.data.items || [];
+      }
+    }
+
+    if (items.length === 0) {
+      return res.status(500).json({ success: false, message: 'Google News blocked or empty' });
+    }
 
     const articles = items.slice(0, 5).map((item, idx) => {
-      const titleMatch = [null, item.title || ''];
-      const linkMatch = [null, item.link || ''];
-      const dateMatch = [null, item.pubDate || ''];
-      const descMatch = [null, item.description || ''];
-
-      let title = titleMatch ? titleMatch[1] : '';
-      title = title.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
+      let title = (item.title || '').replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
       
       const sourceIndex = title.lastIndexOf(' - ');
       let sourceName = '';
@@ -432,23 +451,23 @@ app.get('/api/trending-articles', async (req, res) => {
         title = title.substring(0, sourceIndex).trim();
       }
 
-      let rawSnippet = descMatch ? descMatch[1] : '';
-      rawSnippet = rawSnippet.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
+      let rawSnippet = (item.description || '').replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
 
-      const link = linkMatch ? linkMatch[1] : '';
-      const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
-      const id = `trending-${Buffer.from(title).toString('hex').substring(0, 12)}`;
+      const link = item.link || '';
+      const isoDate = item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString();
 
       return {
         id: `trending-${idx}-${Date.now()}`,
         category: 'trending',
         categoryTag: `🔍 ${keyword}`,
-        date: isoDate,
-        link,
         title,
-        contentSnippet: snippet.substring(0, 1500)
+        source: sourceName || '뉴스',
+        link,
+        date: isoDate,
+        excerpt: rawSnippet.substring(0, 300),
+        contentSnippet: `${keyword} 뉴스 (${sourceName || '뉴스'}): ${rawSnippet.substring(0, 1500)}`
       };
-    });
+    }).filter(a => a.title.length > 0);
 
     res.json({ success: true, keyword, articles });
   } catch (err) {

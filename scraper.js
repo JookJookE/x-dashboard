@@ -247,18 +247,89 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
   }
 }
 
-// 3. Korean Google News RSS Feeds
+// Helper to parse XML from direct Google News RSS
+function parseGoogleNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal = false) {
+  const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
+  const articles = [];
+
+  for (let i = 0; i < items.length && articles.length < limit; i++) {
+    const itemXml = items[i][0];
+    const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
+    const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
+    const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
+    const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
+
+    if (titleMatch) {
+      let title = cleanHtml(titleMatch[1]);
+      const sourceIndex = title.lastIndexOf(' - ');
+      let sourceName = '';
+      if (sourceIndex > 0) {
+        sourceName = title.substring(sourceIndex + 3).trim();
+        title = title.substring(0, sourceIndex).trim();
+      }
+
+      const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
+      if (isDuplicateTopic) continue;
+
+      const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
+      const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
+      let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
+
+      if (!rawSnippet || rawSnippet.length < 15) {
+        rawSnippet = title;
+      }
+
+      const id = isGlobal ? `global-${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}` : `${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
+
+      articles.push({
+        id,
+        category: isGlobal ? 'global' : categoryKey,
+        categoryTag: isGlobal ? `🌐 해외뉴스 (${tag.replace('🌐 외신 ', '')})` : tag,
+        title: isGlobal ? `[외신 ${sourceName || '미국뉴스'}] ${title}` : title,
+        source: sourceName || (isGlobal ? '해외언론' : '뉴스'),
+        link,
+        date: isoDate,
+        excerpt: rawSnippet.substring(0, 300),
+        contentSnippet: isGlobal ? `Global News Source (${sourceName}): ${rawSnippet.substring(0, 1500)}` : `${categoryName} (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
+        isGlobal,
+        isPosted: isPosted(id)
+      });
+    }
+  }
+  return articles;
+}
+
+// 3. Korean Google News RSS Feeds (1차 직통 수집 ➔ 실패 시 2차 우회 수집 하이브리드 방식)
 async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
-  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+
+  // 1차 시도: 구글 뉴스 직통 수집 (100개 풀 원본)
   try {
-    const res = await axios.get(url, {
-      timeout: 10000
+    const https = require('https');
+    const directRes = await axios.get(googleUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      httpsAgent: new https.Agent({ family: 4 }),
+      timeout: 3500
     });
 
+    if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
+      const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, false);
+      if (articles.length > 0) {
+        return articles;
+      }
+    }
+  } catch (directErr) {
+    addLog('WARN', `⚠️ [구글 직통 제한 ➔ 우회 전환] ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+  }
+
+  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (백업)
+  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+  try {
+    const res = await axios.get(proxyUrl, { timeout: 8000 });
+
     if (res.data.status !== 'ok') {
-      addLog('WARN', `⚠️ [수집 차단/오류] ${categoryName} RSS 응답 실패 (Status: ${res.data.status || 'unknown'})`);
+      addLog('WARN', `⚠️ [수집 실패] ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
       return [];
     }
     const items = res.data.items || [];
@@ -309,31 +380,43 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     }
     return articles;
   } catch (err) {
-    const status = err.response ? err.response.status : '';
-    if (status === 403 || status === 429) {
-      addLog('ERROR', `🚨 [IP 차단/제한 발생] ${categoryName} RSS 요청 거부됨 (HTTP ${status}). 서버 IP 차단 또는 과다 요청.`);
-    } else if (err.code === 'ETIMEDOUT' || err.message.includes('timeout')) {
-      addLog('WARN', `⏱️ [타임아웃 발생] ${categoryName} RSS 응답 지연 (${err.message})`);
-    } else {
-      addLog('ERROR', `❌ [수집 실패] ${categoryName} RSS 통신 오류: ${err.message}`);
-    }
+    addLog('ERROR', `❌ [수집 최종 실패] ${categoryName} RSS 통신 오류: ${err.message}`);
     console.error(`Error fetching ${categoryName} RSS:`, err.message);
     return [];
   }
 }
 
-// 3. Global Foreign English News RSS Feeds (월스트리트저널, 로이터, 코인데스크 외신 뉴스)
+// 3. Global Foreign English News RSS Feeds (1차 직통 수집 ➔ 실패 시 2차 우회 수집 하이브리드 방식)
 async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
-  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+
+  // 1차 시도: 구글 뉴스 직통 수집 (100개 풀 원본)
   try {
-    const res = await axios.get(url, {
-      timeout: 10000
+    const https = require('https');
+    const directRes = await axios.get(googleUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      httpsAgent: new https.Agent({ family: 4 }),
+      timeout: 3500
     });
 
+    if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
+      const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, true);
+      if (articles.length > 0) {
+        return articles;
+      }
+    }
+  } catch (directErr) {
+    addLog('WARN', `⚠️ [구글 직통 제한 ➔ 우회 전환] Global ${categoryName} RSS 구글 직통 연결 불가 (${directErr.message}). 우회 통로로 자동 전환합니다.`);
+  }
+
+  // 2차 시도: 직통 실패 시 rss2json 우회 수집 (백업)
+  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+  try {
+    const res = await axios.get(proxyUrl, { timeout: 8000 });
+
     if (res.data.status !== 'ok') {
-      addLog('WARN', `⚠️ [수집 차단/오류] Global ${categoryName} RSS 응답 실패 (Status: ${res.data.status || 'unknown'})`);
+      addLog('WARN', `⚠️ [수집 실패] Global ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
       return [];
     }
     const items = res.data.items || [];
@@ -385,14 +468,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     }
     return articles;
   } catch (err) {
-    const status = err.response ? err.response.status : '';
-    if (status === 403 || status === 429) {
-      addLog('ERROR', `🚨 [IP 차단/제한 발생] Global ${categoryName} RSS 요청 거부됨 (HTTP ${status}). 서버 IP 차단 또는 과다 요청.`);
-    } else if (err.code === 'ETIMEDOUT' || err.message.includes('timeout')) {
-      addLog('WARN', `⏱️ [타임아웃 발생] Global ${categoryName} RSS 응답 지연 (${err.message})`);
-    } else {
-      addLog('ERROR', `❌ [수집 실패] Global ${categoryName} RSS 통신 오류: ${err.message}`);
-    }
+    addLog('ERROR', `❌ [수집 최종 실패] Global ${categoryName} RSS 통신 오류: ${err.message}`);
     console.error(`Error fetching Global ${categoryName} RSS:`, err.message);
     return [];
   }
