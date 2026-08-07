@@ -510,8 +510,8 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
       fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTimeVal)
     ]);
 
-    // 250ms 간격으로 rss2json 호출 분산 (429 분당 한도 초과 완전 방지)
-    await new Promise(r => setTimeout(r, 250));
+    // 350ms 간격으로 호출 분산 (구글 방화벽 봇 감지 회피 및 429 완전 방지)
+    await new Promise(r => setTimeout(r, 350));
 
     // 2차 묶음: 글로벌 해외 외신
     const [globalIt, globalCoin, globalStock, globalEconomy] = await Promise.all([
@@ -521,8 +521,8 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
       fetchGlobalNewsRssArticles('economy', '(Fed OR Federal Reserve OR Interest Rate OR Inflation OR Powell)', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal)
     ]);
 
-    // 250ms 간격 분산
-    await new Promise(r => setTimeout(r, 250));
+    // 350ms 간격 분산
+    await new Promise(r => setTimeout(r, 350));
 
     // 3차 묶음: 커뮤니티 및 썰
     const [blindNews, pannNews, gossipNews, mindsetNews] = await Promise.all([
