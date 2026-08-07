@@ -1370,14 +1370,10 @@ function getSnippetLines(ctx, article) {
     snippet = "본문 요약 내용이 없습니다. 원본 링크를 참고해 주세요.";
   }
 
-  const paragraphs = snippet.split('\n');
+  const paragraphs = snippet.split('\n').filter(p => p.trim() !== '');
   const sLines = [];
   
   for (const p of paragraphs) {
-    if (p.trim() === '') {
-      sLines.push(''); // Empty line for paragraph break
-      continue;
-    }
     const snippetWords = p.split(' ');
     let sLine = '';
     for (let n = 0; n < snippetWords.length; n++) {
