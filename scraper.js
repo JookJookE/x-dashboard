@@ -250,23 +250,23 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
 // 3. Korean Google News RSS Feeds
 async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
-  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
   try {
     const res = await axios.get(url, {
-      timeout: 15000
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 10000
     });
 
-    if (res.data.status !== 'ok') return [];
-    const items = res.data.items || [];
+    const xml = res.data;
+    const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
     const articles = [];
 
     for (let i = 0; i < items.length && articles.length < limit; i++) {
-      const itemXml = items[i];
-      const titleMatch = [null, itemXml.title || ''];
-      const linkMatch = [null, itemXml.link || ''];
-      const dateMatch = [null, itemXml.pubDate || ''];
-      const descMatch = [null, itemXml.description || ''];
+      const itemXml = items[i][0];
+      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
+      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
+      const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
+      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
 
       if (titleMatch) {
         let title = cleanHtml(titleMatch[1]);
@@ -324,23 +324,23 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 // 3. Global Foreign English News RSS Feeds (월스트리트저널, 로이터, 코인데스크 외신 뉴스)
 async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
-  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
   try {
     const res = await axios.get(url, {
-      timeout: 15000
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 10000
     });
 
-    if (res.data.status !== 'ok') return [];
-    const items = res.data.items || [];
+    const xml = res.data;
+    const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
     const articles = [];
 
     for (let i = 0; i < items.length && articles.length < limit; i++) {
-      const itemXml = items[i];
-      const titleMatch = [null, itemXml.title || ''];
-      const linkMatch = [null, itemXml.link || ''];
-      const dateMatch = [null, itemXml.pubDate || ''];
-      const descMatch = [null, itemXml.description || ''];
+      const itemXml = items[i][0];
+      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/i);
+      const linkMatch = itemXml.match(/<link>(.*?)<\/link>/i);
+      const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
+      const descMatch = itemXml.match(/<description>(.*?)<\/description>/i);
 
       if (titleMatch) {
         let title = cleanHtml(titleMatch[1]);
