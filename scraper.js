@@ -641,21 +641,21 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
     // 1차 묶음: 국내 주요 테크 & 금융
     const [heisenberg, itNews, coinNews, stockNews, economyNews] = await Promise.all([
       fetchHeisenbergArticles(5, scanBatchTimeVal),
-      fetchNewsRssArticles('it', '(IT OR 테크 OR 반도체 OR AI OR 엔비디아 OR 애플 OR 빅테크)', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('coin', '(비트코인 OR 가상자산 OR 코인 OR 이더리움 OR 암호화폐 OR 리플)', '코인', '🪙 코인', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('stock', '(주식 OR 증시 OR 코스피 OR 미국주식 OR 나스닥 OR 엔비디아 OR 테슬라)', '주식', '📈 주식', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('economy', '(경제 OR 금리 OR 환율 OR 인플레이션 OR 연준 OR 물가)', '경제뉴스', '💵 경제', 4, scanBatchTimeVal)
+      fetchNewsRssArticles('it', 'IT OR 테크 OR 반도체 OR AI', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('coin', '비트코인 OR 코인 OR 이더리움 OR 암호화폐', '코인', '🪙 코인', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('stock', '주식 OR 증시 OR 코스피 OR 나스닥', '주식', '📈 주식', 4, scanBatchTimeVal),
+      fetchNewsRssArticles('economy', '경제 OR 금리 OR 환율 OR 연준', '경제뉴스', '💵 경제', 4, scanBatchTimeVal)
     ]);
 
-    // 350ms 간격으로 호출 분산 (구글 방화벽 봇 감지 회피 및 429 완전 방지)
+    // 350ms 간격으로 호출 분산
     await new Promise(r => setTimeout(r, 350));
 
     // 2차 묶음: 글로벌 해외 외신
     const [globalIt, globalCoin, globalStock, globalEconomy] = await Promise.all([
-      fetchGlobalNewsRssArticles('it', '(Nvidia OR Apple OR OpenAI OR AI OR Tech OR Semiconductor)', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('coin', '(Bitcoin OR Crypto OR Ethereum OR Binance OR Ripple OR Solana)', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('stock', '(Nasdaq OR S&P500 OR Stock Market OR NVDA OR TSLA OR Apple)', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('economy', '(Fed OR Federal Reserve OR Interest Rate OR Inflation OR Powell)', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal)
+      fetchGlobalNewsRssArticles('it', 'Nvidia OR Apple OR OpenAI OR AI', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('coin', 'Bitcoin OR Crypto OR Ethereum OR Binance', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('stock', 'Nasdaq OR SP500 OR Stock Market OR NVDA', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal),
+      fetchGlobalNewsRssArticles('economy', 'Fed OR Federal Reserve OR Interest Rate OR Inflation', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal)
     ]);
 
     // 350ms 간격 분산
