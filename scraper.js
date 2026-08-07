@@ -448,7 +448,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
       },
-      timeout: 6000
+      timeout: 10000
     });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
@@ -607,7 +607,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9'
       },
-      timeout: 6000
+      timeout: 10000
     });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
@@ -729,6 +729,11 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
   addLog('INFO', '국내외 최신 소식 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
 
   try {
+    // Preflight Warmup call to Cloudflare Worker to eliminate Cold Start timeouts
+    try {
+      await axios.get(`${CF_WORKER_URL}${encodeURIComponent('https://news.google.com/rss/search?q=warmup&hl=ko&gl=KR&ceid=KR:ko')}`, { timeout: 4000 });
+    } catch (warmupErr) {}
+
     const heisenberg = await fetchHeisenbergArticles(5, scanBatchTimeVal);
     const itNews = await fetchNewsRssArticles('it', 'IT OR 테크 OR 반도체 OR AI', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal);
     await new Promise(r => setTimeout(r, 120));
