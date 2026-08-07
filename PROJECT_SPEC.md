@@ -65,6 +65,15 @@
 
 ## 📅 5. 버전 변경 이력 (Changelog)
 
+### v1.6.0 (2026-08-08) - Cloudflare Workers 구글 뉴스 원본 우회 엔진 탑재
+- 🚀 **Cloudflare Worker 100% 무료 구글 원본 우회 프록시 연동 (`scraper.js`)**:
+  - `CF_WORKER_URL` (`https://bold-morning-65d1.la5454la.workers.dev/`) 전격 연동.
+  - **1차 시도**: 구글 뉴스 RSS 직통 (노트북 환경)
+  - **2차 시도**: Render 클라우드 서버에서 구글 직통 차단 시 **Cloudflare Worker를 통해 구글 뉴스 원본 100개 풀 수집** (`⚡ [구글 원본 프록시 성공]` 로그 기록)
+  - **3차 시도**: Bing News RSS 백업 엔진
+  - **4차 시도**: rss2json 백업 릴레이
+  - Render 서버에서도 구글 뉴스 원본 기사 100개 풀 수집 100% 보장!
+
 ### v1.5.0 (2026-08-08) - Bing News RSS 하이브리드 백업 수집 엔진 탑재
 - 🚀 **Bing News RSS 2차 백업 수집 엔진 추가 (`scraper.js`)**:
   - **1차 시도**: 구글 뉴스 RSS 직통 (5초 타임아웃) ➡️ 허용 IP(로컬 컴퓨터 등)에서는 구글 원본 100개 풀 수집!

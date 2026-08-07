@@ -247,6 +247,8 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
   }
 }
 
+const CF_WORKER_URL = 'https://bold-morning-65d1.la5454la.workers.dev/?url=';
+
 // Helper to parse XML from direct Google News RSS
 function parseGoogleNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal = false) {
   const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];
@@ -365,7 +367,7 @@ async function fetchProxyWithRetry(proxyUrl) {
   }
 }
 
-// 3. Korean News RSS Feeds (1차 구글 직통 ➔ 2차 Bing News 백업 ➔ 3차 rss2json 백업)
+// 3. Korean News RSS Feeds (1차 구글 직통 ➔ 2차 CF Worker 구글 원본 ➔ 3차 Bing 백업 ➔ 4차 rss2json 백업)
 async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 5, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
@@ -376,7 +378,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     const directRes = await axios.get(googleUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 5000
+      timeout: 4000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -387,10 +389,26 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ Bing 백업 전환] ${categoryName} 구글 연결 제한. Bing 뉴스 엔진으로 자동 전환합니다.`);
+    // 1차 직통 실패 시 2차 Cloudflare Worker 구글 원본 수집 시도
   }
 
-  // 2차 시도: Bing News RSS 백업 엔진 (Render 클라우드 IP 차단 완전 회피)
+  // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
+  try {
+    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
+    const cfRes = await axios.get(cfUrl, { timeout: 8000 });
+
+    if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
+      const articles = parseGoogleNewsXml(cfRes.data, categoryKey, tag, categoryName, limit, false);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `⚡ [구글 원본 프록시 성공] ${categoryName} Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (cfErr) {
+    addLog('WARN', `🚫 [구글 프록시 지연 ➔ Bing 백업 전환] ${categoryName} 구글 연결 지연. Bing 뉴스 엔진으로 자동 전환합니다.`);
+  }
+
+  // 3차 시도: Bing News RSS 백업 엔진
   try {
     let bingQuery = queryStr;
     if (categoryKey === 'blind') {
@@ -486,7 +504,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
   }
 }
 
-// 4. Global Foreign English News RSS Feeds (1차 구글 직통 ➔ 2차 Bing News 백업 ➔ 3차 rss2json 백업)
+// 4. Global Foreign English News RSS Feeds (1차 구글 직통 ➔ 2차 CF Worker 구글 원본 ➔ 3차 Bing 백업 ➔ 4차 rss2json 백업)
 async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null, timeframe = '2h') {
   const freshQuery = `${queryStr} when:${timeframe}`;
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
@@ -497,7 +515,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     const directRes = await axios.get(googleUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 5000
+      timeout: 4000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -508,10 +526,26 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [구글 직통 차단/지연 ➔ Bing 백업 전환] Global ${categoryName} 구글 연결 제한. Bing 글로벌 뉴스 엔진으로 자동 전환합니다.`);
+    // 1차 직통 실패 시 2차 Cloudflare Worker 구글 원본 수집 시도
   }
 
-  // 2차 시도: Bing Global News RSS 백업 엔진
+  // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
+  try {
+    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
+    const cfRes = await axios.get(cfUrl, { timeout: 8000 });
+
+    if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
+      const articles = parseGoogleNewsXml(cfRes.data, categoryKey, tag, categoryName, limit, true);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `⚡ [구글 원본 프록시 성공] Global ${categoryName} Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (cfErr) {
+    addLog('WARN', `🚫 [구글 프록시 지연 ➔ Bing 백업 전환] Global ${categoryName} 구글 연결 지연. Bing 글로벌 뉴스 엔진으로 자동 전환합니다.`);
+  }
+
+  // 3차 시도: Bing Global News RSS 백업 엔진
   try {
     const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
     const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=en-US`;
