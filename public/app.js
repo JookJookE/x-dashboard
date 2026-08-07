@@ -1741,26 +1741,30 @@ async function fetchTrendingArticles(keyword, region, clickedEl) {
     const res = await fetch(`/api/trending-articles?keyword=${encodeURIComponent(keyword)}&region=${region}`);
     const data = await res.json();
 
-    if (data.success && data.articles.length > 0) {
-      listEl.innerHTML = data.articles.map(art => `
-        <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
-          <div style="flex:1; min-width:0;">
-            <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px;">
-              <span class="badge badge-info" style="font-size:9px;">${art.categoryTag || '🔍 트렌딩'}</span>
-              <span style="font-size: 10px; color: var(--accent-cyan); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
+    if (data.success) {
+      if (data.articles.length > 0) {
+        listEl.innerHTML = data.articles.map(art => `
+          <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px;">
+                <span class="badge badge-info" style="font-size:9px;">${art.categoryTag || '🔍 트렌딩'}</span>
+                <span style="font-size: 10px; color: var(--accent-cyan); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
+              </div>
+              <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${art.title}</h5>
+              ${art.link ? '<a href="' + art.link + '" target="_blank" class="btn-link" style="font-size:11px;">원문보기 ↗</a>' : ''}
             </div>
-            <h5 style="font-size: 13px; font-weight:700; margin-bottom: 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${art.title}</h5>
-            ${art.link ? '<a href="' + art.link + '" target="_blank" class="btn-link" style="font-size:11px;">원문보기 ↗</a>' : ''}
+            <button class="btn btn-accent btn-sm" style="white-space:nowrap; margin-left:8px;" onclick='selectTrendingArticleForComposer(${JSON.stringify(art).replace(/'/g, "&#39;")})'>✨ 트윗 생성</button>
           </div>
-          <button class="btn btn-accent btn-sm" style="white-space:nowrap; margin-left:8px;" onclick='selectTrendingArticleForComposer(${JSON.stringify(art).replace(/'/g, "&#39;")})'>✨ 트윗 생성</button>
-        </div>
-      `).join('');
-      showToast(`🔍 "${keyword}" 관련 기사 ${data.articles.length}건을 찾았습니다!`);
+        `).join('');
+        showToast(`🔍 "${keyword}" 관련 기사 ${data.articles.length}건을 찾았습니다!`);
+      } else {
+        listEl.innerHTML = '<p class="placeholder-text">관련 기사를 찾을 수 없습니다.</p>';
+      }
     } else {
-      listEl.innerHTML = '<p class="placeholder-text">관련 기사를 찾을 수 없습니다.</p>';
+      listEl.innerHTML = `<p class="placeholder-text">검색 실패: ${data.message}</p>`;
     }
   } catch (e) {
-    listEl.innerHTML = `<p class="placeholder-text">기사 검색 실패: ${e.message}</p>`;
+    listEl.innerHTML = `<p class="placeholder-text">기사 검색 오류: ${e.message}</p>`;
   }
 }
 

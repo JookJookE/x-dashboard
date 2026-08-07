@@ -407,7 +407,12 @@ app.get('/api/trending-articles', async (req, res) => {
     const ceid = region === 'us' ? 'US:en' : 'KR:ko';
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
 
-    const rssRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 });
+    const rssRes = await axios.get(url, { 
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+      }, 
+      timeout: 8000 
+    });
     const items = [...rssRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
 
     const articles = items.slice(0, 5).map((m, idx) => {
