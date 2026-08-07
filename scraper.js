@@ -378,7 +378,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     const directRes = await axios.get(googleUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 4000
+      timeout: 1500
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -394,8 +394,13 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
   try {
-    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
-    const cfRes = await axios.get(cfUrl, { timeout: 8000 });
+    const https = require('https');
+    const rawGoogleUrl = `https://news.google.com/rss/search?q=${freshQuery}&hl=ko&gl=KR&ceid=KR:ko`;
+    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(rawGoogleUrl)}`;
+    const cfRes = await axios.get(cfUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      timeout: 12000
+    });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(cfRes.data, categoryKey, tag, categoryName, limit, false);
@@ -515,7 +520,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     const directRes = await axios.get(googleUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       httpsAgent: new https.Agent({ family: 4, keepAlive: true }),
-      timeout: 4000
+      timeout: 1500
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -531,8 +536,13 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
   try {
-    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
-    const cfRes = await axios.get(cfUrl, { timeout: 8000 });
+    const https = require('https');
+    const rawGoogleUrl = `https://news.google.com/rss/search?q=${freshQuery}&hl=en-US&gl=US&ceid=US:en`;
+    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(rawGoogleUrl)}`;
+    const cfRes = await axios.get(cfUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      timeout: 12000
+    });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(cfRes.data, categoryKey, tag, categoryName, limit, true);
@@ -632,42 +642,41 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   }
 }
 
-// Main fetcher: 3단계 쪼개기 수집으로 rss2json 429 차단 완벽 방지
+// Main fetcher: 순차 순연 수집으로 Cloudflare 프록시 타임아웃 100% 방지
 async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
   const scanBatchTimeVal = scanBatchTime || new Date().toISOString();
   addLog('INFO', '국내외 최신 소식 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
 
   try {
-    // 1차 묶음: 국내 주요 테크 & 금융
-    const [heisenberg, itNews, coinNews, stockNews, economyNews] = await Promise.all([
-      fetchHeisenbergArticles(5, scanBatchTimeVal),
-      fetchNewsRssArticles('it', 'IT OR 테크 OR 반도체 OR AI', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('coin', '비트코인 OR 코인 OR 이더리움 OR 암호화폐', '코인', '🪙 코인', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('stock', '주식 OR 증시 OR 코스피 OR 나스닥', '주식', '📈 주식', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('economy', '경제 OR 금리 OR 환율 OR 연준', '경제뉴스', '💵 경제', 4, scanBatchTimeVal)
-    ]);
+    const heisenberg = await fetchHeisenbergArticles(5, scanBatchTimeVal);
+    const itNews = await fetchNewsRssArticles('it', 'IT OR 테크 OR 반도체 OR AI', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+    
+    const coinNews = await fetchNewsRssArticles('coin', '비트코인 OR 코인 OR 이더리움 OR 암호화폐', '코인', '🪙 코인', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
 
-    // 350ms 간격으로 호출 분산
-    await new Promise(r => setTimeout(r, 350));
+    const stockNews = await fetchNewsRssArticles('stock', '주식 OR 증시 OR 코스피 OR 나스닥', '주식', '📈 주식', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
 
-    // 2차 묶음: 글로벌 해외 외신
-    const [globalIt, globalCoin, globalStock, globalEconomy] = await Promise.all([
-      fetchGlobalNewsRssArticles('it', 'Nvidia OR Apple OR OpenAI OR AI', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('coin', 'Bitcoin OR Crypto OR Ethereum OR Binance', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('stock', 'Nasdaq OR SP500 OR Stock Market OR NVDA', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('economy', 'Fed OR Federal Reserve OR Interest Rate OR Inflation', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal)
-    ]);
+    const economyNews = await fetchNewsRssArticles('economy', '경제 OR 금리 OR 환율 OR 연준', '경제뉴스', '💵 경제', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
 
-    // 350ms 간격 분산
-    await new Promise(r => setTimeout(r, 350));
+    const globalIt = await fetchGlobalNewsRssArticles('it', 'Nvidia OR Apple OR OpenAI OR AI', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
 
-    // 3차 묶음: 커뮤니티 및 썰
-    const [blindNews, pannNews, gossipNews, mindsetNews] = await Promise.all([
-      fetchNewsRssArticles('blind', '("블라인드 글" OR "블라인드 폭로" OR "블라인드 올라온" OR "블라인드 캡처" OR "블라인드 논란") (삼성 OR 쿠팡 OR 하이닉스 OR 이직 OR 연봉 OR 직장인 OR 폭로)', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d'),
-      fetchNatePannArticles(8, scanBatchTimeVal),
-      fetchNewsRssArticles('gossip', '(연예 OR 예능 OR 인플루언서 OR 셀럽 OR KPOP OR 드라마 OR 배우 OR 가수 OR 아이돌) (논란 OR 파문 OR 폭로 OR 근황 OR 화제)', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d'),
-      fetchNewsRssArticles('mindset', '(심리학 OR 멘탈 OR 대인관계 OR 생각정리 OR 번아웃 OR 자존감)', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d')
-    ]);
+    const globalCoin = await fetchGlobalNewsRssArticles('coin', 'Bitcoin OR Crypto OR Ethereum OR Binance', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const globalStock = await fetchGlobalNewsRssArticles('stock', 'Nasdaq OR SP500 OR Stock Market OR NVDA', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const globalEconomy = await fetchGlobalNewsRssArticles('economy', 'Fed OR Federal Reserve OR Interest Rate OR Inflation', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const blindNews = await fetchNewsRssArticles('blind', '블라인드 직장인 이직 연봉', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d');
+    const pannNews = await fetchNatePannArticles(8, scanBatchTimeVal);
+    const gossipNews = await fetchNewsRssArticles('gossip', '연예인 근황', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d');
+    const mindsetNews = await fetchNewsRssArticles('mindset', '심리학 멘탈 대인관계 자존감', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d');
 
     let allArticles = [
       ...heisenberg,
