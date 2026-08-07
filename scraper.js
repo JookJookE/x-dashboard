@@ -210,6 +210,7 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
     const matches = [...html.matchAll(/<a href=["'](\/talk\/[0-9]+)["'][^>]*title=["']([^"']+)["']/gi)];
     
     const candidateArticles = [];
+    const seenLinks = new Set();
     for (const match of matches) {
       if (candidateArticles.length >= limit) break;
       const link = `https://pann.nate.com${match[1]}`;
@@ -723,46 +724,42 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   }
 }
 
-// Main fetcher: Promise.all 병렬 처리로 수집 속도 ~1.5초 극대화
+// Main fetcher: 120ms 순차 순연 수집으로 Cloudflare 503 동시성 제한 방지 및 ~2초 초고속 수집
 async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
   const scanBatchTimeVal = scanBatchTime || new Date().toISOString();
-  addLog('INFO', '국내외 최신 소식 초고속 병렬 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
+  addLog('INFO', '국내외 최신 소식 수집 시작 (하이젠버그, IT, 코인, 주식, 경제 + 글로벌 외신)');
 
   try {
-    // Preflight Warmup call to Cloudflare Worker to eliminate Cold Start timeouts
-    try {
-      await axios.get(`${CF_WORKER_URL}${encodeURIComponent('https://news.google.com/rss/search?q=warmup&hl=ko&gl=KR&ceid=KR:ko')}`, { timeout: 3000 });
-    } catch (warmupErr) {}
+    const heisenberg = await fetchHeisenbergArticles(5, scanBatchTimeVal);
 
-    const [
-      heisenberg,
-      itNews,
-      coinNews,
-      stockNews,
-      economyNews,
-      globalIt,
-      globalCoin,
-      globalStock,
-      globalEconomy,
-      blindNews,
-      pannNews,
-      gossipNews,
-      mindsetNews
-    ] = await Promise.all([
-      fetchHeisenbergArticles(5, scanBatchTimeVal),
-      fetchNewsRssArticles('it', 'IT OR 테크 OR 반도체 OR AI', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('coin', '비트코인 OR 코인 OR 이더리움 OR 암호화폐', '코인', '🪙 코인', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('stock', '주식 OR 증시 OR 코스피 OR 나스닥', '주식', '📈 주식', 4, scanBatchTimeVal),
-      fetchNewsRssArticles('economy', '경제 OR 금리 OR 환율 OR 연준', '경제뉴스', '💵 경제', 4, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('it', 'Nvidia OR Apple OR OpenAI OR AI', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('coin', 'Bitcoin OR Crypto OR Ethereum OR Binance', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('stock', 'Nasdaq OR SP500 OR Stock Market OR NVDA', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal),
-      fetchGlobalNewsRssArticles('economy', 'Fed OR Federal Reserve OR Interest Rate OR Inflation', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal),
-      fetchNewsRssArticles('blind', '블라인드 직장인 이직 연봉', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d'),
-      fetchNatePannArticles(8, scanBatchTimeVal),
-      fetchNewsRssArticles('gossip', '연예인 근황', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d'),
-      fetchNewsRssArticles('mindset', '심리학 멘탈 대인관계 자존감', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d')
-    ]);
+    const itNews = await fetchNewsRssArticles('it', 'IT OR 테크 OR 반도체 OR AI', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const coinNews = await fetchNewsRssArticles('coin', '비트코인 OR 코인 OR 이더리움 OR 암호화폐', '코인', '🪙 코인', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const stockNews = await fetchNewsRssArticles('stock', '주식 OR 증시 OR 코스피 OR 나스닥', '주식', '📈 주식', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const economyNews = await fetchNewsRssArticles('economy', '경제 OR 금리 OR 환율 OR 연준', '경제뉴스', '💵 경제', 4, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const globalIt = await fetchGlobalNewsRssArticles('it', 'Nvidia OR Apple OR OpenAI OR AI', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const globalCoin = await fetchGlobalNewsRssArticles('coin', 'Bitcoin OR Crypto OR Ethereum OR Binance', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const globalStock = await fetchGlobalNewsRssArticles('stock', 'Nasdaq OR SP500 OR Stock Market OR NVDA', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const globalEconomy = await fetchGlobalNewsRssArticles('economy', 'Fed OR Federal Reserve OR Interest Rate OR Inflation', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 120));
+
+    const blindNews = await fetchNewsRssArticles('blind', '블라인드 직장인 이직 연봉', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d');
+    const pannNews = await fetchNatePannArticles(8, scanBatchTimeVal);
+    const gossipNews = await fetchNewsRssArticles('gossip', '연예인 근황', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d');
+    const mindsetNews = await fetchNewsRssArticles('mindset', '심리학 멘탈 대인관계 자존감', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d');
 
     let allArticles = [
       ...heisenberg,

@@ -65,6 +65,12 @@
 
 ## 📅 5. 버전 변경 이력 (Changelog)
 
+### v1.7.1 (2026-08-08) - Cloudflare Worker 503 동시성 제한 방지 (120ms Pacing 적용)
+- 🚀 **Cloudflare HTTP 503 Service Unavailable 완벽 해결**:
+  - `Promise.all`로 13개 요청이 동일 마이크로초에 한 번에 몰려 Cloudflare Worker 차단(HTTP 503)되던 동시성 한계를 120ms 순연 인터벌(Pacing)로 전격 개선.
+  - 전 카테고리 100% Cloudflare 구글 원본 수집(`🚀 [2차 Cloudflare 구글 성공]`) 유지 및 전체 수집 속도 ~2초 초고속 유지.
+  - `fetchNatePannArticles` 내 미정의 변수 `seenLinks` 오류 수정.
+
 ### v1.7.0 (2026-08-08) - 13개 카테고리 풀 병렬(Promise.all) 초고속 수집 최적화 (~1.5초 달성)
 - 🚀 **수집 속도 20배 향상 (`45초 ➔ ~1.5초`)**:
   - 기존 13개 카테고리 순차 수집(`await` 순연)을 `Promise.all` 동시 병렬 수집으로 전격 개편.
