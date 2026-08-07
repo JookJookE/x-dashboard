@@ -117,8 +117,13 @@ app.get('/api/articles', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 300;
     const forceRefresh = req.query.refresh === 'true';
-    // STRICT SCALING RULE: Only fetch new articles if forceRefresh=true ([🔄 수집] button) or empty initial cache
-    if (forceRefresh || articlesCache.length === 0) {
+    // Always load from DB file first if cache is empty
+    if (!articlesCache || articlesCache.length === 0) {
+      articlesCache = getStoredArticles();
+    }
+
+    // STRICT SCALING RULE: Only run expensive scraping if forceRefresh=true ([🔄 수집] button clicked)
+    if (forceRefresh) {
       const freshArticles = await fetchLatestArticles(limit);
       articlesCache = freshArticles;
     } else {
