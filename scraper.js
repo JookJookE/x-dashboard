@@ -394,12 +394,10 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
   try {
-    const https = require('https');
-    const rawGoogleUrl = `https://news.google.com/rss/search?q=${freshQuery}&hl=ko&gl=KR&ceid=KR:ko`;
-    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(rawGoogleUrl)}`;
+    const cfUrl = `${CF_WORKER_URL}${googleUrl}`;
     const cfRes = await axios.get(cfUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      timeout: 12000
+      timeout: 8000
     });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
@@ -536,12 +534,10 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
 
   // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
   try {
-    const https = require('https');
-    const rawGoogleUrl = `https://news.google.com/rss/search?q=${freshQuery}&hl=en-US&gl=US&ceid=US:en`;
-    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(rawGoogleUrl)}`;
+    const cfUrl = `${CF_WORKER_URL}${googleUrl}`;
     const cfRes = await axios.get(cfUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      timeout: 12000
+      timeout: 8000
     });
 
     if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
