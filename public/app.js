@@ -397,8 +397,19 @@ function selectCategoryNav(cat, unreadOnly = false) {
   closeMobileMenu();
 }
 
+let isRefreshingArticles = false;
+
 // Load Articles (forceRefresh=true일 때 1초 실시간 강제 수집)
 async function loadArticles(forceRefresh = false) {
+  if (forceRefresh && isRefreshingArticles) {
+    showToast('⏳ 이미 최신 뉴스 수집이 진행 중입니다. 잠시만 기다려 주세요!');
+    return;
+  }
+
+  if (forceRefresh) {
+    isRefreshingArticles = true;
+  }
+
   const gridEl = document.getElementById('articles-grid');
   if (gridEl) gridEl.innerHTML = '<div class="skeleton-loader">최신 뉴스를 실시간 수집 중입니다...</div>';
 
@@ -430,12 +441,16 @@ async function loadArticles(forceRefresh = false) {
       renderArticlesDashboardTech(techArticles.slice(0, 5));
       renderArticlesDashboardComm(commArticles.slice(0, 5));
       renderFilteredArticles();
-      showToast(forceRefresh ? '⚡ 1초 실시간 최신 뉴스 수집을 완료했습니다!' : '최신 소식 목록 로딩 완료!');
+      showToast(forceRefresh ? '⚡ 실시간 최신 뉴스 수집을 완료했습니다!' : '최신 소식 목록 로딩 완료!');
     } else {
       if (gridEl) gridEl.innerHTML = `<p class="placeholder-text">오류: ${data.message}</p>`;
     }
   } catch (err) {
     if (gridEl) gridEl.innerHTML = `<p class="placeholder-text">뉴스를 가져오지 못했습니다 (${err.message})</p>`;
+  } finally {
+    if (forceRefresh) {
+      isRefreshingArticles = false;
+    }
   }
 }
 
