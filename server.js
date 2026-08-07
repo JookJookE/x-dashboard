@@ -382,6 +382,20 @@ app.get('/api/trending', async (req, res) => {
           rank: idx + 1,
           keyword: titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '',
           traffic: trafficMatch ? trafficMatch[1] : '',
+          relatedNews: newsMatch ? newsMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''
+        };
+      }).filter(t => t.keyword);
+    }
+
+    const krTrends = krRes.status === 'fulfilled' ? parseTrendingRss(krRes.value.data) : [];
+    const usTrends = usRes.status === 'fulfilled' ? parseTrendingRss(usRes.value.data) : [];
+
+    res.json({ success: true, kr: krTrends, us: usTrends, updatedAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.get('/api/trending-articles', async (req, res) => {
   try {
     const keyword = req.query.keyword;
