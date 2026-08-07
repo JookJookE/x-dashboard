@@ -195,54 +195,125 @@ app.post('/api/extract-image', async (req, res) => {
       return res.status(400).json({ success: false, message: '기사 제목 또는 링크가 필요합니다.' });
     }
 
-    // 1. Direct fetch if url is non-Google link
-    if (url && !url.includes('news.google.com')) {
+    let targetUrl = url || '';
+
+    // 1. Resolve Google redirect link if needed
+    if (targetUrl && targetUrl.includes('news.google.com')) {
       try {
-        const directRes = await axios.get(url, {
+        const gRes = await axios.get(targetUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          timeout: 5000
+          timeout: 4000,
+          maxRedirects: 5
         });
-        const dHtml = directRes.data;
-        const ogMatch = dHtml.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
-                        dHtml.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
-        if (ogMatch && ogMatch[1] && !ogMatch[1].toLowerCase().includes('logo')) {
-          let photo = ogMatch[1].replace(/&amp;/g, '&');
-          if (photo.startsWith('//')) photo = 'https:' + photo;
-          return res.json({ success: true, imageUrl: photo });
+        if (gRes.request?.res?.responseUrl && !gRes.request.res.responseUrl.includes('news.google.com')) {
+          targetUrl = gRes.request.res.responseUrl;
         }
       } catch (e) {}
     }
 
-    // 2. High-precision News Photo Search by Title
-    const cleanTitle = (title || '').replace(/\[.*?\]/g, '').replace(/ - .*$/, '').trim();
-    if (!cleanTitle) {
-      return res.json({ success: false, message: '원문 기사에서 대표 이미지를 찾을 수 없습니다.' });
+    // 2. Fetch direct webpage (Nate Pann, Blind, Naver, Hankyung, Chosun, etc.)
+    if (targetUrl && !targetUrl.includes('news.google.com')) {
+      try {
+        const directRes = await axios.get(targetUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 5000,
+          responseType: 'arraybuffer'
+        });
+
+        const iconv = require('iconv-lite');
+        let dHtml = directRes.data.toString('utf-8');
+        if (dHtml.toLowerCase().includes('charset=euc-kr')) {
+          dHtml = iconv.decode(directRes.data, 'EUC-KR');
+        }
+
+        // 2a. Meta og:image & twitter:image
+        const ogMatches = [
+          ...dHtml.matchAll(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/gi),
+          ...dHtml.matchAll(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/gi),
+          ...dHtml.matchAll(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/gi)
+        ];
+
+        for (const og of ogMatches) {
+          if (og && og[1]) {
+            let photo = og[1].replace(/&amp;/g, '&').trim();
+            if (photo.startsWith('//')) photo = 'https:' + photo;
+            const pLower = photo.toLowerCase();
+            if (!pLower.includes('logo') && !pLower.includes('icon') && !pLower.includes('avatar') && !pLower.includes('banner')) {
+              return res.json({ success: true, imageUrl: photo });
+            }
+          }
+        }
+
+        // 2b. Article body images (Nate Pann fimg, Blind image, Naver news photo)
+        const bodyImgs = [
+          ...dHtml.matchAll(/<img[^>]*src=["'](https?:\/\/[^"']+)["']/gi),
+          ...dHtml.matchAll(/<img[^>]*src=["'](\/\/[^"']+)["']/gi)
+        ];
+
+        for (const m of bodyImgs) {
+          let src = m[1].replace(/&amp;/g, '&').trim();
+          if (src.startsWith('//')) src = 'https:' + src;
+          const sLower = src.toLowerCase();
+
+          const isPhoto = sLower.includes('fimg') || sLower.includes('download.jsp') || sLower.includes('imgnews') ||
+                          sLower.includes('upload') || sLower.includes('article') || sLower.includes('content') ||
+                          /\.(jpg|jpeg|png|webp)(\?|$)/i.test(sLower);
+
+          if (isPhoto && !sLower.includes('logo') && !sLower.includes('icon') && !sLower.includes('btn') && !sLower.includes('stat') && !sLower.includes('emoticon')) {
+            return res.json({ success: true, imageUrl: src });
+          }
+        }
+      } catch (e) {}
     }
 
-    const searchUrl = `https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(cleanTitle)}`;
-    const searchRes = await axios.get(searchUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      timeout: 6000
-    });
+    // 3. High-precision Naver News Photo Search by Title
+    const cleanTitle = (title || '').replace(/\[.*?\]/g, '').replace(/ - .*$/, '').trim();
+    if (cleanTitle) {
+      try {
+        const searchUrl = `https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(cleanTitle)}`;
+        const searchRes = await axios.get(searchUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 6000
+        });
 
-    const html = searchRes.data;
-    const imgMatches = [...html.matchAll(/src=["'](https?:\/\/[^"']+)["']/gi)];
+        const html = searchRes.data;
+        const imgMatches = [...html.matchAll(/src=["'](https?:\/\/[^"']+)["']/gi)];
 
-    for (const m of imgMatches) {
-      const src = m[1].replace(/&amp;/g, '&');
-      const srcLower = src.toLowerCase();
-
-      if (srcLower.includes('imgnews.pstatic.net') || srcLower.includes('search.pstatic.net')) {
-        const paramMatch = src.match(/src=([^&]+)/);
-        if (paramMatch && paramMatch[1]) {
-          const originUrl = decodeURIComponent(paramMatch[1]);
-          if (!originUrl.toLowerCase().includes('logo') && !originUrl.toLowerCase().includes('icon')) {
-            return res.json({ success: true, imageUrl: originUrl });
+        for (const m of imgMatches) {
+          let src = m[1].replace(/&amp;/g, '&');
+          let checkUrl = src;
+          const paramMatch = src.match(/src=([^&]+)/);
+          if (paramMatch && paramMatch[1]) {
+            checkUrl = decodeURIComponent(paramMatch[1]);
           }
-        } else if (!srcLower.includes('logo') && !srcLower.includes('icon')) {
-          return res.json({ success: true, imageUrl: src });
+          const lower = checkUrl.toLowerCase();
+          if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(lower) || lower.includes('imgnews') || lower.includes('search.pstatic.net')) {
+            if (!lower.includes('logo') && !lower.includes('icon') && !lower.includes('profile') && !lower.includes('spg')) {
+              return res.json({ success: true, imageUrl: checkUrl });
+            }
+          }
         }
-      }
+      } catch (e) {}
+    }
+
+    // 4. Daum News Photo Search Backup
+    if (cleanTitle) {
+      try {
+        const daumUrl = `https://search.daum.net/search?w=news&q=${encodeURIComponent(cleanTitle)}`;
+        const dRes = await axios.get(daumUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 5000
+        });
+        const dHtml = dRes.data;
+        const dImgs = [...dHtml.matchAll(/src=["'](https?:\/\/[^"']+)["']/gi)];
+        for (const m of dImgs) {
+          const src = m[1].replace(/&amp;/g, '&');
+          const lower = src.toLowerCase();
+          if ((lower.includes('daumcdn.net') || lower.includes('fname=')) && !lower.includes('logo') && !lower.includes('icon') && !lower.includes('static')) {
+            return res.json({ success: true, imageUrl: src });
+          }
+        }
+      } catch (e) {}
     }
 
     return res.json({ success: false, message: '원문 기사에서 대표 이미지를 찾을 수 없습니다.' });
