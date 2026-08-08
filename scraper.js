@@ -247,8 +247,6 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
   }
 }
 
-const CF_WORKER_URL = 'https://bold-morning-65d1.la5454la.workers.dev/?url=';
-
 // Helper to parse XML from direct Google News RSS
 function parseGoogleNewsXml(xml, categoryKey, tag, categoryName, limit, isGlobal = false) {
   const items = [...xml.matchAll(/<item>[\s\S]*?<\/item>/gi)];

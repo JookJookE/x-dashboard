@@ -514,41 +514,7 @@ app.get('/api/trending-articles', async (req, res) => {
           fetchSource = 'direct';
         }
       }
-    } catch (directErr) {
-      addLog('WARN', `🚫 [1차 구글 직통 차단 ➔ 2차 Cloudflare 전환] "${keyword}" 구글 직통 불가. Cloudflare Worker 우회로 전환합니다.`);
-    }
-
-    // 2차 시도: Cloudflare Worker 구글 원본 우회 수집
-    if (!fetchSource || items.length === 0) {
-      try {
-        const CF_WORKER_URL = 'https://bold-morning-65d1.la5454la.workers.dev/?url=';
-        const cfUrl = `${CF_WORKER_URL}${googleUrl}`;
-        const cfRes = await axios.get(cfUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          timeout: 5000
-        });
-        if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
-          const rawMatches = [...cfRes.data.matchAll(/<item>[\s\S]*?<\/item>/gi)];
-          if (rawMatches.length > 0) {
-            items = rawMatches.map(m => {
-              const titleMatch = m[0].match(/<title>(.*?)<\/title>/i);
-              const linkMatch = m[0].match(/<link>(.*?)<\/link>/i);
-              const dateMatch = m[0].match(/<pubDate>(.*?)<\/pubDate>/i);
-              const descMatch = m[0].match(/<description>(.*?)<\/description>/i);
-              return {
-                title: titleMatch ? titleMatch[1] : '',
-                link: linkMatch ? linkMatch[1] : '',
-                pubDate: dateMatch ? dateMatch[1] : '',
-                description: descMatch ? descMatch[1] : ''
-              };
-            });
-            fetchSource = 'cf';
-          }
-        }
-      } catch (cfErr) {
-        addLog('WARN', `🚫 [2차 Cloudflare 지연 ➔ 3차 Bing 전환] "${keyword}" Cloudflare 지연. Bing으로 전환합니다.`);
-      }
-    }
+    } catch (directErr) {}
 
     // 3차 시도: Bing 뉴스 RSS 수집
     if (!fetchSource || items.length === 0) {
