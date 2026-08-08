@@ -522,7 +522,7 @@ app.get('/api/trending-articles', async (req, res) => {
     if (!fetchSource || items.length === 0) {
       try {
         const CF_WORKER_URL = 'https://bold-morning-65d1.la5454la.workers.dev/?url=';
-        const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
+        const cfUrl = `${CF_WORKER_URL}${googleUrl}`;
         const cfRes = await axios.get(cfUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
           timeout: 5000
