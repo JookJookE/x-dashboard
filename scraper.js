@@ -451,6 +451,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
 
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
       let articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit * 2, false);
+      const originalCount = articles.length;
       const timeLimitMs = timeframe === '5d' ? 5 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
       const nowMs = Date.now();
       articles = articles.filter(a => (nowMs - new Date(a.date).getTime()) <= timeLimitMs).slice(0, limit);
@@ -458,6 +459,8 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       if (articles.length > 0) {
         addLog('SUCCESS', `🔄 [2차 Bing 백업 성공] ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
+      } else if (originalCount > 0) {
+        addLog('WARN', `⚠️ [2차 Bing 백업 실패] ${categoryName} Bing 기사 ${originalCount}건이 모두 제한 시간(${timeframe})을 초과하여 폐기되었습니다.`);
       }
     }
   } catch (bingErr) {
@@ -517,6 +520,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
 
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
       let articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit * 2, true);
+      const originalCount = articles.length;
       const timeLimitMs = timeframe === '5d' ? 5 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
       const nowMs = Date.now();
       articles = articles.filter(a => (nowMs - new Date(a.date).getTime()) <= timeLimitMs).slice(0, limit);
@@ -524,6 +528,8 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
       if (articles.length > 0) {
         addLog('SUCCESS', `🔄 [2차 Bing 백업 성공] Global ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
+      } else if (originalCount > 0) {
+        addLog('WARN', `⚠️ [2차 Bing 백업 실패] Global ${categoryName} Bing 기사 ${originalCount}건이 모두 제한 시간(${timeframe})을 초과하여 폐기되었습니다.`);
       }
     }
   } catch (bingErr) {
