@@ -443,14 +443,18 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
     }
 
-    const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=ko-KR`;
+    const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=ko-KR&qft=sortbydate%3d"1"`;
     const bingRes = await axios.get(bingUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       timeout: 5000
     });
 
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
-      const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, false);
+      let articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit * 2, false);
+      const timeLimitMs = timeframe === '5d' ? 5 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      articles = articles.filter(a => (nowMs - new Date(a.date).getTime()) <= timeLimitMs).slice(0, limit);
+      
       if (articles.length > 0) {
         addLog('SUCCESS', `🔄 [2차 Bing 백업 성공] ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
@@ -505,14 +509,18 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   // 2차 시도: Bing Global News RSS 백업 엔진
   try {
     const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
-    const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=en-US`;
+    const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=en-US&qft=sortbydate%3d"1"`;
     const bingRes = await axios.get(bingUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       timeout: 5000
     });
 
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
-      const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, true);
+      let articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit * 2, true);
+      const timeLimitMs = timeframe === '5d' ? 5 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      articles = articles.filter(a => (nowMs - new Date(a.date).getTime()) <= timeLimitMs).slice(0, limit);
+      
       if (articles.length > 0) {
         addLog('SUCCESS', `🔄 [2차 Bing 백업 성공] Global ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
