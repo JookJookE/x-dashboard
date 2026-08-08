@@ -12,3 +12,6 @@
 
 3. **Update Documentation**:
    - Whenever you complete a feature update, prompt change, or bug fix requested by the user, you **MUST** update the `PROJECT_SPEC.md` file (specifically Section 5: Version History & Changelog) and increment the version number accordingly.
+
+4. **Local & Render Synchronization (Git Push)**:
+   - To ensure both the local environment (Mini PC/Laptop) and the remote environment (Render) stay synchronized, you **MUST** immediately commit and push any code or configuration changes to the GitHub repository (`origin main`) after completing a task.
