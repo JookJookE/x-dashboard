@@ -440,7 +440,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     } else if (categoryKey === 'mindset') {
       bingQuery = '심리학 멘탈';
     } else {
-      bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
+      bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\s+/g, ' ').trim();
     }
 
     const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=ko-KR&qft=sortbydate%3d"1"`;
@@ -511,7 +511,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
 
   // 2차 시도: Bing Global News RSS 백업 엔진
   try {
-    const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\s+/g, ' ').trim();
     const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=en-US&qft=sortbydate%3d"1"`;
     const bingRes = await axios.get(bingUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
