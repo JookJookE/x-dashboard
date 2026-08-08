@@ -194,6 +194,38 @@ async function fetchHeisenbergArticles(limit = 5, scanBatchTime = null) {
   }
 }
 
+async function fetchNatePannDetail(url) {
+  try {
+    const iconv = require('iconv-lite');
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      timeout: 5000,
+      responseType: 'arraybuffer'
+    });
+    let html = res.data.toString('utf-8');
+    if (html.toLowerCase().includes('euc-kr')) {
+      html = iconv.decode(res.data, 'EUC-KR');
+    }
+
+    let realDateIso = null;
+    const dateMatch = html.match(/(202[0-9]\.[0-9]{2}\.[0-9]{2}\s+[0-9]{2}:[0-9]{2})/);
+    if (dateMatch) {
+      const [ymd, time] = dateMatch[1].split(/\s+/);
+      const [year, month, day] = ymd.split('.');
+      const [hour, min] = time.split(':');
+      const dObj = new Date(year, month - 1, day, hour, min);
+      if (!isNaN(dObj.getTime())) {
+        realDateIso = dObj.toISOString();
+      }
+    }
+
+    const cleanText = cleanHtml(html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, ''));
+    return { realDateIso, snippet: cleanText.substring(0, 1500) };
+  } catch (e) {
+    return { realDateIso: null, snippet: '' };
+  }
+}
+
 // 2. Nate Pann Talkers' Choice
 async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
   const iconv = require('iconv-lite');
@@ -206,14 +238,13 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
     });
     const html = res.data.toString('utf-8');
 
-    // Extract links inside the list. They usually look like <a href="/talk/12345678" title="Title">
     const matches = [...html.matchAll(/<a href=["'](\/talk\/[0-9]+)["'][^>]*title=["']([^"']+)["']/gi)];
 
-    const articles = [];
+    const candidateItems = [];
     const seenLinks = new Set();
 
     for (const match of matches) {
-      if (articles.length >= limit) break;
+      if (candidateItems.length >= limit) break;
       const link = `https://pann.nate.com${match[1]}`;
       const title = cleanHtml(match[2]);
 
@@ -223,22 +254,28 @@ async function fetchNatePannArticles(limit = 8, scanBatchTime = null) {
       const id = `pann-${match[1].replace('/talk/', '')}`;
       if (isPosted(id)) continue;
 
-      // Attempt to fetch body text for snippet
-      const rawSnippet = await fetchArticlePageText(link) || title;
+      candidateItems.push({ id, link, title });
+    }
 
-      articles.push({
-        id,
+    const details = await Promise.all(
+      candidateItems.map(item => fetchNatePannDetail(item.link))
+    );
+
+    const articles = candidateItems.map((item, idx) => {
+      const detail = details[idx] || {};
+      return {
+        id: item.id,
         category: 'pann',
         categoryTag: '⚖️ 네이트판 / 사연',
-        date: new Date().toISOString(),
-        fetchedAt: getOrCreateFetchedAt(id, scanBatchTime || new Date().toISOString()),
-        link,
-        title,
+        date: detail.realDateIso || new Date().toISOString(),
+        fetchedAt: getOrCreateFetchedAt(item.id, scanBatchTime || new Date().toISOString()),
+        link: item.link,
+        title: item.title,
         source: '네이트판',
-        contentSnippet: rawSnippet.substring(0, 1500),
+        contentSnippet: (detail.snippet || item.title).substring(0, 1500),
         isPosted: false
-      });
-    }
+      };
+    });
 
     return articles;
   } catch (err) {
