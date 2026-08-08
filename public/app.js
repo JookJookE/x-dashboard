@@ -71,8 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const textInput = document.getElementById('tweet-text-input');
   textInput.addEventListener('input', updateCharCount);
 
-  // Poll status every 30s for mobile URL
-  setInterval(loadStatus, 30000);
+  // Poll status every 3s to quickly catch initial scraping completion
+  setInterval(loadStatus, 3000);
 
   // Load trending keywords immediately and refresh every 30s
   loadTrending();
@@ -157,6 +157,8 @@ function closeMobileMenu() {
   if (overlay) overlay.classList.remove('show');
 }
 
+let previousTotalDbCount = null;
+
 async function loadStatus() {
   try {
     const res = await fetch('/api/status');
@@ -167,12 +169,17 @@ async function loadStatus() {
       const textEl = document.getElementById('stat-mobile-url-text');
 
       if (url) {
-        if (linkEl) {
-          linkEl.innerText = url;
+        if (linkEl) linkEl.innerText = url;
+        if (textEl) textEl.innerText = url;
+      }
+
+      // Check if new articles were scraped in the background
+      if (data.status.totalDbCount !== undefined) {
+        if (previousTotalDbCount !== null && data.status.totalDbCount > previousTotalDbCount) {
+          // New articles found, auto-refresh the page!
+          window.location.reload();
         }
-        if (textEl) {
-          textEl.innerText = url;
-        }
+        previousTotalDbCount = data.status.totalDbCount;
       }
     }
   } catch (e) {}
@@ -442,6 +449,13 @@ async function loadArticles(forceRefresh = false) {
       renderArticlesDashboardComm(commArticles.slice(0, 5));
       renderFilteredArticles();
       showToast(forceRefresh ? '⚡ 실시간 최신 뉴스 수집을 완료했습니다!' : '최신 소식 목록 로딩 완료!');
+
+      // User requested auto-refresh after manual scrape finishes
+      if (forceRefresh) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500); // 1.5초 후 새로고침 (토스트 메시지 잠깐 보여주기)
+      }
     } else {
       if (gridEl) gridEl.innerHTML = `<p class="placeholder-text">오류: ${data.message}</p>`;
     }

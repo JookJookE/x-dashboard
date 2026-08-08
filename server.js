@@ -104,7 +104,8 @@ app.get('/api/status', (req, res) => {
       autoPostEnabled: config.autoPostEnabled,
       draftsCount: drafts.length,
       localWifiUrl: `http://${LOCAL_WIFI_IP}:${PORT}`,
-      latestLog: logs[0] || null
+      latestLog: logs[0] || null,
+      totalDbCount: getStoredArticles().length
     }
   });
 });
