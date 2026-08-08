@@ -220,7 +220,15 @@ async function fetchNatePannDetail(url) {
       }
     }
 
-    const cleanText = cleanHtml(html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, ''));
+    // Strip common non-article areas before stripping tags
+    html = html.replace(/<(nav|header|footer|aside|form)[^>]*>[\s\S]*?<\/\1>/gi, '');
+    
+    let cleanText = cleanHtml(html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, ''));
+    
+    // 네이트판 상하단 메뉴 및 불필요한 텍스트 찌꺼기 제거
+    cleanText = cleanText.replace(/^[\s\S]*?이전글\s*다음글\s*/i, '');
+    cleanText = cleanText.replace(/(추천\s*추천수|추천\s*\d+\s*반대|URL복사|목록\s*\|\s*인쇄|댓글달기)[\s\S]*$/i, '');
+    
     return { realDateIso, snippet: cleanText.substring(0, 1500) };
   } catch (e) {
     return { realDateIso: null, snippet: '' };
