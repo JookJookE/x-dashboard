@@ -370,7 +370,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
   const freshQuery = `${queryStr} when:${timeframe}`;
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
 
-  // 1차 시도: 구글 뉴스 직통 수집 (내 컴퓨터 / 허용 IP)
+  // 1차 시도: 구글 뉴스 직통 수집 (타임아웃 4.5초)
   try {
     const directRes = await axios.get(googleUrl, {
       headers: {
@@ -378,59 +378,21 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
       },
-      timeout: 5000
+      timeout: 4500
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
       const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, false);
       if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 직통 성공] ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `⚡ [1차 구글 직통 성공] ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (directErr) {
-    // 1차 직통 실패 시 2차 Cloudflare Worker 구글 원본 수집 시도
+    addLog('WARN', `🚫 [1차 구글 직통 지연 ➔ 2차 Bing 전환] ${categoryName} 구글 직통 지연. Bing 백업 엔진으로 전환합니다.`);
   }
 
-  // 2차 시도: Cloudflare Worker 구글 원본 우회 수집 (Render 클라우드 IP 차단 100% 회피 + 구글 원본 100개 풀 수집)
-  try {
-    const cfUrl = `${CF_WORKER_URL}${encodeURIComponent(googleUrl)}`;
-    const cfRes = await axios.get(cfUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
-      },
-      timeout: 6000
-    });
-
-    if (cfRes.data && typeof cfRes.data === 'string' && cfRes.data.includes('<item>')) {
-      const articles = parseGoogleNewsXml(cfRes.data, categoryKey, tag, categoryName, limit, false);
-      if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 원본 프록시 성공] ${categoryName} Cloudflare 구글 뉴스 원본 수집 완료 (${articles.length}건)`);
-        return articles;
-      }
-    }
-  } catch (cfErr) {
-    // 2차 프록시 실패 시 3차 rss2json 구글 릴레이 시도
-  }
-
-  // 3차 시도: rss2json 구글 뉴스 릴레이 수집
-  try {
-    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
-    const r2jRes = await axios.get(r2jUrl, { timeout: 5000 });
-    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
-      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, false);
-      if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [구글 릴레이 성공] ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
-        return articles;
-      }
-    }
-  } catch (r2jErr) {
-    addLog('WARN', `🚫 [구글 수집 지연 ➔ Bing 백업 전환] ${categoryName} 구글 연결 지연. Bing 뉴스 엔진으로 자동 전환합니다.`);
-  }
-
-  // 3차 시도: Bing News RSS 백업 엔진
+  // 2차 시도: Bing News RSS 백업 엔진
   try {
     let bingQuery = queryStr;
     if (categoryKey === 'blind') {
@@ -446,89 +408,63 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
     const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=ko-KR`;
     const bingRes = await axios.get(bingUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      timeout: 6000
+      timeout: 5000
     });
 
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
       const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, false);
       if (articles.length > 0) {
-        addLog('SUCCESS', `🔄 [Bing 백업 수집 성공] ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `🔄 [2차 Bing 백업 성공] ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (bingErr) {
-    addLog('WARN', `⚠️ [Bing 백업 실패 ➔ rss2json 전환] ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
+    addLog('WARN', `⚠️ [2차 Bing 백업 지연 ➔ 3차 rss2json 전환] ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
   }
 
-  // 3차 시도: rss2json 우회 수집 (최종 백업)
-  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+  // 3차 시도: rss2json 구글 뉴스 릴레이 수집
   try {
-    const res = await fetchProxyWithRetry(proxyUrl);
-
-    if (res.data.status !== 'ok') {
-      addLog('WARN', `⚠️ [우회 수집 실패] ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
-      return [];
-    }
-    const items = res.data.items || [];
-    const articles = [];
-
-    for (let i = 0; i < items.length && articles.length < limit; i++) {
-      const itemXml = items[i];
-      const titleMatch = [null, itemXml.title || ''];
-      const linkMatch = [null, itemXml.link || ''];
-      const dateMatch = [null, itemXml.pubDate || ''];
-      const descMatch = [null, itemXml.description || ''];
-
-      if (titleMatch) {
-        let title = cleanHtml(titleMatch[1]);
-        const sourceIndex = title.lastIndexOf(' - ');
-        let sourceName = '';
-        if (sourceIndex > 0) {
-          sourceName = title.substring(sourceIndex + 3).trim();
-          title = title.substring(0, sourceIndex).trim();
-        }
-
-        const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
-        if (isDuplicateTopic) continue;
-
-        const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
-        const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
-        let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
-
-        if (!rawSnippet || rawSnippet.length < 15) {
-          rawSnippet = title;
-        }
-
-        const id = `${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
-
-        articles.push({
-          id,
-          category: categoryKey,
-          categoryTag: tag,
-          title,
-          source: sourceName || '뉴스',
-          link,
-          date: isoDate,
-          excerpt: rawSnippet.substring(0, 300),
-          contentSnippet: `${categoryName} (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
-          isPosted: isPosted(id)
-        });
+    const r2jUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
+    const r2jRes = await axios.get(r2jUrl, { timeout: 4000 });
+    if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
+      const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, false);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `🌐 [3차 rss2json 구글 성공] ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
+        return articles;
       }
     }
-    if (articles.length > 0) {
-      addLog('SUCCESS', `🔄 [우회 수집 성공] ${categoryName} RSS 백업 우회 통로로 수집 완료 (${articles.length}건)`);
-    }
-    return articles;
-  } catch (err) {
-    addLog('ERROR', `❌ [수집 최종 실패] ${categoryName} RSS 통신 오류: ${err.message}`);
-    console.error(`Error fetching ${categoryName} RSS:`, err.message);
-    return [];
-  }
+  } catch (r2jErr) {}
+
+  return [];
 }
 
-// 4. Global Foreign English News RSS Feeds (1차 구글 직통 ➔ 2차 CF Worker 구글 원본 ➔ 3차 Bing 백업 ➔ 4차 rss2json 백업)
 async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, tag, limit = 3, scanBatchTime = null, timeframe = '2h') {
-  // 1차 시도: Bing Global News RSS 초고속 메인 엔진 (0.2초, 0% 차단)
+  const freshQuery = `${queryStr} when:${timeframe}`;
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
+
+  // 1차 시도: 구글 뉴스 직통 수집 (타임아웃 4.5초)
+  try {
+    const directRes = await axios.get(googleUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      timeout: 4500
+    });
+
+    if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
+      const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, true);
+      if (articles.length > 0) {
+        addLog('SUCCESS', `⚡ [1차 구글 직통 성공] Global ${categoryName} 구글 서버 직접 연결 수집 완료 (${articles.length}건)`);
+        return articles;
+      }
+    }
+  } catch (directErr) {
+    addLog('WARN', `🚫 [1차 구글 직통 지연 ➔ 2차 Bing 전환] Global ${categoryName} 구글 직통 지연. Bing 백업 엔진으로 전환합니다.`);
+  }
+
+  // 2차 시도: Bing Global News RSS 백업 엔진
   try {
     const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
     const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=en-US`;
@@ -540,36 +476,13 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
       const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, true);
       if (articles.length > 0) {
-        addLog('SUCCESS', `🚀 [1차 메인 수집 성공] Global ${categoryName} 최신 뉴스 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `🔄 [2차 Bing 백업 성공] Global ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
   } catch (bingErr) {
-    addLog('WARN', `⚠️ [1차 Bing 지연 ➔ 2차 구글 전환] Global ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
+    addLog('WARN', `⚠️ [2차 Bing 백업 지연 ➔ 3차 rss2json 전환] Global ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
   }
-
-  // 2차 시도: 구글 뉴스 직통 백업 수집
-  const freshQuery = `${queryStr} when:${timeframe}`;
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(freshQuery)}&hl=en-US&gl=US&ceid=US:en`;
-
-  try {
-    const directRes = await axios.get(googleUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9'
-      },
-      timeout: 3000
-    });
-
-    if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
-      const articles = parseGoogleNewsXml(directRes.data, categoryKey, tag, categoryName, limit, true);
-      if (articles.length > 0) {
-        addLog('SUCCESS', `⚡ [2차 구글 백업 성공] Global ${categoryName} 구글 뉴스 백업 수집 완료 (${articles.length}건)`);
-        return articles;
-      }
-    }
-  } catch (directErr) {}
 
   // 3차 시도: rss2json 글로벌 구글 뉴스 릴레이 수집
   try {
@@ -578,92 +491,13 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
     if (r2jRes.data && r2jRes.data.status === 'ok' && Array.isArray(r2jRes.data.items) && r2jRes.data.items.length > 0) {
       const articles = parseRss2JsonItems(r2jRes.data.items, categoryKey, tag, categoryName, limit, true);
       if (articles.length > 0) {
-
-  // 3차 시도: Bing Global News RSS 백업 엔진
-  try {
-    const bingQuery = queryStr.replace(/[\(\)"]/g, '').replace(/\bOR\b/gi, ' ').replace(/\s+/g, ' ').trim();
-    const bingUrl = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&setlang=en-US`;
-    const bingRes = await axios.get(bingUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-      timeout: 6000
-    });
-
-    if (bingRes.data && typeof bingRes.data === 'string' && bingRes.data.includes('<item>')) {
-      const articles = parseBingNewsXml(bingRes.data, categoryKey, tag, categoryName, limit, true);
-      if (articles.length > 0) {
-        addLog('SUCCESS', `🔄 [Bing 백업 수집 성공] Global ${categoryName} Bing News 엔진 수집 완료 (${articles.length}건)`);
+        addLog('SUCCESS', `🌐 [3차 rss2json 구글 성공] Global ${categoryName} rss2json 구글 뉴스 수집 완료 (${articles.length}건)`);
         return articles;
       }
     }
-  } catch (bingErr) {
-    addLog('WARN', `⚠️ [Bing 백업 실패 ➔ rss2json 전환] Global ${categoryName} Bing 수집 지연 (${bingErr.message}).`);
-  }
+  } catch (r2jErr) {}
 
-  // 3차 시도: rss2json 우회 수집 (최종 백업)
-  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleUrl)}`;
-  try {
-    const res = await fetchProxyWithRetry(proxyUrl);
-
-    if (res.data.status !== 'ok') {
-      addLog('WARN', `⚠️ [우회 수집 실패] Global ${categoryName} RSS 우회 응답 실패 (Status: ${res.data.status || 'unknown'})`);
-      return [];
-    }
-    const items = res.data.items || [];
-    const articles = [];
-
-    for (let i = 0; i < items.length && articles.length < limit; i++) {
-      const itemXml = items[i];
-      const titleMatch = [null, itemXml.title || ''];
-      const linkMatch = [null, itemXml.link || ''];
-      const dateMatch = [null, itemXml.pubDate || ''];
-      const descMatch = [null, itemXml.description || ''];
-
-      if (titleMatch) {
-        let title = cleanHtml(titleMatch[1]);
-        const sourceIndex = title.lastIndexOf(' - ');
-        let sourceName = '';
-        if (sourceIndex > 0) {
-          sourceName = title.substring(sourceIndex + 3).trim();
-          title = title.substring(0, sourceIndex).trim();
-        }
-
-        const isDuplicateTopic = articles.some(a => isSimilarArticleTitle(a.title, title));
-        if (isDuplicateTopic) continue;
-
-        const link = linkMatch ? cleanHtml(linkMatch[1]) : '';
-        const isoDate = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
-        let rawSnippet = descMatch ? cleanHtml(descMatch[1]) : '';
-
-        if (!rawSnippet || rawSnippet.length < 15) {
-          rawSnippet = title;
-        }
-
-        const id = `global-${categoryKey}-${Buffer.from(title).toString('hex').substring(0, 12)}`;
-
-        articles.push({
-          id,
-          category: 'global',
-          categoryTag: `🌐 해외뉴스 (${tag.replace('🌐 외신 ', '')})`,
-          title: `[외신 ${sourceName || '미국뉴스'}] ${title}`,
-          source: sourceName || '해외언론',
-          link,
-          date: isoDate,
-          excerpt: rawSnippet.substring(0, 300),
-          contentSnippet: `Global News Source (${sourceName}): ${rawSnippet.substring(0, 1500)}`,
-          isGlobal: true,
-          isPosted: isPosted(id)
-        });
-      }
-    }
-    if (articles.length > 0) {
-      addLog('SUCCESS', `🔄 [우회 수집 성공] Global ${categoryName} RSS 백업 우회 통로로 수집 완료 (${articles.length}건)`);
-    }
-    return articles;
-  } catch (err) {
-    addLog('ERROR', `❌ [수집 최종 실패] Global ${categoryName} RSS 통신 오류: ${err.message}`);
-    console.error(`Error fetching Global ${categoryName} RSS:`, err.message);
-    return [];
-  }
+  return [];
 }
 
 // Main fetcher: 순차 순연 수집으로 Cloudflare 프록시 타임아웃 100% 방지
