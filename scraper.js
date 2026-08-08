@@ -213,7 +213,8 @@ async function fetchNatePannDetail(url) {
       const [ymd, time] = dateMatch[1].split(/\s+/);
       const [year, month, day] = ymd.split('.');
       const [hour, min] = time.split(':');
-      const dObj = new Date(year, month - 1, day, hour, min);
+      // 네이트판 작성시간(KST)을 서버(UTC) 기준이 아닌 KST(+09:00)로 명시하여 Date 객체 생성
+      const dObj = new Date(`${year}-${month}-${day}T${hour}:${min}:00+09:00`);
       if (!isNaN(dObj.getTime())) {
         realDateIso = dObj.toISOString();
       }
