@@ -416,7 +416,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
       },
-      timeout: 4500
+      timeout: 10000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -495,7 +495,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9'
       },
-      timeout: 4500
+      timeout: 10000
     });
 
     if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
