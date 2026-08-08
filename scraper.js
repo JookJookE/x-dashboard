@@ -427,7 +427,7 @@ async function fetchNewsRssArticles(categoryKey, queryStr, categoryName, tag, li
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [1차 구글 직통 지연 ➔ 2차 Bing 전환] ${categoryName} 구글 직통 지연. Bing 백업 엔진으로 전환합니다.`);
+    addLog('WARN', `🚫 [1차 구글 직통 지연 ➔ 2차 Bing 전환] ${categoryName} 구글 직통 지연 (${directErr.message}). Bing 백업 엔진으로 전환합니다.`);
   }
 
   // 2차 시도: Bing News RSS 백업 엔진
@@ -503,7 +503,7 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
       }
     }
   } catch (directErr) {
-    addLog('WARN', `🚫 [1차 구글 직통 지연 ➔ 2차 Bing 전환] Global ${categoryName} 구글 직통 지연. Bing 백업 엔진으로 전환합니다.`);
+    addLog('WARN', `🚫 [1차 구글 직통 지연 ➔ 2차 Bing 전환] Global ${categoryName} 구글 직통 지연 (${directErr.message}). Bing 백업 엔진으로 전환합니다.`);
   }
 
   // 2차 시도: Bing Global News RSS 백업 엔진
@@ -554,32 +554,35 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
   try {
     const heisenberg = await fetchHeisenbergArticles(5, scanBatchTimeVal);
     const itNews = await fetchNewsRssArticles('it', 'IT OR 테크 OR 반도체 OR AI', 'IT뉴스', '💻 IT뉴스', 4, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const coinNews = await fetchNewsRssArticles('coin', '비트코인 OR 코인 OR 이더리움 OR 암호화폐', '코인', '🪙 코인', 4, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const stockNews = await fetchNewsRssArticles('stock', '주식 OR 증시 OR 코스피 OR 나스닥', '주식', '📈 주식', 4, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const economyNews = await fetchNewsRssArticles('economy', '경제 OR 금리 OR 환율 OR 연준', '경제뉴스', '💵 경제', 4, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const globalIt = await fetchGlobalNewsRssArticles('it', 'Nvidia OR Apple OR OpenAI OR AI', '글로벌 IT', '💻 IT', 6, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const globalCoin = await fetchGlobalNewsRssArticles('coin', 'Bitcoin OR Crypto OR Ethereum OR Binance', '글로벌 코인', '🪙 코인', 6, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const globalStock = await fetchGlobalNewsRssArticles('stock', 'Nasdaq OR SP500 OR Stock Market OR NVDA', '글로벌 주식', '📈 주식', 6, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const globalEconomy = await fetchGlobalNewsRssArticles('economy', 'Fed OR Federal Reserve OR Interest Rate OR Inflation', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 1500));
 
     const blindNews = await fetchNewsRssArticles('blind', '블라인드 직장인 이직 연봉', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d');
+    await new Promise(r => setTimeout(r, 1500));
     const pannNews = await fetchNatePannArticles(8, scanBatchTimeVal);
+    await new Promise(r => setTimeout(r, 1500));
     const gossipNews = await fetchNewsRssArticles('gossip', '연예인 근황', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d');
+    await new Promise(r => setTimeout(r, 1500));
     const mindsetNews = await fetchNewsRssArticles('mindset', '심리학 멘탈 대인관계 자존감', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d');
 
     let allArticles = [
