@@ -6,6 +6,7 @@ const { addLog } = require('./history');
 const VISUAL_PRESETS = [
   { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
   { id: 'idol_fancam', name: '💃 여돌 직캠 / 움짤', query: '여돌 직캠 레전드 움짤' },
+  { id: 'video_archive', name: '🎬 직캠/핫클립 MP4 영상', query: '여돌 직캠 MP4' },
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
   { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
@@ -13,18 +14,72 @@ const VISUAL_PRESETS = [
 ];
 
 /**
- * Fetch direct high-resolution photos and animated GIFs from search engines
- * 3-Tier Robust Hybrid Pipeline:
- *  1. Bing Image HD & GIF Search (Primary, 0% IP block, direct original high-res murl)
- *  2. Naver Image Search (Secondary HD with updated anti-block headers)
- *  3. Daum Image Search (Tertiary fallback)
+ * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
+ * Multi-Tier Pipeline:
+ *  1. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos)
+ *  2. Bing Image & GIF HD Search (Primary, 0% IP block, direct original high-res murl)
+ *  3. Naver Image Search (Secondary HD with anti-block headers)
+ *  4. Daum Image Search (Tertiary fallback)
  */
 async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
   const mediaList = [];
   const seen = new Set();
   const cleanKeyword = keyword.trim();
+  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video');
 
-  // 1. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
+  // 1. Tenor MP4 Direct Video Search (For pure MP4 video streaming and direct file download)
+  if (isVideoCategory) {
+    try {
+      const searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').trim() || '여돌 직캠';
+      const tenorUrl = `https://tenor.com/search/${encodeURIComponent(searchTarget)}-gifs`;
+      const res = await axios.get(tenorUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
+        },
+        timeout: 5000
+      });
+
+      const html = String(res.data);
+      const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
+      for (const s of scripts) {
+        if (s[1].includes('"media_formats"') && s[1].includes('"mp4"')) {
+          try {
+            const data = JSON.parse(s[1]);
+            const searchObj = data.universal?.search || {};
+            const firstKey = Object.keys(searchObj)[0];
+            const items = searchObj[firstKey]?.results || [];
+
+            for (const item of items) {
+              const mp4Url = item.media_formats?.mp4?.url || item.media_formats?.tinymp4?.url;
+              const thumbUrl = item.media_formats?.nanomp4?.url || item.media_formats?.gif?.url || item.media_formats?.tinymp4?.url;
+              const titleText = item.content_description || item.title || searchTarget;
+
+              if (mp4Url && !seen.has(mp4Url)) {
+                seen.add(mp4Url);
+                mediaList.push({
+                  id: 'media_v_' + Math.random().toString(36).substring(2, 9),
+                  title: `[MP4 영상] ${titleText.substring(0, 45)}`,
+                  url: mp4Url,
+                  mediaType: 'video',
+                  thumbnail: thumbUrl || mp4Url,
+                  source: 'Tenor Video'
+                });
+              }
+            }
+          } catch (jsonErr) {}
+        }
+      }
+    } catch (tErr) {
+      // fallback to Bing
+    }
+
+    if (mediaList.length > 0) {
+      return mediaList.slice(0, 30);
+    }
+  }
+
+  // 2. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
   try {
     const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
     const res = await axios.get(bingUrl, {
@@ -67,7 +122,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     // silently fallback to Naver / Daum
   }
 
-  // 2. Naver Image Search (Secondary HD source)
+  // 3. Naver Image Search (Secondary HD source)
   if (mediaList.length < 25) {
     try {
       const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(cleanKeyword)}&start=${(page - 1) * 30 + 1}`;
@@ -115,7 +170,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     }
   }
 
-  // 3. Daum Image Search (Supplement / Tertiary source)
+  // 4. Daum Image Search (Supplement / Tertiary source)
   if (mediaList.length < 25) {
     try {
       const daumUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(cleanKeyword)}`;
