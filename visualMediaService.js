@@ -5,17 +5,18 @@ const { addLog } = require('./history');
 // Preset Visual Keyword Categories
 const VISUAL_PRESETS = [
   { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
-  { id: 'idol_fancam', name: '💃 여돌 직캠 / 댄스', query: '여돌 직캠 레전드 움짤' },
+  { id: 'idol_fancam', name: '💃 여돌 직캠 / 댄스', query: '여돌 직캠 레전드' },
+  { id: 'video_shorts', name: '🎬 인기 핫클립 / 숏폼', query: '인기 핫클립 숏폼 비디오' },
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
-  { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
+  { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 직캠 화보' },
   { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '일본 모델 화보' }
 ];
 
 /**
- * Fetch high-resolution photos and animated GIFs/videos from search engines
- * 3-Tier Robust Hybrid Pipeline:
- *  1. Bing Image HD Search (Primary, 0% IP block, direct original high-res murl)
+ * Fetch high-resolution photos, animated GIFs, and videos from search engines
+ * 4-Tier Robust Hybrid Pipeline:
+ *  1. Bing Videos & HD Images (Primary, 0% IP block, direct original high-res murl/video)
  *  2. Naver Image Search (Secondary HD with updated anti-block headers)
  *  3. Daum Image Search (Tertiary fallback)
  */
@@ -24,7 +25,49 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
   const seen = new Set();
   const cleanKeyword = keyword.trim();
 
-  // 1. Bing Image Search (Primary HD source - 0% 403 blocks)
+  // 1. Bing Video Search (If keyword looks like fancam/video or explicit video query)
+  const isVideoQuery = cleanKeyword.includes('직캠') || cleanKeyword.includes('영상') || cleanKeyword.includes('댄스') || cleanKeyword.includes('클립') || cleanKeyword.includes('숏폼') || cleanKeyword.includes('video');
+  if (isVideoQuery) {
+    try {
+      const bingVideoUrl = `https://www.bing.com/videos/search?q=${encodeURIComponent(cleanKeyword)}&FORM=HDRSC3`;
+      const res = await axios.get(bingVideoUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
+        },
+        timeout: 4500
+      });
+
+      const html = String(res.data);
+      const vrMatches = [...html.matchAll(/vrhm="([^"]+)"/gi)];
+      for (const m of vrMatches.slice(0, 15)) {
+        try {
+          const rawJson = m[1].replace(/&quot;/g, '"');
+          const data = JSON.parse(rawJson);
+          const videoTitle = data.vt || data.capt?.de || cleanKeyword;
+          const videoUrl = data.murl || data.pgurl || '';
+          const thumbUrl = data.smturl || (data.thid ? `https://ts1.mm.bing.net/th?id=${data.thid}&pid=15.1` : '');
+
+          if (videoUrl && !seen.has(videoUrl)) {
+            seen.add(videoUrl);
+            mediaList.push({
+              id: 'media_v_' + Math.random().toString(36).substring(2, 9),
+              title: `[영상] ${videoTitle.substring(0, 50)}`,
+              url: videoUrl,
+              mediaType: 'video',
+              thumbnail: thumbUrl || videoUrl,
+              duration: data.du || '',
+              source: 'Bing Video'
+            });
+          }
+        } catch (e) {}
+      }
+    } catch (vErr) {
+      // fallback to image search
+    }
+  }
+
+  // 2. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
   try {
     const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
     const res = await axios.get(bingUrl, {
@@ -51,12 +94,13 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
         if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
+          const isMp4 = url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.webm');
           const finalTitle = titleText && titleText.length > 2 ? titleText : cleanKeyword;
           mediaList.push({
             id: 'media_' + Math.random().toString(36).substring(2, 9),
             title: `[${cleanKeyword}] ${finalTitle}`,
             url: url,
-            mediaType: isGif ? 'video' : 'image',
+            mediaType: isMp4 ? 'video' : (isGif ? 'gif' : 'image'),
             thumbnail: url,
             source: 'Bing'
           });
@@ -67,7 +111,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     // silently fallback to Naver / Daum
   }
 
-  // 2. Naver Image Search (Secondary HD source)
+  // 3. Naver Image Search (Secondary HD source)
   if (mediaList.length < 25) {
     try {
       const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(cleanKeyword)}&start=${(page - 1) * 30 + 1}`;
@@ -104,7 +148,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
             id: 'media_' + Math.random().toString(36).substring(2, 9),
             title: `[${cleanKeyword}] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
             url: url,
-            mediaType: isGif ? 'video' : 'image',
+            mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
             source: 'Naver'
           });
@@ -115,7 +159,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     }
   }
 
-  // 3. Daum Image Search (Supplement / Tertiary source)
+  // 4. Daum Image Search (Supplement / Tertiary source)
   if (mediaList.length < 25) {
     try {
       const daumUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(cleanKeyword)}`;
@@ -147,7 +191,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
             id: 'media_' + Math.random().toString(36).substring(2, 9),
             title: `[${cleanKeyword}] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
             url: url,
-            mediaType: isGif ? 'video' : 'image',
+            mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
             source: 'Daum'
           });

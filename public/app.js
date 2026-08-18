@@ -2407,13 +2407,19 @@ function renderVisualMediaGrid(list) {
 
   gridEl.innerHTML = list.map(item => {
     const isSelected = selectedVisualMedia && selectedVisualMedia.url === item.url;
-    const isGif = item.mediaType === 'video' || item.url.toLowerCase().includes('.gif');
+    const isVideo = item.mediaType === 'video' || item.url.toLowerCase().includes('.mp4');
+    const isGif = item.mediaType === 'gif' || item.url.toLowerCase().includes('.gif');
     const proxyThumb = `/api/proxy-image?url=${encodeURIComponent(item.thumbnail || item.url)}`;
+
+    let badgeHtml = '📷 HD';
+    if (isVideo) badgeHtml = '🎬 동영상';
+    else if (isGif) badgeHtml = '✨ 움짤';
 
     return `
       <div class="visual-media-card ${isSelected ? 'selected' : ''}" onclick="selectVisualMediaByIndex('${item.id}')">
         <img src="${proxyThumb}" loading="lazy" alt="${item.title}" onerror="this.onerror=null; this.src='${item.url}';" />
-        <span class="visual-media-badge">${isGif ? '🎬 움짤' : '📷 HD'}</span>
+        <span class="visual-media-badge" style="${isVideo ? 'background:#ef4444; color:#fff;' : (isGif ? 'background:#ec4899; color:#fff;' : '')}">${badgeHtml}</span>
+        ${item.duration ? `<span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.7); color:#fff; font-size:9px; padding:1px 4px; border-radius:3px; font-weight:700;">⏱️ ${item.duration}</span>` : ''}
         <div class="visual-media-overlay">${item.title}</div>
       </div>
     `;
@@ -2440,15 +2446,25 @@ function selectVisualMediaItem(media) {
   if (placeholder) placeholder.style.display = 'none';
   if (previewBox) {
     previewBox.style.display = 'block';
-    const isGif = media.mediaType === 'video' || media.url.toLowerCase().includes('.gif');
+    const isVideo = media.mediaType === 'video' || media.url.toLowerCase().includes('.mp4');
+    const isGif = media.mediaType === 'gif' || media.url.toLowerCase().includes('.gif');
     const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(media.url)}`;
 
-    previewBox.innerHTML = `
-      <div style="position:relative; display:inline-block; max-width:100%;">
-        <img src="${proxyUrl}" onerror="this.onerror=null; this.src='${media.url}';" alt="${media.title}" style="max-height:280px; max-width:100%; border-radius:8px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,0.6);" />
-        <span style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">${isGif ? '🎬 모션 미디어' : '📷 고화질 사진'}</span>
-      </div>
-    `;
+    if (isVideo && (media.url.endsWith('.mp4') || media.url.endsWith('.webm'))) {
+      previewBox.innerHTML = `
+        <div style="position:relative; display:inline-block; max-width:100%;">
+          <video src="${media.url}" controls autoplay muted loop playsinline style="max-height:280px; max-width:100%; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.6);"></video>
+          <span style="position:absolute; bottom:8px; right:8px; background:rgba(239,68,68,0.85); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800;">🎬 MP4 동영상</span>
+        </div>
+      `;
+    } else {
+      previewBox.innerHTML = `
+        <div style="position:relative; display:inline-block; max-width:100%;">
+          <img src="${proxyUrl}" onerror="this.onerror=null; this.src='${media.url}';" alt="${media.title}" style="max-height:280px; max-width:100%; border-radius:8px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,0.6);" />
+          <span style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">${isVideo ? '🎬 동영상 미디어' : (isGif ? '✨ 모션 움짤' : '📷 고화질 사진')}</span>
+        </div>
+      `;
+    }
   }
 
   if (topicInput) {
