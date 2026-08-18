@@ -2719,6 +2719,28 @@ function copyVisualTweetText() {
   });
 }
 
+let clientDirHandle = null;
+
+async function selectClientDedicatedFolder() {
+  if (!window.showDirectoryPicker) {
+    showToast('⚠️ 현재 브라우저는 전용 폴더 직접 저장 API를 지원하지 않습니다. (크롬/엣지 권장)');
+    return null;
+  }
+  try {
+    const parentHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    // Automatically create or get 'X_Media_Downloads' subfolder inside selected directory!
+    const targetDirHandle = await parentHandle.getDirectoryHandle('X_Media_Downloads', { create: true });
+    clientDirHandle = targetDirHandle;
+    showToast('📁 전용 폴더 [X_Media_Downloads]가 성공적으로 연결/생성되었습니다!');
+    return clientDirHandle;
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      showToast('⚠️ 폴더 설정 취소 또는 오류: ' + e.message);
+    }
+    return null;
+  }
+}
+
 async function downloadActiveVisualMedia() {
   if (!selectedVisualMedia || !selectedVisualMedia.url) {
     showToast('⚠️ 다운로드할 미디어를 먼저 선택해 주세요.');
@@ -2728,8 +2750,8 @@ async function downloadActiveVisualMedia() {
   const mediaUrl = selectedVisualMedia.url;
   const rawTitle = selectedVisualMedia.title || 'x_media';
   const cleanTitle = rawTitle.replace(/\[.*?\]/g, '').replace(/[\/\\:*?"<>|]/g, '').trim() || 'viral_media';
-  
-  showToast('💾 사용자 PC로 미디어를 다운로드하는 중...');
+
+  showToast('💾 미디어 데이터를 수신하는 중...');
 
   try {
     const res = await fetch(mediaUrl.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(mediaUrl)}` : mediaUrl);
@@ -2743,6 +2765,22 @@ async function downloadActiveVisualMedia() {
     else if (blob.type.includes('mp4') || mediaUrl.toLowerCase().includes('.mp4')) ext = '.mp4';
 
     const filename = `${cleanTitle}_${Date.now()}${ext}`;
+
+    // 1. If user previously designated or wants File System Access API
+    if (clientDirHandle) {
+      try {
+        const fileHandle = await clientDirHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        showToast(`✅ [X_Media_Downloads] 전용 폴더에 즉시 저장 완료! (${ext.toUpperCase()})`);
+        return;
+      } catch (fsErr) {
+        // Fallback to standard browser download
+      }
+    }
+
+    // 2. Standard Browser Direct Download (Creates file in browser download folder/desktop)
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -2751,7 +2789,7 @@ async function downloadActiveVisualMedia() {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-    showToast(`✅ 내 PC 다운로드 완료 (${ext.toUpperCase()})!`);
+    showToast(`✅ 내 PC로 다운로드 완료 (${ext.toUpperCase()})!`);
   } catch (err) {
     // Direct link fallback
     const a = document.createElement('a');
