@@ -121,7 +121,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
     }
   }
 
-  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('M2') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('4K 직캠') || cleanKeyword.includes('video');
+  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('직캠') || cleanKeyword.includes('영상') || cleanKeyword.includes('음방') || cleanKeyword.includes('현장') || cleanKeyword.includes('핫클립') || cleanKeyword.includes('M2') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('video') || cleanKeyword.includes('움짤');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
 
   // 1. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion moving GIFs)
