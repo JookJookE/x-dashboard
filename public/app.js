@@ -2719,15 +2719,32 @@ function copyVisualTweetText() {
   });
 }
 
-function downloadActiveVisualMedia() {
+async function downloadActiveVisualMedia() {
   if (!selectedVisualMedia || !selectedVisualMedia.url) {
     showToast('⚠️ 다운로드할 미디어를 먼저 선택해 주세요.');
     return;
   }
 
   const mediaUrl = selectedVisualMedia.url;
-  showToast('💾 미디어 파일을 다운로드하는 중...');
+  const mediaTitle = selectedVisualMedia.title || 'x_media';
+  showToast('💾 바탕화면 전용 폴더(X_Media_Downloads)에 저장 중...');
 
+  try {
+    const res = await fetch('/api/save-media-to-desktop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: mediaUrl, title: mediaTitle })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`✅ 바탕화면 [X_Media_Downloads] 폴더에 저장 완료! (${data.filename})`);
+      return;
+    }
+  } catch (e) {
+    // fallback to browser download
+  }
+
+  // Browser Fallback Download
   fetch(`/api/proxy-image?url=${encodeURIComponent(mediaUrl)}`)
     .then(res => res.blob())
     .then(blob => {
@@ -2746,11 +2763,23 @@ function downloadActiveVisualMedia() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      showToast(`✅ 미디어 다운로드 완료 (${ext.toUpperCase()})! X에 바로 첨부하세요.`);
+      showToast(`✅ 미디어 다운로드 완료 (${ext.toUpperCase()})!`);
     })
     .catch(() => {
       window.open(mediaUrl, '_blank');
     });
+}
+
+async function openDesktopMediaFolder() {
+  try {
+    const res = await fetch('/api/open-desktop-folder', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('📂 바탕화면 [X_Media_Downloads] 다운로드 폴더가 열렸습니다!');
+    }
+  } catch (e) {
+    showToast('⚠️ 폴더 열기 오류');
+  }
 }
 
 async function saveVisualTweetDraft() {

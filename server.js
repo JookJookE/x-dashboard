@@ -774,6 +774,70 @@ app.post('/api/generate-visual-tweet', async (req, res) => {
   }
 });
 
+app.post('/api/save-media-to-desktop', async (req, res) => {
+  try {
+    const { url, title } = req.body;
+    if (!url) {
+      return res.status(400).json({ success: false, message: '미디어 URL이 필요합니다.' });
+    }
+
+    const os = require('os');
+    const desktopPath = path.join(os.homedir(), 'Desktop', 'X_Media_Downloads');
+    if (!fs.existsSync(desktopPath)) {
+      fs.mkdirSync(desktopPath, { recursive: true });
+    }
+
+    const mediaRes = await axios.get(url, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 10000
+    });
+
+    const contentType = mediaRes.headers['content-type'] || '';
+    let ext = '.jpg';
+    if (contentType.includes('gif') || url.toLowerCase().includes('.gif')) ext = '.gif';
+    else if (contentType.includes('png')) ext = '.png';
+    else if (contentType.includes('webp')) ext = '.webp';
+    else if (contentType.includes('mp4') || url.toLowerCase().includes('.mp4')) ext = '.mp4';
+
+    const safeTitle = (title || 'x_media')
+      .replace(/[\/\\:*?"<>|]/g, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 30);
+    const filename = `${safeTitle}_${Date.now()}${ext}`;
+    const targetFile = path.join(desktopPath, filename);
+
+    fs.writeFileSync(targetFile, mediaRes.data);
+    addLog('SUCCESS', `💾 바탕화면 전용 폴더 저장 완료: ${filename}`);
+
+    res.json({
+      success: true,
+      filename,
+      folderPath: desktopPath,
+      filePath: targetFile
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/open-desktop-folder', (req, res) => {
+  try {
+    const os = require('os');
+    const { exec } = require('child_process');
+    const desktopPath = path.join(os.homedir(), 'Desktop', 'X_Media_Downloads');
+    if (!fs.existsSync(desktopPath)) {
+      fs.mkdirSync(desktopPath, { recursive: true });
+    }
+    exec(`explorer.exe "${desktopPath}"`);
+    res.json({ success: true, folderPath: desktopPath });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ===== 🔄 깃허브(GitHub) 원격 코드 동기화 & 자동 배포 API =====
 app.get('/api/git-info', async (req, res) => {
   const info = await getGitInfo();
