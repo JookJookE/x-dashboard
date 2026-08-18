@@ -24,15 +24,18 @@ if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Micros
 
 :RUN_NODE
 node "%~dp0server.js"
-exit
+timeout /t 2 /nobreak >nul
+goto RUN_NODE
 
 :RUN_PROGRAM_FILES
 "C:\Program Files\nodejs\node.exe" "%~dp0server.js"
-exit
+timeout /t 2 /nobreak >nul
+goto RUN_PROGRAM_FILES
 
 :RUN_VS
 "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VisualStudio\NodeJs\node.exe" "%~dp0server.js"
-exit
+timeout /t 2 /nobreak >nul
+goto RUN_VS
 
 :END
 exit
