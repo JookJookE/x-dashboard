@@ -2667,3 +2667,5 @@ async function syncLatestGithubCode() {
 }
 
 
+f u n c t i o n   t o g g l e J o o k L i f e M e n u ( )   {   c o n s t   m e n u   =   d o c u m e n t . g e t E l e m e n t B y I d ( ' j o o k - l i f e - m e n u - i t e m s ' ) ;   c o n s t   i c o n   =   d o c u m e n t . g e t E l e m e n t B y I d ( ' j o o k - l i f e - t o g g l e - i c o n ' ) ;   i f   ( m e n u . s t y l e . d i s p l a y   = = =   ' n o n e ' )   {   m e n u . s t y l e . d i s p l a y   =   ' b l o c k ' ;   i c o n . s t y l e . t r a n s f o r m   =   ' r o t a t e ( 0 d e g ) ' ;   }   e l s e   {   m e n u . s t y l e . d i s p l a y   =   ' n o n e ' ;   i c o n . s t y l e . t r a n s f o r m   =   ' r o t a t e ( - 9 0 d e g ) ' ;   }   }  
+ 

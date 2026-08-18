@@ -9,7 +9,7 @@ const VISUAL_PRESETS = [
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
   { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
-  { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '그라비아 룩북 화보' }
+  { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '일본 모델 화보' }
 ];
 
 /**

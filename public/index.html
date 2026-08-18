@@ -64,7 +64,11 @@
           <span>해외뉴스 (글로벌 외신)</span>
         </button>
 
-        <div class="menu-label">🍿 Jook Life (트렌드 & 엔터)</div>
+        <div class="menu-label" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleJookLifeMenu()">
+          <span>🍿 Jook Life (트렌드 & 엔터)</span>
+          <span id="jook-life-toggle-icon" style="transition: transform 0.2s;">▼</span>
+        </div>
+        <div id="jook-life-menu-items">
         <button class="nav-item" data-tab="visual-media" data-cat="visual" data-hours="0" style="background: linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15)); border: 1px solid rgba(236,72,153,0.35);">
           <span class="icon">📸</span>
           <span style="font-weight: 800; color: #f472b6;">웹 직캠·화보 X 포스팅</span>
@@ -90,6 +94,7 @@
           <span class="icon">🧠</span>
           <span>멘탈 / 심리 / 대인관계</span>
         </button>
+        </div>
 
         <div class="menu-label">⭐ 나만의 공간</div>
         <button class="nav-item" data-tab="saved-drafts" data-cat="all" data-hours="0">
@@ -534,7 +539,7 @@
                   <button class="preset-pill" onclick="selectVisualPreset('인스타 모델 비주얼 화보', this)">✨ 모델/인플루언서</button>
                   <button class="preset-pill" onclick="selectVisualPreset('수영복 모델 화보', this)">🌊 수영복/비키니</button>
                   <button class="preset-pill" onclick="selectVisualPreset('레이싱모델 치어리더 화보', this)">🏎️ 레이싱모델/치어리더</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('그라비아 룩북 화보', this)">🌸 그라비아/룩북</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('일본 모델 화보', this)">🌸 그라비아/룩북</button>
                 </div>
 
                 <!-- Search & Direct URL Input Bar -->
