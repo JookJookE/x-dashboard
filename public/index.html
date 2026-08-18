@@ -614,9 +614,10 @@
                   <button class="btn btn-primary" style="font-weight:800; padding:11px; font-size:13px;" onclick="postVisualTweetToX()">
                     🌐 X(트위터) 작성창 열기 (100% 자동 채움)
                   </button>
-                  <div style="display:flex; gap:8px;">
-                    <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="copyVisualTweetText()">📋 문구 복사</button>
-                    <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="downloadActiveVisualMedia()">💾 미디어 다운로드</button>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-secondary btn-sm" style="flex:1; min-width:85px;" onclick="copyVisualTweetText()">📋 문구 복사</button>
+                    <button class="btn btn-secondary btn-sm" style="flex:1; min-width:95px;" onclick="copyVisualMediaToClipboard()">🖼️ 이미지 복사</button>
+                    <button class="btn btn-secondary btn-sm" style="flex:1; min-width:95px;" onclick="downloadActiveVisualMedia()">💾 미디어 다운로드</button>
                     <button class="btn btn-outline btn-sm" onclick="saveVisualTweetDraft()">⭐ 보관</button>
                   </div>
                 </div>

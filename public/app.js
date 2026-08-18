@@ -2547,6 +2547,47 @@ async function generateVisualAiTweet() {
   }
 }
 
+function copyVisualMediaToClipboard(showManualToast = true) {
+  if (!selectedVisualMedia || !selectedVisualMedia.url) {
+    if (showManualToast) showToast('⚠️ 복사할 이미지를 먼저 선택해 주세요.');
+    return false;
+  }
+
+  const src = selectedVisualMedia.url;
+  try {
+    const blobPromise = fetch(src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src)
+      .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+      })
+      .then(async inputBlob => {
+        if (inputBlob.type !== 'image/png') {
+          return await convertBlobToPngBlob(inputBlob).catch(() => inputBlob);
+        }
+        return inputBlob;
+      });
+
+    if (navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blobPromise })
+      ]).then(() => {
+        if (showManualToast) {
+          showToast('🖼️ 이미지가 클립보드에 복사되었습니다! (Ctrl+V 붙여넣기 가능)');
+        }
+      }).catch(e => {
+        console.error('Clipboard write error:', e);
+        if (showManualToast) {
+          showToast('⚠️ 이미지 복사 실패: ' + e.message);
+        }
+      });
+      return true;
+    }
+  } catch (e) {
+    console.error('Clipboard image write setup failed:', e);
+  }
+  return false;
+}
+
 function postVisualTweetToX() {
   const tweetOutput = document.getElementById('visual-tweet-output');
   const text = tweetOutput ? tweetOutput.value.trim() : '';
@@ -2556,14 +2597,21 @@ function postVisualTweetToX() {
     return;
   }
 
-  // Also auto-copy the image URL or open image for easy attachment
+  // Auto-copy the visual media image to clipboard if available
+  let imageCopied = false;
   if (selectedVisualMedia && selectedVisualMedia.url) {
-    showToast('💡 트윗창이 열렸습니다! 첨부할 미디어도 다운로드 버튼으로 쉽게 올리실 수 있습니다.');
+    imageCopied = copyVisualMediaToClipboard(false);
   }
 
   const encodedText = encodeURIComponent(text);
   const xIntentUrl = `https://x.com/intent/post?text=${encodedText}`;
   window.open(xIntentUrl, '_blank');
+
+  if (imageCopied) {
+    showToast('🌐 X 작성창이 열립니다! 이미지가 클립보드에 복사되었으니 붙여넣기(Ctrl+V) 하세요!');
+  } else {
+    showToast('🌐 X(트위터) 작성 창에 문구가 자동으로 채워졌습니다!');
+  }
 }
 
 function copyVisualTweetText() {
