@@ -89,9 +89,9 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     }
   }
 
-  // 2. Bing Image & GIF HD Search (Primary HD source with freshness qft)
+  // 2. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
   try {
-    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&qft=+filterui:age-lt10080&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
+    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
     const res = await axios.get(bingUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -113,13 +113,6 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
         const url = data.murl ? data.murl.replace(/\\/g, '') : '';
         const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
 
-        // Extract date from description or metadata
-        let dateStr = '최신';
-        const dateMatch = (data.desc || '').match(/\b(202[3-6][\.\-\/]\d{1,2}[\.\-\/]?\d{0,2})\b/);
-        if (dateMatch) {
-          dateStr = dateMatch[1].replace(/[\-\/]/g, '.');
-        }
-
         if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
@@ -130,7 +123,6 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
-            date: dateStr,
             source: 'Bing'
           });
         }
