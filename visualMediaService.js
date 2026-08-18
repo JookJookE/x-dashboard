@@ -54,6 +54,15 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
               const mp4Url = item.media_formats?.mp4?.url || item.media_formats?.tinymp4?.url;
               const thumbUrl = item.media_formats?.nanomp4?.url || item.media_formats?.gif?.url || item.media_formats?.tinymp4?.url;
               const titleText = item.content_description || item.title || searchTarget;
+              
+              // Created date or relative tag
+              let dateStr = '최신';
+              if (item.created) {
+                const d = new Date(item.created * 1000);
+                if (!isNaN(d.getTime())) {
+                  dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+                }
+              }
 
               if (mp4Url && !seen.has(mp4Url)) {
                 seen.add(mp4Url);
@@ -63,6 +72,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
                   url: mp4Url,
                   mediaType: 'video',
                   thumbnail: thumbUrl || mp4Url,
+                  date: dateStr,
                   source: 'Tenor Video'
                 });
               }
@@ -79,9 +89,9 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     }
   }
 
-  // 2. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
+  // 2. Bing Image & GIF HD Search (Primary HD source with freshness qft)
   try {
-    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
+    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&qft=+filterui:age-lt10080&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
     const res = await axios.get(bingUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -103,6 +113,13 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
         const url = data.murl ? data.murl.replace(/\\/g, '') : '';
         const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
 
+        // Extract date from description or metadata
+        let dateStr = '최신';
+        const dateMatch = (data.desc || '').match(/\b(202[3-6][\.\-\/]\d{1,2}[\.\-\/]?\d{0,2})\b/);
+        if (dateMatch) {
+          dateStr = dateMatch[1].replace(/[\-\/]/g, '.');
+        }
+
         if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
@@ -113,6 +130,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
+            date: dateStr,
             source: 'Bing'
           });
         }
@@ -161,6 +179,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
+            date: '최신',
             source: 'Naver'
           });
         }

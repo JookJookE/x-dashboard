@@ -2415,11 +2415,13 @@ function renderVisualMediaGrid(list) {
     if (isVideo) badgeHtml = '🎬 동영상';
     else if (isGif) badgeHtml = '✨ 움짤';
 
+    const dateBadge = item.date ? `<span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.75); color:#cbd5e1; font-size:9px; padding:1px 5px; border-radius:4px; font-weight:700; border:1px solid rgba(255,255,255,0.15);">📅 ${item.date}</span>` : '';
+
     return `
       <div class="visual-media-card ${isSelected ? 'selected' : ''}" onclick="selectVisualMediaByIndex('${item.id}')">
         <img src="${proxyThumb}" loading="lazy" alt="${item.title}" onerror="this.onerror=null; this.src='${item.url}';" />
+        ${dateBadge}
         <span class="visual-media-badge" style="${isVideo ? 'background:#ef4444; color:#fff;' : (isGif ? 'background:#ec4899; color:#fff;' : '')}">${badgeHtml}</span>
-        ${item.duration ? `<span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.7); color:#fff; font-size:9px; padding:1px 4px; border-radius:3px; font-weight:700;">⏱️ ${item.duration}</span>` : ''}
         <div class="visual-media-overlay">${item.title}</div>
       </div>
     `;
