@@ -6,7 +6,6 @@ const { addLog } = require('./history');
 const VISUAL_PRESETS = [
   { id: 'video_archive', name: '🎬 직캠 MP4 영상', query: '여돌 직캠 MP4' },
   { id: 'idol_fancam', name: '💃 여돌 레전드 움짤', query: '여돌 직캠 레전드 움짤' },
-  { id: 'today_fancam', name: '🔥 카리나/장원영 직캠 MP4', query: 'karina wonyoung fancam MP4' },
   { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
