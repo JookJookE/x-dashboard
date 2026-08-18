@@ -164,7 +164,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
 /**
  * Generate Attention-Grabbing Viral X Tweets for Visual Photos & Videos
  */
-async function generateVisualTweet(titleOrTopic = '코스프레 화보', style = 'shock') {
+async function generateVisualTweet(titleOrTopic = '코스프레 화보', style = 'shock', imageUrl = '') {
   const config = getConfig();
   const apiKey = config.geminiApiKey;
 
@@ -187,37 +187,69 @@ async function generateVisualTweet(titleOrTopic = '코스프레 화보', style =
     styleInstruction = `비주얼 화보/영상 소식을 가볍게 칭찬한 뒤, 요즘 트렌드나 숏폼/엔터 패러다임 인사이트로 세련되게 연결하는 2~3줄 트윗으로 작성하세요.`;
   } else {
     // 🔥 기본: 심쿵/어그로 알고리즘 훅
-    styleInstruction = `스크롤을 내리던 모든 유저의 엄지손가락을 멈추게 만드는 강력한 호기심/감탄 1줄 훅과 찰진 멘트(2줄)로 작성하세요.
+    styleInstruction = `스크롤을 내리던 모든 유저의 엄지손가락을 멀추게 만드는 강력한 호기심/감탄 1줄 훅과 찰진 멘트(2줄)로 작성하세요.
 - 예시: "알고리즘이 왜 이 영상을 계속 띄우는지 단 1초 만에 납득함.. 분위기 진짜 독보적이네 홀린 듯이 봤다 ✨"`;
   }
 
   if (apiKey) {
+    // Try to fetch image buffer for Gemini Vision Multimodal analysis
+    let imageInlinePart = null;
+    if (imageUrl && imageUrl.startsWith('http')) {
+      try {
+        const imgFetchRes = await axios.get(imageUrl, {
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+          },
+          timeout: 4000
+        });
+        const rawMime = imgFetchRes.headers['content-type'] || 'image/jpeg';
+        const mimeType = rawMime.split(';')[0].trim();
+        // Gemini supports image/png, image/jpeg, image/webp, image/heic, image/heif
+        if (['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mimeType)) {
+          const base64Data = Buffer.from(imgFetchRes.data).toString('base64');
+          imageInlinePart = {
+            inlineData: {
+              mimeType: mimeType === 'image/gif' ? 'image/jpeg' : mimeType,
+              data: base64Data
+            }
+          };
+        }
+      } catch (imgErr) {
+        // Fallback to text-only prompt
+      }
+    }
+
+    const hasVision = !!imageInlinePart;
     const promptText = `
-당신은 X(트위터)에서 수많은 리트윗과 북마크를 이끌어내는 탑티어 인플루언서입니다.
-아래 비주얼 포토/영상 테마와 제목 정보를 바탕으로, 타임라인에서 시선을 강탈하는 **진짜 사람이 쓴 것 같은 매력적인 한글 바이럴 트윗**을 작성하세요.
+당신은 X(트위터)에서 수많은 리트윗과 북마크를 이끌어내는 탑티어 인플루언서이자 사진 시각 분석 전문가입니다.
+${hasVision ? '첨부된 사진 이미지를 직접 시각 분석하고,' : ''} 아래 미디어 정보/제목을 바탕으로 타임라인에서 시선을 강탈하는 **진짜 사람이 쓴 것 같은 매력적인 한글 바이럴 트윗**을 작성하세요.
 
 [미디어 정보/제목]: ${titleOrTopic}
 
 [스타일 지침]:
 ${styleInstruction}
 
-🚨 [필수 작성 규칙]:
-1. 🛑 **절대 금지: 인물 이름 날조/추측 금지**: 
-   - [미디어 정보/제목]에 특정 인물의 이름(예: 연예인, 아이돌, 인플루언서 이름)이 **명확하게 적혀 있는 경우에만** 해당 이름을 트윗에 언급하세요.
-   - 이름이 없거나 일반적인 검색어(예: "코스프레 화보", "수영복 모델", "일본 모델" 등)일 때는 **절대로 카리나, 장원영 등 다른 유명인 이름을 마음대로 지어내서 쓰지 마세요.** 이름이 불분명할 땐 비주얼, 피지컬, 분위기, 컨셉에 대해서만 감탄하세요!
+🚨 [필수 시각 분석 및 작성 규칙]:
+1. 👁️ **사진 속 실제 인물 정밀 시각 식별**:
+   ${hasVision ? '- 첨부된 사진 속 인물의 얼굴, 이목구비, 분위기를 면밀히 살펴보세요.\n   - 만약 K-POP 아이돌(예: 에스파, 아이브, 뉴진스, 르세라핌, 트와이스 등), 유명 배우, 유명 치어리더, 방송인 등 대중에게 잘 알려진 유명인으로 확실하게 식별된다면 해당 인물의 정확한 이름(예: 장원영, 카리나, 안유진, 김채원, 이주은 등)을 본문이나 해시태그에 자연스럽게 밝히세요.\n   - 만약 일반 모델, 코스플레이어, AI 생성 이미지이거나 인물을 100% 특정할 수 없는 경우: 절대로 엉뚱한 연예인 이름을 함부로 지어내지 말고, 피지컬, 의상 핏, 분위기, 컨셉에 대해서만 솔직하고 매력적으로 감탄하세요.' : '- 미디어 제목/정보에 특정 인물명이 명확히 적혀 있는 경우에만 이름을 기재하고, 이름이 불분명할 때는 엉뚱한 이름을 지어내지 말고 분위기/컨셉 위주로 작성하세요.'}
 2. ❌ "🔹", "🧠", "💡", "1️⃣", "2️⃣" 같은 기계적인 AI 요약 기호나 딱딱한 설명문은 100% 절대 금지합니다.
 3. ⭕ 진짜 트위터 유저가 폰으로 방금 보고 홀려서 쓴 것처럼 자연스러운 줄바꿈과 찰진 구어체로 1~3줄 작성하세요.
 4. 끝에 어울리는 이모지 1~2개와 해시태그 1~2개를 자연스럽게 붙이세요.
 5. 오직 완성된 트윗 문구만 출력하세요. (따옴표나 부가 설명 금지)
 `;
 
+    const parts = [{ text: promptText }];
+    if (imageInlinePart) {
+      parts.push(imageInlinePart);
+    }
+
     const modelsToTry = [
+      'gemini-2.5-flash',
       'gemini-flash-latest',
-      'gemini-flash-lite-latest',
       'gemini-2.5-flash-lite',
       'gemini-3.1-flash-lite',
-      'gemini-3-flash',
-      'gemini-2.5-flash'
+      'gemini-3-flash'
     ];
 
     for (const modelName of modelsToTry) {
@@ -225,14 +257,14 @@ ${styleInstruction}
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
         const res = await axios.post(
           url,
-          { contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.8 } },
-          { headers: { 'Content-Type': 'application/json' }, timeout: 6000 }
+          { contents: [{ parts }], generationConfig: { temperature: 0.7 } },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
         );
 
         let text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (text && text.length > 5) {
           text = text.replace(/^["']|["']$/g, '').trim();
-          addLog('SUCCESS', `📸 비주얼 바이럴 트윗 AI 생성 완료 (${text.length}자)`);
+          addLog('SUCCESS', `📸 비주얼 바이럴 트윗 ${hasVision ? '(Gemini 시각 분석)' : '(텍스트 분석)'} AI 생성 완료 (${text.length}자)`);
           return { text, isAiGenerated: true, style };
         }
       } catch (e) {

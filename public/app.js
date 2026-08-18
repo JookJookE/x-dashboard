@@ -2520,11 +2520,17 @@ async function generateVisualAiTweet() {
   if (btn) btn.disabled = true;
   if (tweetOutput) tweetOutput.value = '✨ AI 바이럴 트윗 문구를 생성하는 중입니다...';
 
+  const imageUrl = selectedVisualMedia && selectedVisualMedia.url ? selectedVisualMedia.url : '';
+
   try {
     const res = await fetch('/api/generate-visual-tweet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titleOrTopic: topic, style: currentVisualTweetStyle })
+      body: JSON.stringify({ 
+        titleOrTopic: topic, 
+        style: currentVisualTweetStyle,
+        imageUrl: imageUrl 
+      })
     });
     if (!res.ok) {
       throw new Error(`서버 응답 오류 (${res.status})`);

@@ -757,11 +757,11 @@ app.get('/api/visual-media', async (req, res) => {
 
 app.post('/api/generate-visual-tweet', async (req, res) => {
   try {
-    const { titleOrTopic, style } = req.body;
-    if (!titleOrTopic) {
-      return res.status(400).json({ success: false, message: '미디어 주제나 제목이 필요합니다.' });
+    const { titleOrTopic, style, imageUrl } = req.body;
+    if (!titleOrTopic && !imageUrl) {
+      return res.status(400).json({ success: false, message: '미디어 주제나 이미지가 필요합니다.' });
     }
-    const result = await generateVisualTweet(titleOrTopic, style || 'shock');
+    const result = await generateVisualTweet(titleOrTopic || '비주얼 화보', style || 'shock', imageUrl || '');
     res.json({ success: true, text: result.text, isAiGenerated: result.isAiGenerated, style: result.style });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
