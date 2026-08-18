@@ -11,9 +11,9 @@ const VISUAL_PRESETS = [
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
   { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
   { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '일본 모델 화보' },
-  { id: 'western_model', name: '🌍 외국/서양 모델 화보', query: '서양 모델 화보 photoshoot' },
-  { id: 'hollywood_celeb', name: '👱‍♀️ 할리우드/해외 셀럽', query: '할리우드 여배우 레드카펫 화보' },
-  { id: 'global_video', name: '🎬 해외 핫클립 MP4', query: 'foreign model dance MP4' }
+  { id: 'western_sns', name: '💖 해외 SNS 여신/인플루언서', query: 'barbara palvin smile' },
+  { id: 'western_celeb', name: '✨ 청순 해외스타/셀럽', query: 'sydney sweeney cute' },
+  { id: 'global_video', name: '🎬 해외 핫클립 MP4', query: 'aesthetic girl selfie' }
 ];
 
 /**
@@ -32,20 +32,12 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
 
   // Map keywords to optimized high-precision search queries
   let searchQuery = cleanKeyword;
-  const isForeign = cleanKeyword.includes('서양') || cleanKeyword.includes('외국') || cleanKeyword.includes('할리우드') || cleanKeyword.includes('foreign');
-  
-  if (cleanKeyword.includes('서양') || cleanKeyword.includes('외국 모델')) {
-    searchQuery = 'caucasian fashion model photoshoot high fashion';
-  } else if (cleanKeyword.includes('할리우드') || cleanKeyword.includes('해외셀럽')) {
-    searchQuery = 'hollywood actress celebrity red carpet glamour';
-  } else if (cleanKeyword.includes('foreign') && cleanKeyword.includes('MP4')) {
-    searchQuery = 'model dance viral';
-  }
+  const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
 
-  // 1. Tenor MP4 Direct Video Search (For pure MP4 video streaming and direct file download)
-  if (isVideoCategory) {
+  // 1. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion foreign aesthetic GIFs)
+  if (isVideoCategory || isForeign) {
     try {
-      const searchTarget = isForeign ? 'model dance' : (cleanKeyword.replace('MP4', '').replace('영상', '').trim() || '여돌 직캠');
+      const searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').trim() || 'sydney sweeney cute';
       const tenorUrl = `https://tenor.com/search/${encodeURIComponent(searchTarget)}-gifs`;
       const res = await axios.get(tenorUrl, {
         headers: {
@@ -58,7 +50,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
       const html = String(res.data);
       const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
       for (const s of scripts) {
-        if (s[1].includes('"media_formats"') && s[1].includes('"mp4"')) {
+        if (s[1].includes('"media_formats"')) {
           try {
             const data = JSON.parse(s[1]);
             const searchObj = data.universal?.search || {};
@@ -67,11 +59,14 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
 
             for (const item of items) {
               const mp4Url = item.media_formats?.mp4?.url || item.media_formats?.tinymp4?.url;
+              const gifUrl = item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url;
               const thumbUrl = item.media_formats?.nanomp4?.url || item.media_formats?.gif?.url || item.media_formats?.tinymp4?.url;
               const titleText = item.content_description || item.title || searchTarget;
               
+              const chosenUrl = isVideoCategory ? mp4Url : (gifUrl || mp4Url);
+
               // Created date or relative tag
-              let dateStr = '최신';
+              let dateStr = '연도미상';
               if (item.created) {
                 const d = new Date(item.created * 1000);
                 if (!isNaN(d.getTime())) {
@@ -79,16 +74,16 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
                 }
               }
 
-              if (mp4Url && !seen.has(mp4Url)) {
-                seen.add(mp4Url);
+              if (chosenUrl && !seen.has(chosenUrl)) {
+                seen.add(chosenUrl);
                 mediaList.push({
                   id: 'media_v_' + Math.random().toString(36).substring(2, 9),
-                  title: `[MP4 영상] ${titleText.substring(0, 45)}`,
-                  url: mp4Url,
-                  mediaType: 'video',
-                  thumbnail: thumbUrl || mp4Url,
+                  title: `[해외 비주얼] ${titleText.substring(0, 45)}`,
+                  url: chosenUrl,
+                  mediaType: isVideoCategory ? 'video' : 'gif',
+                  thumbnail: thumbUrl || chosenUrl,
                   date: dateStr,
-                  source: 'Tenor Video'
+                  source: 'Tenor Global'
                 });
               }
             }
