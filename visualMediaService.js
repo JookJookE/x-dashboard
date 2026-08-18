@@ -263,9 +263,38 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
 /**
  * Generate Attention-Grabbing Viral X Tweets for Visual Photos & Videos
  */
-async function generateVisualTweet(titleOrTopic = '코스프레 화보', style = 'shock', imageUrl = '') {
+async function generateVisualTweet(titleOrTopic = '코스프레 화보', style = 'shock', imageUrl = '', mediaDate = '연도미상') {
   const config = getConfig();
   const apiKey = config.geminiApiKey;
+
+  const currentYear = new Date().getFullYear(); // 2026
+  let isPastMedia = false;
+  let yearNum = null;
+  if (mediaDate && mediaDate !== '연도미상') {
+    const yMatch = mediaDate.match(/\b(201\d|202\d)\b/);
+    if (yMatch) {
+      yearNum = parseInt(yMatch[1], 10);
+      if (yearNum <= currentYear - 1) {
+        isPastMedia = true;
+      }
+    }
+  }
+
+  // Time-aware context instruction for AI
+  let timeContextPrompt = '';
+  if (isPastMedia && yearNum) {
+    timeContextPrompt = `
+⏰ [미디어 등록 시점 - 과거 레전드 짤 인식 필수]:
+- 이 사진/움짤은 **${mediaDate} (약 ${currentYear - yearNum}년 전)** 과거 자료입니다.
+- 🛑 절대 금지: "이번", "최근", "신상", "요즘 나온", "방금 올라온" 처럼 최근 일인 척 사기 치지 마세요!
+- ⭕ 사람 같은 리액션: "다시 봐도", "언제 봐도 레전드", "이 시절 폼", "${yearNum}년도 이때 분위기 진짜 미쳤었는데", "주기적으로 봐줘야 하는 레전드 짤", "시간 지나도 여전히 압도적" 등 명작 회상/레전드 재조명 톤으로 작성하세요!
+`;
+  } else {
+    timeContextPrompt = `
+⏰ [미디어 등록 시점]:
+- ${mediaDate === '연도미상' ? '등록 시점 미상이므로 "이번", "최근"이라는 말은 남발하지 말고 사진/영상의 비주얼 분위기 자체에 집중하세요.' : `최근(${mediaDate}) 미디어입니다. 최신 트렌드/폼에 맞는 자연스러운 리액션으로 작성하세요.`}
+`;
+  }
 
   // Style Prompt Definitions (Ultra-Realistic X Native Tones - No weird jargon)
   let styleInstruction = '';
@@ -291,7 +320,7 @@ async function generateVisualTweet(titleOrTopic = '코스프레 화보', style =
     // ⚡ 융합 브릿지
     styleInstruction = `
 - 톤앤매너: 비주얼 사진을 계기로 요즘 트렌드나 숏폼/화보 감성에 대해 짤막하게 한 마디 얹는 인플루언서 멘트.
-- 말투: "~보면 진짜 트렌드가 확실히 바뀐 듯", "~이런 무드가 요즘 왜 뜨는지 알겠다"`;
+- 말투: "~보면 진짜 트렌드가 확실히 바뀐 듯", "~이런 무드가 왜 계속 회자되는지 알겠다"`;
   } else {
     // 🔥 기본: 심쿵/알고리즘 훅
     styleInstruction = `
@@ -331,16 +360,19 @@ async function generateVisualTweet(titleOrTopic = '코스프레 화보', style =
 
     const hasVision = !!imageInlinePart;
     const promptText = `
-당신은 X(트위터)에서 트렌드를 이끄는 리얼 한국인 유저입니다.
-${hasVision ? '첨부된 사진/미디어를 직접 시각적으로 살펴보고,' : ''} 아래 주제와 스타일 지침에 맞춰 **실제 사람이 폰으로 작성한 것 같은 100% 자연스러운 한글 트윗**을 딱 1~2줄로 작성하세요.
+당신은 X(트위터)에서 트렌드를 이끄는 리얼 한국인 유저입니다. (현재 연도: ${currentYear}년)
+${hasVision ? '첨부된 사진/미디어를 직접 시각적으로 살펴보고,' : ''} 아래 주제, 시점 지침, 스타일 지침에 맞춰 **실제 사람이 폰으로 작성한 것 같은 100% 자연스러운 한글 트윗**을 딱 1~2줄로 작성하세요.
 
 [미디어 주제/분위기]: ${titleOrTopic}
+[미디어 날짜 정보]: ${mediaDate}
+${timeContextPrompt}
 
 [스타일 지침]:
 ${styleInstruction}
 
-🚨 [필수 작성 원칙 - AI 느낌 및 어색한 은어 완전 박멸]:
-1. 🛑 **절대 금지: '탐라' 같은 낯선 은어 & 딱딱한 설명문 금지**:
+🚨 [필수 작성 원칙 - 리얼 사람 생각 반영]:
+1. 🛑 **절대 금지: 과거 미디어에 '이번/최근' 거짓말 금지 & 로봇 말투 금지**:
+   - 오래된 자료인데 "이번 착장", "요즘"이라고 사기 치지 말고 "언제 봐도", "이 시절 레전드"처럼 솔직하게 작성하세요.
    - '탐라'라는 단어는 절대로 쓰지 마세요! (대신 "피드", "스크롤 내리다가", "알고리즘" 같은 자연스러운 표현 사용)
    - "~에 대해 알아보겠습니다", "~를 추천합니다", "~골라주세요", "~어떠신가요?" 같은 안내원 말투 100% 금지!
    - 엉뚱한 사람 이름을 지어내지 말고, 사진 속 비주얼/분위기/착장/포즈 자체에 대한 리액션으로 작성하세요.
@@ -387,7 +419,11 @@ ${styleInstruction}
 
   // High-Quality Human Fallback Templates
   const fallbacks = {
-    admire: [
+    admire: isPastMedia ? [
+      `다시 봐도 이때 컨셉이랑 착장은 진짜 레전드였음.. 분위기 살벌하네 ㄷㄷ ✨ #레전드 #화보`,
+      `언제 봐도 이 시절 폼은 탈인간급임.. 실물 포스 미쳤다 🌸 #비주얼 #명작`,
+      `주기적으로 봐줘야 하는 레전드 짤 보소.. 이건 영구 소장각 🔥 #스타일`
+    ] : [
       `와 이번 착장이랑 컨셉 진짜 미쳤다.. 사진 한 장으로 분위기 다 압도하네 ㄷㄷ ✨ #비주얼 #화보`,
       `볼 때마다 느끼는 건데 폼이 그냥 탈인간급임.. 실물 포스 살벌하네 🌸 #레전드 #화보`,
       `화면 뚫고 나오는 비주얼 보소.. 이건 저장 안 할 수가 없다 🔥 #스타일`
@@ -401,9 +437,12 @@ ${styleInstruction}
       `아직도 이거 안 본 사람 없제? ㅋㅋㅋ 실시간으로 피드 다 터지는 중 성지순례 와라 🚀`
     ],
     bridge: [
-      `요즘 비주얼 트렌드 보면 확실히 무드가 바뀐 듯.. 결국 시선을 사로잡는 기획력이 전부다 🔥 #트렌드 #인사이트`
+      `비주얼 트렌드 보면 확실히 무드가 독보적인 듯.. 결국 시선을 사로잡는 기획력이 전부다 🔥 #트렌드 #인사이트`
     ],
-    shock: [
+    shock: isPastMedia ? [
+      `알고리즘이 왜 이 과거 영상을 다시 띄우는지 바로 납득함.. 명작은 시간 지나도 안 변하네 ✨ #핫클립 #레전드`,
+      `방금 스크롤 내리다가 멈칫함;; 이때 이목구비 자기주장 살벌했네 진짜 ㄷㄷ 🌸 #비주얼`
+    ] : [
       `알고리즘이 왜 이 영상을 계속 띄우는지 딱 1초 만에 납득함.. 분위기 진짜 독보적이네 ✨ #핫클립 #레전드`,
       `방금 스크롤 내리다가 폰 떨어뜨릴 뻔함;; 이목구비 자기주장 살벌하다 진짜 ㄷㄷ 🌸 #비주얼`,
       `이건 알고리즘도 무조건 멈추게 만드네.. 실시간으로 반응 터진 이유가 있었음 😮 #화보`

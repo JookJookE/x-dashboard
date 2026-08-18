@@ -2544,6 +2544,7 @@ async function generateVisualAiTweet() {
   if (tweetOutput) tweetOutput.value = '✨ AI 바이럴 트윗 문구를 생성하는 중입니다...';
 
   const imageUrl = selectedVisualMedia && selectedVisualMedia.url ? selectedVisualMedia.url : '';
+  const mediaDate = selectedVisualMedia && selectedVisualMedia.date ? selectedVisualMedia.date : '연도미상';
 
   try {
     const res = await fetch('/api/generate-visual-tweet', {
@@ -2552,7 +2553,8 @@ async function generateVisualAiTweet() {
       body: JSON.stringify({ 
         titleOrTopic: topic, 
         style: currentVisualTweetStyle,
-        imageUrl: imageUrl 
+        imageUrl: imageUrl,
+        mediaDate: mediaDate
       })
     });
     if (!res.ok) {
