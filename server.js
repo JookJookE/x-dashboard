@@ -6,9 +6,12 @@ const axios = require('axios');
 const { getConfig, saveConfig } = require('./config');
 const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, getStoredArticles, saveStoredArticles, getReadStatusMap, markAsRead, markAllAsRead, getSavedDrafts, saveSavedDraft, deleteSavedDraft } = require('./history');
 const { fetchLatestArticles } = require('./scraper');
-const { generateSummary } = require('./summarizer');
+const { generateSummary, generateThoughtTweet } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
+const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet } = require('./visualMediaService');
+const { getGitInfo, pullAndApplyUpdates, initGitAutoSync } = require('./gitAutoSync');
 const { initScheduler, generateDailyDraftsJob, getDailyDrafts } = require('./scheduler');
+const { sendTelegramMessage, sendEmailMessage, notifyNewTunnelUrl } = require('./notifier');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,13 +46,7 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
-// Self Keep-Alive Timer: Ping /ping every 10 minutes to prevent Render Free Tier from sleeping
-setInterval(async () => {
-  try {
-    const renderUrl = process.env.RENDER_EXTERNAL_URL || 'https://x-dashboard-4snc.onrender.com';
-    await axios.get(`${renderUrl}/ping`, { timeout: 5000 });
-  } catch (e) {}
-}, 10 * 60 * 1000);
+
 
 // HTTP Basic Security Authentication for Tunnel & External Access
 app.use((req, res, next) => {
@@ -214,7 +211,7 @@ app.post('/api/extract-image', async (req, res) => {
         if (gRes.request?.res?.responseUrl && !gRes.request.res.responseUrl.includes('news.google.com')) {
           targetUrl = gRes.request.res.responseUrl;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 2. Fetch direct webpage (Nate Pann, Blind, Naver, Hankyung, Chosun, etc.)
@@ -262,14 +259,14 @@ app.post('/api/extract-image', async (req, res) => {
           const sLower = src.toLowerCase();
 
           const isPhoto = sLower.includes('fimg') || sLower.includes('download.jsp') || sLower.includes('imgnews') ||
-                          sLower.includes('upload') || sLower.includes('article') || sLower.includes('content') ||
-                          /\.(jpg|jpeg|png|webp)(\?|$)/i.test(sLower);
+            sLower.includes('upload') || sLower.includes('article') || sLower.includes('content') ||
+            /\.(jpg|jpeg|png|webp)(\?|$)/i.test(sLower);
 
           if (isPhoto && !sLower.includes('logo') && !sLower.includes('icon') && !sLower.includes('btn') && !sLower.includes('stat') && !sLower.includes('emoticon')) {
             return res.json({ success: true, imageUrl: src });
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 3. High-precision Naver News Photo Search by Title
@@ -299,7 +296,7 @@ app.post('/api/extract-image', async (req, res) => {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 4. Daum News Photo Search Backup
@@ -319,7 +316,7 @@ app.post('/api/extract-image', async (req, res) => {
             return res.json({ success: true, imageUrl: src });
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     return res.json({ success: false, message: '원문 기사에서 대표 이미지를 찾을 수 없습니다.' });
@@ -359,6 +356,20 @@ app.post('/api/generate-thumbnail', (req, res) => {
     const imageUrl = generateNewsInfographicSvg(title, category, categoryTag || '');
     addLog('SUCCESS', `🎨 고화질 16:9 썸네일 이미지 생성 완료: ${imageUrl}`);
     res.json({ success: true, imageUrl });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ===== 🎙️ 내 생각/자유 메모 ➔ AI 트윗 정제 API =====
+app.post('/api/summarize-thought', async (req, res) => {
+  try {
+    const { thought, mode } = req.body;
+    if (!thought || thought.trim().length === 0) {
+      return res.status(400).json({ success: false, message: '생각이나 메모 내용을 입력해주세요.' });
+    }
+    const result = await generateThoughtTweet(thought.trim(), mode || 'block');
+    res.json({ success: true, summary: result.text, mode: result.mode });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -417,10 +428,11 @@ function startCloudflareTunnel() {
   if (fs.existsSync(cloudflaredPath)) {
     const tunnelProc = spawn(cloudflaredPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
     let tunnelUrlFound = false;
+    let fullOutput = '';
 
-    tunnelProc.stderr.on('data', (data) => {
-      const msg = data.toString();
-      const match = msg.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+    function handleData(data) {
+      fullOutput += data.toString();
+      const match = fullOutput.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
       if (match && !tunnelUrlFound) {
         tunnelUrlFound = true;
         const tunnelUrl = match[0];
@@ -430,14 +442,49 @@ function startCloudflareTunnel() {
         console.log(`🔑 보안 로그인: 아이디 admin / 설정하신 비밀번호`);
         console.log(`=======================================================\n`);
         addLog('SUCCESS', `🌐 Cloudflare 외부 접속 터널이 활성화되었습니다: ${tunnelUrl}`);
+        notifyNewTunnelUrl(tunnelUrl);
       }
-    });
+    }
+
+    if (tunnelProc.stdout) tunnelProc.stdout.on('data', handleData);
+    if (tunnelProc.stderr) tunnelProc.stderr.on('data', handleData);
 
     tunnelProc.on('error', (err) => {
       console.log(`[터널 안내] cloudflared 터널 시작 중: ${err.message}`);
     });
   }
 }
+
+// Notification Test APIs
+
+app.post('/api/test-telegram', async (req, res) => {
+  try {
+    const { token, chatId } = req.body;
+    const msg = `🔔 <b>X 트윗 생성기 텔레그램 알림 테스트 성공!</b>\n\n이 메시지가 보이시면 텔레그램 연동이 정상적으로 완료된 것입니다.`;
+    await sendTelegramMessage(msg, token, chatId);
+    addLog('SUCCESS', '📲 텔레그램 테스트 알림이 발송되었습니다.');
+    res.json({ success: true, message: '텔레그램 테스트 메시지가 발송되었습니다!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/test-email', async (req, res) => {
+  try {
+    const subject = `🔔 [X Dashboard] 이메일 알림 테스트`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h3 style="color: #1d9bf0;">🔔 이메일 알림 테스트 성공</h3>
+        <p>이메일 연동이 정상적으로 설정되었습니다!</p>
+      </div>
+    `;
+    await sendEmailMessage(subject, html, req.body);
+    addLog('SUCCESS', '📧 이메일 테스트 알림이 발송되었습니다.');
+    res.json({ success: true, message: '이메일 테스트 메시지가 발송되었습니다!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // ===== Trending Keywords API (No DB Storage) =====
 
@@ -484,7 +531,7 @@ app.get('/api/trending-articles', async (req, res) => {
     const hl = region === 'us' ? 'en-US' : 'ko';
     const gl = region === 'us' ? 'US' : 'KR';
     const ceid = region === 'us' ? 'US:en' : 'KR:ko';
-    
+
     const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
 
     let items = [];
@@ -492,9 +539,9 @@ app.get('/api/trending-articles', async (req, res) => {
 
     // 1차 시도: 구글 뉴스 직통 수집 (2초 타임아웃)
     try {
-      const directRes = await axios.get(googleUrl, { 
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, 
-        timeout: 2000 
+      const directRes = await axios.get(googleUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 2000
       });
 
       if (directRes.data && typeof directRes.data === 'string' && directRes.data.includes('<item>')) {
@@ -515,7 +562,7 @@ app.get('/api/trending-articles', async (req, res) => {
           fetchSource = 'direct';
         }
       }
-    } catch (directErr) {}
+    } catch (directErr) { }
 
     // 3차 시도: Bing 뉴스 RSS 수집
     if (!fetchSource || items.length === 0) {
@@ -557,7 +604,7 @@ app.get('/api/trending-articles', async (req, res) => {
           items = rssRes.data.items || [];
           if (items.length > 0) fetchSource = 'rss2json';
         }
-      } catch (r2jErr) {}
+      } catch (r2jErr) { }
     }
 
     if (items.length === 0) {
@@ -567,7 +614,7 @@ app.get('/api/trending-articles', async (req, res) => {
 
     const articles = items.slice(0, 5).map((item, idx) => {
       let title = (item.title || '').replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim();
-      
+
       const sourceIndex = title.lastIndexOf(' - ');
       let sourceName = '';
       if (sourceIndex > 0) {
@@ -630,7 +677,7 @@ app.get('/api/trending-images', async (req, res) => {
       });
 
       const html = String(naverRes.data);
-      
+
       // Match originalUrl, _g_img or src
       const matches = [
         ...html.matchAll(/"originalUrl":"(https?:\/\/[^"]+)"/gi),
@@ -654,15 +701,15 @@ app.get('/api/trending-images', async (req, res) => {
           images.push({ title: `📷 "${keyword}" 실시간 관련 이미지`, imageUrl: imgUrl });
         }
       });
-    } catch (e) {}
+    } catch (e) { }
 
     // 2. Fallback / Supplement with Daum Image Search if fewer than 10
     if (images.length < 10) {
       try {
         const daumUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(keyword)}`;
         const daumRes = await axios.get(daumUrl, {
-          headers: { 
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
           },
           timeout: 6000
         });
@@ -683,13 +730,53 @@ app.get('/api/trending-images', async (req, res) => {
             images.push({ title: `📷 "${keyword}" 실시간 관련 이미지`, imageUrl: imgUrl });
           }
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     res.json({ success: true, keyword, images: images.slice(0, 10) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
+});
+
+// ===== 📸 웹 비주얼 미디어 (화보/직캠/핫클립) 탐색 및 바이럴 X 트윗 API =====
+app.get('/api/visual-presets', (req, res) => {
+  res.json({ success: true, presets: VISUAL_PRESETS });
+});
+
+app.get('/api/visual-media', async (req, res) => {
+  try {
+    const keyword = req.query.keyword || '코스프레 화보';
+    const page = parseInt(req.query.page || '1', 10);
+    const mediaList = await searchVisualMedia(keyword, page);
+    res.json({ success: true, keyword, media: mediaList });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/generate-visual-tweet', async (req, res) => {
+  try {
+    const { titleOrTopic, style } = req.body;
+    if (!titleOrTopic) {
+      return res.status(400).json({ success: false, message: '미디어 주제나 제목이 필요합니다.' });
+    }
+    const result = await generateVisualTweet(titleOrTopic, style || 'shock');
+    res.json({ success: true, text: result.text, isAiGenerated: result.isAiGenerated, style: result.style });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ===== 🔄 깃허브(GitHub) 원격 코드 동기화 & 자동 배포 API =====
+app.get('/api/git-info', async (req, res) => {
+  const info = await getGitInfo();
+  res.json(info);
+});
+
+app.post('/api/git-sync', async (req, res) => {
+  const result = await pullAndApplyUpdates();
+  res.json(result);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -700,6 +787,9 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
   addLog('INFO', `서버가 포트 ${PORT}에서 성공적으로 시작되었습니다.`);
   startCloudflareTunnel();
+
+  // Start GitHub Auto-Sync (checks every 30s)
+  initGitAutoSync(30);
 
   // Trigger initial article fetch asynchronously on server startup
   setTimeout(async () => {

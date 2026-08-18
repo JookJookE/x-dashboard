@@ -25,6 +25,7 @@
     "iconv-lite": "^0.7.3",
     "localtunnel": "^2.0.2",
     "node-cron": "^3.0.3",
+    "nodemailer": "^9.0.5",
     "twitter-api-v2": "^1.19.0"
   }
 }

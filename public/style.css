@@ -452,8 +452,9 @@ body {
 
 .composer-layout {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: 340px 1fr;
   gap: 20px;
+  align-items: start;
 }
 
 .selected-article-box {
@@ -477,10 +478,19 @@ body {
   background: rgba(10, 14, 23, 0.8);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 12px 14px;
   color: var(--text-main);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#tweet-text-input {
+  min-height: 200px;
+  font-size: 14.5px;
+  line-height: 1.65;
+  padding: 14px;
+  border-radius: 10px;
 }
 
 .form-group input:focus, .form-group textarea:focus {
@@ -750,3 +760,121 @@ body {
   color: var(--text-dim);
   white-space: nowrap;
 }
+
+/* Visual Media Studio & Fancam Hub Styling */
+.preset-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-pill:hover {
+  background: rgba(236, 72, 153, 0.15);
+  border-color: rgba(236, 72, 153, 0.4);
+  color: #f472b6;
+}
+
+.preset-pill.active {
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+}
+
+.style-choice-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.style-choice-btn:hover {
+  background: rgba(236, 72, 153, 0.1);
+  border-color: rgba(236, 72, 153, 0.3);
+}
+
+.style-choice-btn.active {
+  background: rgba(236, 72, 153, 0.2);
+  border-color: #ec4899;
+  color: #f472b6;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.2);
+}
+
+.visual-media-card {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  aspect-ratio: 3/4;
+  display: flex;
+  flex-direction: column;
+}
+
+.visual-media-card:hover {
+  transform: translateY(-3px);
+  border-color: #f472b6;
+  box-shadow: 0 8px 20px rgba(236, 72, 153, 0.3);
+}
+
+.visual-media-card.selected {
+  border-color: #ec4899;
+  box-shadow: 0 0 16px rgba(236, 72, 153, 0.6);
+}
+
+.visual-media-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.visual-media-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.visual-media-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+  padding: 20px 8px 8px 8px;
+  font-size: 11px;
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  .visual-studio-container {
+    grid-template-columns: 1fr !important;
+  }
+}
+

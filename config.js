@@ -20,7 +20,16 @@ const defaultConfig = {
   autoPostEnabled: true,  // Auto daily draft generation enabled
   maxTweetLength: 280,
   authPassword: process.env.AUTH_PASSWORD || 'rudghlWkd!',
-  customPromptTemplate: `내가 직접 내 트위터 팔로워들에게 핵심 지식과 기술 인사이트를 설명해 주는 어조(기술 전문가/인플루언서 톤앤매너)로 X 포스트를 작성해 주세요.`
+  customPromptTemplate: `내가 직접 내 트위터 팔로워들에게 핵심 지식과 기술 인사이트를 설명해 주는 어조(기술 전문가/인플루언서 톤앤매너)로 X 포스트를 작성해 주세요.`,
+  telegramEnabled: false,
+  telegramBotToken: '',
+  telegramChatId: '',
+  emailEnabled: false,
+  emailHost: 'smtp.gmail.com',
+  emailPort: 587,
+  emailUser: '',
+  emailPass: '',
+  emailTo: ''
 };
 
 function getConfig() {

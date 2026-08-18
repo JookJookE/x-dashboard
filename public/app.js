@@ -66,6 +66,18 @@ document.addEventListener('DOMContentLoaded', () => {
     saveKeyBtn.addEventListener('click', saveGeminiApiKey);
   }
 
+  const btnSaveTelegram = document.getElementById('btn-save-telegram');
+  if (btnSaveTelegram) btnSaveTelegram.addEventListener('click', saveTelegramSettings);
+
+  const btnTestTelegram = document.getElementById('btn-test-telegram');
+  if (btnTestTelegram) btnTestTelegram.addEventListener('click', testTelegramNotification);
+
+  const btnSaveEmail = document.getElementById('btn-save-email');
+  if (btnSaveEmail) btnSaveEmail.addEventListener('click', saveEmailSettings);
+
+  const btnTestEmail = document.getElementById('btn-test-email');
+  if (btnTestEmail) btnTestEmail.addEventListener('click', testEmailNotification);
+
   loadConfig();
 
   const textInput = document.getElementById('tweet-text-input');
@@ -85,46 +97,78 @@ function setComposerMode(mode, silent = false) {
 
   const btnBlock = document.getElementById('btn-mode-block');
   const btnStory = document.getElementById('btn-mode-story');
-  const btnTalk = document.getElementById('btn-mode-talk');
-  const btnMindset = document.getElementById('btn-mode-mindset');
-  const btnCapture = document.getElementById('btn-mode-capture');
-  const btnPann = document.getElementById('btn-mode-pann');
+  const btnReaction = document.getElementById('btn-mode-reaction');
   const btnHybrid = document.getElementById('btn-mode-hybrid');
+  const btnIdol = document.getElementById('btn-mode-idol');
+  const btnSpicy = document.getElementById('btn-mode-spicy');
+  const btnMindset = document.getElementById('btn-mode-mindset');
 
   if (btnBlock) btnBlock.classList.remove('active');
   if (btnStory) btnStory.classList.remove('active');
-  if (btnTalk) btnTalk.classList.remove('active');
-  if (btnMindset) btnMindset.classList.remove('active');
-  if (btnCapture) btnCapture.classList.remove('active');
-  if (btnPann) btnPann.classList.remove('active');
+  if (btnReaction) btnReaction.classList.remove('active');
   if (btnHybrid) btnHybrid.classList.remove('active');
+  if (btnIdol) btnIdol.classList.remove('active');
+  if (btnSpicy) btnSpicy.classList.remove('active');
+  if (btnMindset) btnMindset.classList.remove('active');
 
-  if (mode === 'pann') {
-    if (btnPann) btnPann.classList.add('active');
-    if (!silent) showToast('⚖️ 버전 6: 네이트판 (사연/갈등) 모드로 전환되었습니다.');
+  if (mode === 'story') {
+    if (btnStory) btnStory.classList.add('active');
+    if (!silent) showToast('🔥 1인칭 아티클 (칼럼/통찰) 모드로 전환되었습니다.');
+  } else if (mode === 'reaction') {
+    if (btnReaction) btnReaction.classList.add('active');
+    if (!silent) showToast('💬 짧은 리액션 (1~2줄 썰) 모드로 전환되었습니다.');
   } else if (mode === 'hybrid') {
     if (btnHybrid) btnHybrid.classList.add('active');
-    if (!silent) showToast('🌟 버전 7: 하이브리드 후킹 (전문가 뷰) 모드로 전환되었습니다.');
-  } else if (mode === 'capture' || mode === 'blind') {
-    if (btnCapture) btnCapture.classList.add('active');
-    if (!silent) showToast('📸 버전 5: 캡처 이미지 첨부 / 블라인드 썰 공유형 모드로 전환되었습니다.');
+    if (!silent) showToast('🌟 하이브리드 후킹 (전문가 뷰) 모드로 전환되었습니다.');
+  } else if (mode === 'idol') {
+    if (btnIdol) btnIdol.classList.add('active');
+    if (!silent) showToast('🌸 여돌/비주얼 칭찬 (남자 시점) 모드로 전환되었습니다.');
+  } else if (mode === 'spicy') {
+    if (btnSpicy) btnSpicy.classList.add('active');
+    if (!silent) showToast('🌶️ 매운맛 꺼드럭 썰 모드로 전환되었습니다.');
   } else if (mode === 'mindset') {
     if (btnMindset) btnMindset.classList.add('active');
-    if (!silent) showToast('🧠 버전 4: 멘탈/공감 꿀팁형 모드로 전환되었습니다.');
-  } else if (mode === 'talk') {
-    if (btnTalk) btnTalk.classList.add('active');
-    if (!silent) showToast('🗣️ 버전 3: 생생한 썰/소통형 모드로 전환되었습니다.');
-  } else if (mode === 'story') {
-    if (btnStory) btnStory.classList.add('active');
-    if (!silent) showToast('🔥 버전 2: 아티클 (1인칭 뷰) 모드로 전환되었습니다.');
+    if (!silent) showToast('🧠 멘탈/공감 힐링 모드로 전환되었습니다.');
   } else {
     if (btnBlock) btnBlock.classList.add('active');
-    if (!silent) showToast('⚡ 버전 1: 이모지 블록 요약형 모드로 전환되었습니다.');
+    if (!silent) showToast('⚡ 이모지 요약 (뉴스/팩트) 모드로 전환되었습니다.');
   }
 
   if (selectedArticle && !silent) {
     generateSummaryForSelected();
   }
+}
+
+// 🏷️ Corner Tag Presets
+function applyCornerTag(tag) {
+  const textInput = document.getElementById('tweet-text-input');
+  if (!textInput) return;
+  
+  let val = textInput.value.trim();
+  // Remove existing corner tags if present
+  val = val.replace(/^\[(📊\s*#Jook_Insight|🍿\s*#Jook_Life|⚡\s*#Jook_Bridge|#Jook_Insight|#Jook_Life|#Jook_Bridge)\]\s*/g, '');
+  val = val.replace(/(#Jook_Insight|#Jook_Life|#Jook_Bridge)/g, '').trim();
+
+  // Add the corner tag at the top or bottom
+  textInput.value = `${tag} ${val}`;
+  updateCharCount();
+  showToast(`🏷️ 코너 태그 ${tag} 가 추가되었습니다!`);
+}
+
+// 💬 Engagement Question Booster
+function appendEngagementHook(hookText) {
+  const textInput = document.getElementById('tweet-text-input');
+  if (!textInput) return;
+
+  let val = textInput.value.trim();
+  if (val.length > 0 && !val.endsWith('\n')) {
+    val += `\n\n${hookText}`;
+  } else {
+    val += `${hookText}`;
+  }
+  textInput.value = val;
+  updateCharCount();
+  showToast(`💬 질문 훅이 문장 끝에 추가되었습니다!`);
 }
 
 // Mobile Sidebar Drawer Toggle
@@ -306,12 +350,15 @@ function switchTab(tabId) {
       dashboard: '대시보드',
       articles: is6HourFilterActive ? '⚡ 최근 6시간 이내 수집 속보' : getCategoryTitle(selectedCategory),
       composer: '트윗 작성 & 복사',
-      'saved-drafts': '⭐ 나만의 임시 보관함'
+      'saved-drafts': '⭐ 나만의 임시 보관함',
+      'visual-media': '📸 웹 직캠·화보 & 핫클립 X 포스팅'
     };
     document.getElementById('page-title').innerText = titleMap[tabId] || '대시보드';
 
     if (tabId === 'saved-drafts') {
       loadSavedUserDrafts();
+    } else if (tabId === 'visual-media') {
+      initVisualMediaTab();
     }
   }
 }
@@ -327,6 +374,7 @@ function getCategoryTitle(cat) {
     case 'blind': return '🏢 블라인드 / 직장썰';
     case 'pann': return '⚖️ 네이트판/사연 최신 글';
     case 'gossip': return '🗣️ 가십 / 연예 이슈';
+    case 'idol': return '🌸 여돌 / 비주얼 연예인';
     case 'mindset': return '🧠 멘탈 / 심리 / 대인관계 꿀팁';
     case 'tech_all': return '📊 테크 & 금융 전문 소식';
     case 'comm_all': return '🗣️ 커뮤니티 & 썰 / 멘탈';
@@ -391,7 +439,7 @@ function update6HourToggleUI(active) {
 
 function isCommunityCategory(cat) {
   const c = String(cat).toLowerCase();
-  return c === 'blind' || c === 'gossip' || c === 'mindset' || c === 'pann';
+  return c === 'blind' || c === 'gossip' || c === 'mindset' || c === 'pann' || c === 'idol';
 }
 
 function selectCategoryNav(cat, unreadOnly = false) {
@@ -715,16 +763,14 @@ function selectArticleForComposer(articleId) {
 
   selectedArticle = article;
 
-  // Default mode selection: Version 4 for Mindset, Version 3 for Gossip, Version 1 for Analytical articles
+  // Default mode selection
   const cat = String(article.category).toLowerCase();
-  if (cat === 'blind') {
-    setComposerMode('capture', true);
-  } else if (cat === 'pann') {
-    setComposerMode('pann', true);
+  if (cat === 'idol') {
+    setComposerMode('idol', true);
+  } else if (cat === 'blind' || cat === 'pann' || cat === 'gossip') {
+    setComposerMode('reaction', true);
   } else if (cat === 'mindset') {
     setComposerMode('mindset', true);
-  } else if (cat === 'gossip') {
-    setComposerMode('talk', true);
   } else {
     setComposerMode('block', true);
   }
@@ -765,13 +811,13 @@ async function generateSummaryForSelected() {
   }
 
   const textInput = document.getElementById('tweet-text-input');
-  let modeLabel = '⚡ 버전 1: 이모지 요약형 트윗 생성 중...';
-  if (currentComposerMode === 'story') modeLabel = '🔥 버전 2: 아티클 (1인칭 뷰) 트윗 생성 중...';
-  else if (currentComposerMode === 'talk') modeLabel = '🗣️ 버전 3: 생생한 썰/소통형 트윗 생성 중...';
-  else if (currentComposerMode === 'mindset') modeLabel = '🧠 버전 4: 멘탈/공감 꿀팁형 트윗 생성 중...';
-  else if (currentComposerMode === 'capture' || currentComposerMode === 'blind') modeLabel = '📸 버전 5: 블라인드 썰 공유형 트윗 생성 중...';
-  else if (currentComposerMode === 'pann') modeLabel = '⚖️ 버전 6: 네이트판 갈등 유도형 트윗 생성 중...';
-  else if (currentComposerMode === 'hybrid') modeLabel = '🌟 버전 7: 하이브리드 후킹 트윗 생성 중...';
+  let modeLabel = '⚡ 1. 이모지 요약 트윗 생성 중...';
+  if (currentComposerMode === 'story') modeLabel = '🔥 2. 1인칭 아티클 트윗 생성 중...';
+  else if (currentComposerMode === 'reaction') modeLabel = '💬 3. 짧은 리액션 트윗 생성 중...';
+  else if (currentComposerMode === 'hybrid') modeLabel = '🌟 4. 하이브리드 후킹 트윗 생성 중...';
+  else if (currentComposerMode === 'idol') modeLabel = '🌸 5. 여돌/비주얼 칭찬 트윗 생성 중...';
+  else if (currentComposerMode === 'spicy') modeLabel = '🌶️ 6. 매운맛 꺼드럭 썰 생성 중...';
+  else if (currentComposerMode === 'mindset') modeLabel = '🧠 7. 멘탈/공감 트윗 생성 중...';
 
   textInput.value = modeLabel;
   textInput.disabled = true;
@@ -792,15 +838,15 @@ async function generateSummaryForSelected() {
 
       const badgeEl = document.getElementById('ai-badge');
       if (badgeEl) {
-        if (currentComposerMode === 'pann') badgeEl.innerText = '⚖️ 네이트판 갈등 유도형';
-        else if (currentComposerMode === 'capture' || currentComposerMode === 'blind') badgeEl.innerText = '📸 블라인드 썰 공유형';
-        else if (currentComposerMode === 'mindset') badgeEl.innerText = '🧠 멘탈/공감 꿀팁형';
-        else if (currentComposerMode === 'talk') badgeEl.innerText = '🗣️ 생생한 썰/소통형';
-        else if (currentComposerMode === 'story') badgeEl.innerText = '🔥 1인칭 후킹 리포트형';
-        else badgeEl.innerText = '⚡ 이모지 블록 요약형';
+        if (currentComposerMode === 'story') badgeEl.innerText = '🔥 2. 1인칭 아티클';
+        else if (currentComposerMode === 'reaction') badgeEl.innerText = '💬 3. 짧은 리액션';
+        else if (currentComposerMode === 'hybrid') badgeEl.innerText = '🌟 4. 하이브리드 후킹';
+        else if (currentComposerMode === 'idol') badgeEl.innerText = '🌸 5. 여돌/비주얼 칭찬';
+        else if (currentComposerMode === 'spicy') badgeEl.innerText = '🌶️ 6. 매운맛 꺼드럭 썰';
+        else if (currentComposerMode === 'mindset') badgeEl.innerText = '🧠 7. 멘탈/공감';
+        else badgeEl.innerText = '⚡ 1. 이모지 요약';
       }
-      const modeToastName = currentComposerMode === 'pann' ? '⚖️ 버전 6 (네이트판 갈등 유도형)' : (currentComposerMode === 'capture' || currentComposerMode === 'blind' ? '📸 버전 5 (블라인드 썰 공유형)' : (currentComposerMode === 'mindset' ? '🧠 버전 4 (멘탈/공감 꿀팁형)' : (currentComposerMode === 'talk' ? '🗣️ 버전 3 (생생한 썰/소통형)' : (currentComposerMode === 'story' ? '🔥 버전 2 (1인칭 후킹 스토리)' : '⚡ 버전 1 (이모지 블록)'))));
-      showToast(`${modeToastName} 트윗 생성 완료!`);
+      showToast(`트윗 생성 완료!`);
     } else {
       textInput.value = `요약 오류: ${data.message}`;
     }
@@ -838,18 +884,77 @@ function copyTweetToClipboard() {
   });
 }
 
-// Copy Thread Reply Link Text for boosting X reach
 function copyThreadReplyLink() {
   if (!selectedArticle || !selectedArticle.link) {
-    showToast('선택된 기사 원본 링크가 없습니다.');
+    showToast('⚠️ 선택된 기사가 없거나 링크가 없습니다. 기사를 먼저 선택해 주세요.');
     return;
   }
-  const threadText = `👇 본문 원본 및 3분 심층 리포트 풀버전 보기:\n${selectedArticle.link}`;
-  navigator.clipboard.writeText(threadText).then(() => {
-    showToast('💬 댓글(타래)용 원본 링크가 복사되었습니다! 본문 작성 후 첫 댓글에 붙여넣으세요.');
+  navigator.clipboard.writeText(selectedArticle.link).then(() => {
+    showToast('💬 기사 원본 링크가 클립보드에 복사되었습니다! 댓글/타래에 붙여넣으세요.');
   }).catch(err => {
     showToast('복사 실패: ' + err.message);
   });
+}
+
+// ===== 🎙️ Input Source Mode Switcher (News vs My Thought) =====
+let currentInputSourceMode = 'news';
+
+function switchInputSourceMode(sourceMode) {
+  currentInputSourceMode = sourceMode;
+  const btnNews = document.getElementById('btn-source-news');
+  const btnThought = document.getElementById('btn-source-thought');
+  const articleBox = document.getElementById('composer-selected-article');
+  const thoughtBox = document.getElementById('composer-user-thought-box');
+
+  if (sourceMode === 'thought') {
+    if (btnNews) { btnNews.classList.remove('btn-primary', 'active'); btnNews.classList.add('btn-outline'); }
+    if (btnThought) { btnThought.classList.remove('btn-outline'); btnThought.classList.add('btn-primary', 'active'); }
+    if (articleBox) articleBox.style.display = 'none';
+    if (thoughtBox) thoughtBox.style.display = 'flex';
+    showToast('🎙️ [내 생각/메모 입력 모드]로 전환되었습니다.');
+  } else {
+    if (btnThought) { btnThought.classList.remove('btn-primary', 'active'); btnThought.classList.add('btn-outline'); }
+    if (btnNews) { btnNews.classList.remove('btn-outline'); btnNews.classList.add('btn-primary', 'active'); }
+    if (thoughtBox) thoughtBox.style.display = 'none';
+    if (articleBox) articleBox.style.display = 'block';
+    showToast('📰 [뉴스 기사 선택 모드]로 전환되었습니다.');
+  }
+}
+
+// Refine Raw User Thoughts into an X Tweet
+async function refineUserThoughtToTweet() {
+  const thoughtInput = document.getElementById('user-raw-thought-input');
+  const textInput = document.getElementById('tweet-text-input');
+  if (!thoughtInput || !thoughtInput.value.trim()) {
+    showToast('⚠️ 정제할 생각이나 메모를 먼저 입력해 주세요.');
+    return;
+  }
+
+  const rawThought = thoughtInput.value.trim();
+  textInput.value = '✨ 내 생각을 분석하여 고품질 X 트윗으로 정제 중...';
+  textInput.disabled = true;
+
+  try {
+    const res = await fetch('/api/summarize-thought', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thought: rawThought, mode: currentComposerMode })
+    });
+    const data = await res.json();
+    if (data.success) {
+      textInput.value = data.summary;
+      const badgeEl = document.getElementById('ai-badge');
+      if (badgeEl) badgeEl.innerText = `🎙️ 내 생각 정제 (${currentComposerMode})`;
+      showToast('🎉 내 생각이 세련된 X 트윗으로 정제되었습니다!');
+    } else {
+      textInput.value = `정제 오류: ${data.message}`;
+    }
+  } catch (err) {
+    textInput.value = `요청 실패: ${err.message}`;
+  } finally {
+    textInput.disabled = false;
+    updateCharCount();
+  }
 }
 
 function updateThumbnailSectionUI(article) {
@@ -1456,7 +1561,7 @@ function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke) {
   if (stroke) ctx.stroke();
 }
 
-async function copyActiveImageToClipboard() {
+function copyActiveImageToClipboard() {
   const display = document.getElementById('active-image-display');
   if (!display || display.style.display === 'none') return false;
 
@@ -1465,38 +1570,27 @@ async function copyActiveImageToClipboard() {
 
   try {
     const src = imgEl.src;
-    let inputBlob;
+    
+    const blobPromise = fetch(src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src)
+      .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+      })
+      .then(async inputBlob => {
+        if (inputBlob.type !== 'image/png') {
+          return await convertBlobToPngBlob(inputBlob).catch(() => inputBlob);
+        }
+        return inputBlob;
+      });
 
-    if (src.startsWith('data:')) {
-      const res = await fetch(src);
-      inputBlob = await res.blob();
-    } else if (src.startsWith('http')) {
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`;
-      const res = await fetch(proxyUrl);
-      if (!res.ok) throw new Error('Proxy fetch HTTP ' + res.status);
-      inputBlob = await res.blob();
-    } else {
-      const res = await fetch(src);
-      inputBlob = await res.blob();
-    }
-
-    let pngBlob = inputBlob;
-    if (inputBlob.type !== 'image/png') {
-      try {
-        pngBlob = await convertBlobToPngBlob(inputBlob);
-      } catch (e) {
-        pngBlob = inputBlob;
-      }
-    }
-
-    if (pngBlob && navigator.clipboard && navigator.clipboard.write) {
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': pngBlob })
-      ]);
+    if (navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blobPromise })
+      ]).catch(e => console.error('Clipboard write error:', e));
       return true;
     }
   } catch (e) {
-    console.error('Clipboard image write failed:', e);
+    console.error('Clipboard image write setup failed:', e);
   }
   return false;
 }
@@ -1533,7 +1627,7 @@ function convertBlobToPngBlob(blob) {
 }
 
 // Post via X Web Intent
-async function postViaWebIntent() {
+function postViaWebIntent() {
   let text = '';
   let part2Text = '';
 
@@ -1555,10 +1649,10 @@ async function postViaWebIntent() {
   let imageCopied = false;
   if (isThreadModeActive && part2Text) {
     try {
-      await navigator.clipboard.writeText(part2Text);
+      navigator.clipboard.writeText(part2Text);
     } catch (e) {}
   } else if (!isThreadModeActive) {
-    imageCopied = await copyActiveImageToClipboard();
+    imageCopied = copyActiveImageToClipboard();
   }
 
   if (selectedArticle) {
@@ -1641,6 +1735,34 @@ async function loadConfig() {
       if (passInput && data.config.authPassword) {
         passInput.value = data.config.authPassword;
       }
+      const tgEnabled = document.getElementById('telegram-enabled-toggle');
+      if (tgEnabled && data.config.telegramEnabled !== undefined) {
+        tgEnabled.checked = !!data.config.telegramEnabled;
+      }
+      const tgToken = document.getElementById('telegram-token-input');
+      if (tgToken && data.config.telegramBotToken) {
+        tgToken.value = data.config.telegramBotToken;
+      }
+      const tgChat = document.getElementById('telegram-chatid-input');
+      if (tgChat && data.config.telegramChatId) {
+        tgChat.value = data.config.telegramChatId;
+      }
+      const emEnabled = document.getElementById('email-enabled-toggle');
+      if (emEnabled && data.config.emailEnabled !== undefined) {
+        emEnabled.checked = !!data.config.emailEnabled;
+      }
+      const emUser = document.getElementById('email-user-input');
+      if (emUser && data.config.emailUser) {
+        emUser.value = data.config.emailUser;
+      }
+      const emPass = document.getElementById('email-pass-input');
+      if (emPass && data.config.emailPass) {
+        emPass.value = data.config.emailPass;
+      }
+      const emTo = document.getElementById('email-to-input');
+      if (emTo && data.config.emailTo) {
+        emTo.value = data.config.emailTo;
+      }
     }
   } catch (e) {}
 }
@@ -1688,6 +1810,106 @@ async function saveGeminiApiKey() {
     }
   } catch (err) {
     showToast('저장 실패: ' + err.message);
+  }
+}
+
+async function saveTelegramSettings() {
+  const enabled = document.getElementById('telegram-enabled-toggle').checked;
+  const token = document.getElementById('telegram-token-input').value.trim();
+  const chatId = document.getElementById('telegram-chatid-input').value.trim();
+
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telegramEnabled: enabled, telegramBotToken: token, telegramChatId: chatId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('📲 텔레그램 알림 설정이 성공적으로 저장되었습니다!');
+    } else {
+      showToast('저장 실패: ' + data.message);
+    }
+  } catch (err) {
+    showToast('저장 실패: ' + err.message);
+  }
+}
+
+async function testTelegramNotification() {
+  const token = document.getElementById('telegram-token-input').value.trim();
+  const chatId = document.getElementById('telegram-chatid-input').value.trim();
+
+  if (!token || !chatId) {
+    showToast('텔레그램 봇 토큰과 Chat ID를 모두 입력해 주세요.');
+    return;
+  }
+
+  showToast('⏳ 텔레그램 테스트 발송 중...');
+  try {
+    const res = await fetch('/api/test-telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, chatId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ ' + data.message);
+    } else {
+      showToast('❌ 발송 실패: ' + data.message);
+    }
+  } catch (err) {
+    showToast('❌ 발송 오류: ' + err.message);
+  }
+}
+
+async function saveEmailSettings() {
+  const enabled = document.getElementById('email-enabled-toggle').checked;
+  const user = document.getElementById('email-user-input').value.trim();
+  const pass = document.getElementById('email-pass-input').value.trim();
+  const to = document.getElementById('email-to-input').value.trim();
+
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailEnabled: enabled, emailUser: user, emailPass: pass, emailTo: to })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('📧 이메일 알림 설정이 성공적으로 저장되었습니다!');
+    } else {
+      showToast('저장 실패: ' + data.message);
+    }
+  } catch (err) {
+    showToast('저장 실패: ' + err.message);
+  }
+}
+
+async function testEmailNotification() {
+  const user = document.getElementById('email-user-input').value.trim();
+  const pass = document.getElementById('email-pass-input').value.trim();
+  const to = document.getElementById('email-to-input').value.trim();
+
+  if (!user || !pass || !to) {
+    showToast('발신/수신 이메일 주소와 앱 비밀번호를 입력해 주세요.');
+    return;
+  }
+
+  showToast('⏳ 이메일 테스트 발송 중...');
+  try {
+    const res = await fetch('/api/test-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailUser: user, emailPass: pass, emailTo: to })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ ' + data.message);
+    } else {
+      showToast('❌ 발송 실패: ' + data.message);
+    }
+  } catch (err) {
+    showToast('❌ 발송 오류: ' + err.message);
   }
 }
 
@@ -1844,7 +2066,7 @@ async function loadTrendingImagesForCurrentKeyword() {
 
 function selectTrendingArticleForComposer(article) {
   selectedArticle = article;
-  setComposerMode('talk', true);
+  setComposerMode('reaction', true);
   renderSelectedArticle(article);
   switchTab('composer');
   generateSummaryForSelected();
@@ -2111,3 +2333,337 @@ async function deleteSavedDraftById(draftId) {
     showToast('삭제 실패: ' + e.message);
   }
 }
+
+// ==========================================
+// 📸 Visual Media Studio & Fancam Hub Module
+// ==========================================
+let currentVisualMediaList = [];
+let selectedVisualMedia = null;
+let currentVisualTweetStyle = 'shock';
+let hasVisualTabInitialized = false;
+
+function initVisualMediaTab() {
+  if (!hasVisualTabInitialized) {
+    hasVisualTabInitialized = true;
+    loadVisualMedia('코스프레 화보');
+  }
+
+  const tweetOutput = document.getElementById('visual-tweet-output');
+  if (tweetOutput) {
+    tweetOutput.addEventListener('input', () => {
+      const counter = document.getElementById('visual-char-count');
+      if (counter) counter.innerText = `${tweetOutput.value.length} / 280자`;
+    });
+  }
+}
+
+async function loadVisualMedia(keyword = '코스프레 화보') {
+  const gridEl = document.getElementById('visual-media-grid');
+  if (gridEl) {
+    gridEl.innerHTML = '<div class="skeleton-loader" style="grid-column:1/-1; text-align:center; padding:30px;">🔍 최신 고화질 화보/직캠 미디어를 검색하는 중입니다...</div>';
+  }
+
+  try {
+    const res = await fetch(`/api/visual-media?keyword=${encodeURIComponent(keyword)}`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`서버 응답 오류 (${res.status}): 서버 재시작이 필요할 수 있습니다.`);
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('서버가 JSON이 아닌 응답을 반환했습니다. 서버를 재시작해 주세요.');
+    }
+    const data = await res.json();
+    if (data.success && data.media) {
+      currentVisualMediaList = data.media;
+      renderVisualMediaGrid(data.media);
+      if (data.media.length > 0 && !selectedVisualMedia) {
+        selectVisualMediaItem(data.media[0]);
+      }
+    } else {
+      if (gridEl) gridEl.innerHTML = '<p class="placeholder-text" style="grid-column:1/-1;">미디어를 불러오지 못했습니다.</p>';
+    }
+  } catch (err) {
+    if (gridEl) gridEl.innerHTML = `<p class="placeholder-text" style="grid-column:1/-1; color:#f87171;">⚠️ ${err.message}</p>`;
+  }
+}
+
+function renderVisualMediaGrid(list) {
+  const gridEl = document.getElementById('visual-media-grid');
+  if (!gridEl) return;
+
+  if (!list || list.length === 0) {
+    gridEl.innerHTML = '<p class="placeholder-text" style="grid-column:1/-1;">검색된 미디어가 없습니다. 다른 키워드로 검색해 보세요.</p>';
+    return;
+  }
+
+  gridEl.innerHTML = list.map(item => {
+    const isSelected = selectedVisualMedia && selectedVisualMedia.url === item.url;
+    const isGif = item.mediaType === 'video' || item.url.toLowerCase().includes('.gif');
+    const proxyThumb = `/api/proxy-image?url=${encodeURIComponent(item.thumbnail || item.url)}`;
+
+    return `
+      <div class="visual-media-card ${isSelected ? 'selected' : ''}" onclick="selectVisualMediaByIndex('${item.id}')">
+        <img src="${proxyThumb}" loading="lazy" alt="${item.title}" onerror="this.onerror=null; this.src='${item.url}';" />
+        <span class="visual-media-badge">${isGif ? '🎬 움짤' : '📷 HD'}</span>
+        <div class="visual-media-overlay">${item.title}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectVisualMediaByIndex(mediaId) {
+  const item = currentVisualMediaList.find(m => m.id === mediaId);
+  if (item) selectVisualMediaItem(item);
+}
+
+function selectVisualMediaItem(media) {
+  selectedVisualMedia = media;
+
+  // Highlight in grid
+  document.querySelectorAll('.visual-media-card').forEach(card => {
+    card.classList.remove('selected');
+  });
+
+  const previewBox = document.getElementById('visual-preview-content');
+  const placeholder = document.getElementById('visual-preview-placeholder');
+  const topicInput = document.getElementById('visual-topic-input');
+
+  if (placeholder) placeholder.style.display = 'none';
+  if (previewBox) {
+    previewBox.style.display = 'block';
+    const isGif = media.mediaType === 'video' || media.url.toLowerCase().includes('.gif');
+    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(media.url)}`;
+
+    previewBox.innerHTML = `
+      <div style="position:relative; display:inline-block; max-width:100%;">
+        <img src="${proxyUrl}" onerror="this.onerror=null; this.src='${media.url}';" alt="${media.title}" style="max-height:280px; max-width:100%; border-radius:8px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,0.6);" />
+        <span style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">${isGif ? '🎬 모션 미디어' : '📷 고화질 사진'}</span>
+      </div>
+    `;
+  }
+
+  if (topicInput) {
+    topicInput.value = media.title.replace(/^\[.*?\]\s*/, '');
+  }
+
+  // Auto generate viral tweet copy for selected media
+  generateVisualAiTweet();
+}
+
+function selectVisualPreset(query, btnEl) {
+  document.querySelectorAll('#visual-preset-pills .preset-pill').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+
+  const searchInput = document.getElementById('visual-search-input');
+  if (searchInput) searchInput.value = query;
+
+  selectedVisualMedia = null;
+  loadVisualMedia(query);
+}
+
+function searchVisualMediaFromInput() {
+  const searchInput = document.getElementById('visual-search-input');
+  const val = searchInput ? searchInput.value.trim() : '';
+  if (!val) {
+    showToast('⚠️ 검색 키워드나 미디어 웹링크를 입력해 주세요.');
+    return;
+  }
+
+  // If it's a direct URL
+  if (val.startsWith('http://') || val.startsWith('https://')) {
+    const isGif = val.toLowerCase().includes('.gif') || val.toLowerCase().includes('.mp4');
+    const directMedia = {
+      id: 'direct_' + Date.now(),
+      title: '🔗 직접 입력한 미디어',
+      url: val,
+      thumbnail: val,
+      mediaType: isGif ? 'video' : 'image',
+      source: 'Direct'
+    };
+    currentVisualMediaList = [directMedia, ...currentVisualMediaList];
+    renderVisualMediaGrid(currentVisualMediaList);
+    selectVisualMediaItem(directMedia);
+    showToast('✨ 직접 입력한 미디어가 로드되었습니다!');
+    return;
+  }
+
+  selectedVisualMedia = null;
+  loadVisualMedia(val);
+}
+
+function setVisualTweetStyle(style, btnEl) {
+  currentVisualTweetStyle = style;
+  document.querySelectorAll('.style-choice-btn').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  generateVisualAiTweet();
+}
+
+async function generateVisualAiTweet() {
+  const topicInput = document.getElementById('visual-topic-input');
+  const tweetOutput = document.getElementById('visual-tweet-output');
+  const btn = document.getElementById('btn-generate-visual-tweet');
+
+  let topic = topicInput && topicInput.value.trim() ? topicInput.value.trim() : '코스프레 화보';
+  if (selectedVisualMedia && selectedVisualMedia.title) {
+    topic = selectedVisualMedia.title.replace(/^\[.*?\]\s*/, '');
+  }
+
+  if (btn) btn.disabled = true;
+  if (tweetOutput) tweetOutput.value = '✨ AI 바이럴 트윗 문구를 생성하는 중입니다...';
+
+  try {
+    const res = await fetch('/api/generate-visual-tweet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titleOrTopic: topic, style: currentVisualTweetStyle })
+    });
+    if (!res.ok) {
+      throw new Error(`서버 응답 오류 (${res.status})`);
+    }
+    const data = await res.json();
+    if (data.success && data.text) {
+      if (tweetOutput) {
+        tweetOutput.value = data.text;
+        const counter = document.getElementById('visual-char-count');
+        if (counter) counter.innerText = `${data.text.length} / 280자`;
+      }
+      showToast('✨ 바이럴 트윗 문구 생성 완료!');
+    } else {
+      if (tweetOutput) tweetOutput.value = '문구 생성에 실패했습니다.';
+    }
+  } catch (err) {
+    if (tweetOutput) tweetOutput.value = `생성 오류: ${err.message}`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function postVisualTweetToX() {
+  const tweetOutput = document.getElementById('visual-tweet-output');
+  const text = tweetOutput ? tweetOutput.value.trim() : '';
+
+  if (!text) {
+    showToast('⚠️ 트윗 문구를 먼저 작성해 주세요.');
+    return;
+  }
+
+  // Also auto-copy the image URL or open image for easy attachment
+  if (selectedVisualMedia && selectedVisualMedia.url) {
+    showToast('💡 트윗창이 열렸습니다! 첨부할 미디어도 다운로드 버튼으로 쉽게 올리실 수 있습니다.');
+  }
+
+  const encodedText = encodeURIComponent(text);
+  const xIntentUrl = `https://x.com/intent/post?text=${encodedText}`;
+  window.open(xIntentUrl, '_blank');
+}
+
+function copyVisualTweetText() {
+  const tweetOutput = document.getElementById('visual-tweet-output');
+  const text = tweetOutput ? tweetOutput.value.trim() : '';
+  if (!text) {
+    showToast('⚠️ 복사할 트윗 문구가 없습니다.');
+    return;
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 바이럴 트윗 문구가 클립보드에 복사되었습니다!');
+  });
+}
+
+function downloadActiveVisualMedia() {
+  if (!selectedVisualMedia || !selectedVisualMedia.url) {
+    showToast('⚠️ 다운로드할 미디어를 먼저 선택해 주세요.');
+    return;
+  }
+
+  const mediaUrl = selectedVisualMedia.url;
+  const isGif = mediaUrl.toLowerCase().includes('.gif');
+  const isMp4 = mediaUrl.toLowerCase().includes('.mp4');
+  const ext = isMp4 ? '.mp4' : (isGif ? '.gif' : '.jpg');
+  const filename = `x_media_${Date.now()}${ext}`;
+
+  // Fetch via proxy to bypass CORS and download file
+  showToast('💾 미디어 파일을 다운로드하는 중...');
+  fetch(`/api/proxy-image?url=${encodeURIComponent(mediaUrl)}`)
+    .then(res => res.blob())
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      showToast('✅ 미디어 다운로드 완료! X에 바로 첨부하세요.');
+    })
+    .catch(() => {
+      // Fallback: open directly in new tab
+      window.open(mediaUrl, '_blank');
+    });
+}
+
+async function saveVisualTweetDraft() {
+  const tweetOutput = document.getElementById('visual-tweet-output');
+  const text = tweetOutput ? tweetOutput.value.trim() : '';
+  if (!text) {
+    showToast('⚠️ 보관할 트윗 내용이 없습니다.');
+    return;
+  }
+
+  const title = selectedVisualMedia ? selectedVisualMedia.title : '📸 웹 직캠·화보 트윗';
+
+  try {
+    const res = await fetch('/api/user-drafts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, text, category: 'visual' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('⭐ 임시 보관함에 성공적으로 저장되었습니다!');
+    }
+  } catch (err) {
+    showToast('보관 실패: ' + err.message);
+  }
+}
+
+// ==========================================
+// 🔄 GitHub Remote Sync & Auto-Deploy Module
+// ==========================================
+async function syncLatestGithubCode() {
+  const btn = document.getElementById('btn-git-sync');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="icon">⏳</span> 동기화 중...';
+  }
+
+  showToast('🔄 깃허브에서 최신 코드를 확인하고 가져오는 중...');
+
+  try {
+    const res = await fetch('/api/git-sync', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+      if (data.updated) {
+        showToast('🚀 최신 코드가 적용되었습니다! 2초 후 대시보드가 새로고침됩니다.');
+        setTimeout(() => {
+          window.location.reload();
+        }, 2500);
+      } else {
+        showToast('✅ 이미 깃허브 최신 코드 상태입니다.');
+      }
+    } else {
+      showToast('⚠️ 동기화 알림: ' + data.message);
+    }
+  } catch (err) {
+    showToast('동기화 요청 실패: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="icon">🔄</span> 깃허브 동기화';
+    }
+  }
+}
+
+

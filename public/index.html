@@ -26,52 +26,57 @@
       </div>
 
       <nav class="nav-menu">
+        <div class="menu-label">📊 Jook Insight (테크 & 금융)</div>
         <button class="nav-item active" data-tab="dashboard" data-cat="all" data-hours="0">
-          <span class="icon">📊</span>
-          <span>대시보드</span>
+          <span class="icon">🔥</span>
+          <span>실시간 트렌딩 키워드</span>
         </button>
-
-        <button class="nav-item highlight-item" data-tab="articles" data-cat="all" data-hours="6">
-          <span class="icon">⚡</span>
-          <span>최근 6시간 속보</span>
+        <button class="nav-item" data-tab="articles" data-cat="all" data-hours="0">
+          <span class="icon">📰</span>
+          <span>전체 기사 피드</span>
         </button>
-
-        <div class="menu-label">📊 테크 & 금융 전문</div>
-
         <button class="nav-item" data-tab="articles" data-cat="tech_all" data-hours="0">
-          <span class="icon">⚡</span>
-          <span>테크 & 금융 전체</span>
+          <span class="icon">📊</span>
+          <span>테크/금융 전체</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="heisenberg" data-hours="0">
           <span class="icon">💡</span>
-          <span>하이젠버그</span>
+          <span>하이젠버그 리포트</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="it" data-hours="0">
           <span class="icon">💻</span>
-          <span>IT뉴스</span>
+          <span>IT / 반도체 / AI</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="coin" data-hours="0">
           <span class="icon">🪙</span>
-          <span>코인</span>
+          <span>코인 / Web3</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="stock" data-hours="0">
           <span class="icon">📈</span>
-          <span>주식</span>
+          <span>주식 / 증시</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="economy" data-hours="0">
           <span class="icon">💵</span>
-          <span>경제뉴스</span>
+          <span>경제 / 금리 / 환율</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="global" data-hours="0">
           <span class="icon">🌐</span>
-          <span>해외뉴스 (글로벌)</span>
+          <span>해외뉴스 (글로벌 외신)</span>
         </button>
 
-        <div class="menu-label">🗣️ 커뮤니티 & 썰 / 멘탈</div>
-
+        <div class="menu-label">🍿 Jook Life (트렌드 & 엔터)</div>
+        <button class="nav-item" data-tab="visual-media" data-cat="visual" data-hours="0" style="background: linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15)); border: 1px solid rgba(236,72,153,0.35);">
+          <span class="icon">📸</span>
+          <span style="font-weight: 800; color: #f472b6;">웹 직캠·화보 X 포스팅</span>
+          <span class="badge" style="background:#ec4899; color:#fff; font-size:9px; padding:2px 5px; border-radius:4px; margin-left:auto; font-weight:800;">HOT</span>
+        </button>
         <button class="nav-item" data-tab="articles" data-cat="comm_all" data-hours="0">
           <span class="icon">🔥</span>
-          <span>커뮤니티/썰 전체</span>
+          <span>엔터/커뮤니티 전체</span>
+        </button>
+        <button class="nav-item" data-tab="articles" data-cat="idol" data-hours="0">
+          <span class="icon">🌸</span>
+          <span>여돌 / 비주얼 연예인</span>
         </button>
         <button class="nav-item" data-tab="articles" data-cat="blind" data-hours="0">
           <span class="icon">🏢</span>
@@ -130,6 +135,9 @@
           </div>
         </div>
         <div class="header-actions">
+          <button id="btn-git-sync" class="btn btn-secondary" onclick="syncLatestGithubCode()" title="깃허브의 최신 코드를 즉시 가져와 서버에 반영합니다" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">
+            <span class="icon">🔄</span> 깃허브 동기화
+          </button>
           <button id="btn-mark-all-read" class="btn btn-secondary" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);">
             <span class="icon">✅</span> 모두 읽음
           </button>
@@ -296,6 +304,7 @@
                 <button class="filter-btn" data-filter-cat="blind">🏢 블라인드</button>
                 <button class="filter-btn" data-filter-cat="pann">⚖️ 네이트판/사연</button>
                 <button class="filter-btn" data-filter-cat="gossip">🔥 가십/이슈</button>
+                <button class="filter-btn" data-filter-cat="idol">🌸 여돌/비주얼</button>
                 <button class="filter-btn" data-filter-cat="mindset">🧠 멘탈/심리</button>
               </span>
             </div>
@@ -324,14 +333,28 @@
         <div class="composer-layout">
           <!-- Left: Selected Article Details -->
           <div class="card">
-            <div class="card-header">
-              <h3>선택된 뉴스 소식</h3>
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>📰 선택된 뉴스 소식</h3>
+              <div style="display:flex; gap:6px;">
+                <button id="btn-source-news" class="btn btn-primary btn-xs active" onclick="switchInputSourceMode('news')">📰 뉴스 기반</button>
+                <button id="btn-source-thought" class="btn btn-outline btn-xs" style="border-color:var(--accent-gold); color:var(--accent-gold);" onclick="switchInputSourceMode('thought')">🎙️ 내 생각/메모 기반</button>
+              </div>
             </div>
             <div class="card-body">
+              <!-- Mode 1: News Article Selector -->
               <div id="composer-selected-article" class="selected-article-box">
                 <p class="placeholder-text">왼쪽 메뉴나 뉴스 탭에서 요약할 뉴스를 선택해 주세요.</p>
                 <button class="btn btn-secondary" onclick="selectLatestArticleForComposer()">
                   최신 뉴스 불러오기
+                </button>
+              </div>
+
+              <!-- Mode 2: User Raw Thought / Memo Input (Hidden by default) -->
+              <div id="composer-user-thought-box" style="display:none; flex-direction:column; gap:10px;">
+                <label style="font-size:12px; font-weight:700; color:var(--accent-gold);">🎙️ 내 머릿속 생각 / 일상 메모 / 아이디어 자유 입력:</label>
+                <textarea id="user-raw-thought-input" rows="4" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(250,204,21,0.3); color:#fff; padding:10px; border-radius:8px; font-size:13px;" placeholder="떠오르는 생각이나 하고 싶은 말을 두서없이 편하게 적어보세요...&#10;(예: 오늘 AI 반도체 발표 보면서 느낀 건데, 이러다 엔터테인먼트 시장도 AI가 다 먹을 것 같다. 다들 어떻게 생각하시나요?)"></textarea>
+                <button class="btn btn-accent btn-sm" style="font-weight:800;" onclick="refineUserThoughtToTweet()">
+                  ✨ 내 생각 ➔ AI 트윗으로 1초 정제하기
                 </button>
               </div>
             </div>
@@ -346,45 +369,54 @@
               </button>
             </div>
             <div class="card-body">
-              <!-- Tweet Style Version Selector -->
-              <div style="margin-bottom: 15px;">
-                <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">트윗 생성 스타일 선택 (기사 선택 시 스마트 자동 지정):</label>
+              <!-- Clean & Distinct Style Selector -->
+              <div style="margin-bottom: 12px;">
+                <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">트윗 생성 스타일 선택:</label>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button id="btn-mode-block" class="btn btn-outline mode-btn active" onclick="setComposerMode('block')">
                     ⚡ 1. 이모지 요약 (뉴스/팩트)
                   </button>
                   <button id="btn-mode-story" class="btn btn-outline mode-btn" onclick="setComposerMode('story')">
-                    🔥 2. 아티클 (1인칭 뷰)
+                    🔥 2. 1인칭 아티클 (칼럼/통찰)
                   </button>
-                  <button id="btn-mode-talk" class="btn btn-outline mode-btn" onclick="setComposerMode('talk')">
-                    🗣️ 3. 생생한 썰 (가십/이슈)
-                  </button>
-                  <button id="btn-mode-mindset" class="btn btn-outline mode-btn" onclick="setComposerMode('mindset')">
-                    🧠 4. 멘탈/공감 (심리/관계)
-                  </button>
-                  <button id="btn-mode-capture" class="btn btn-outline mode-btn" onclick="setComposerMode('capture')">
-                    📸 5. 블라인드 (직장썰/폭로)
-                  </button>
-                  <button id="btn-mode-pann" class="btn btn-outline mode-btn" onclick="setComposerMode('pann')">
-                    ⚖️ 6. 네이트판 (사연/갈등)
+                  <button id="btn-mode-reaction" class="btn btn-outline mode-btn" onclick="setComposerMode('reaction')">
+                    💬 3. 짧은 리액션 (1~2줄 썰)
                   </button>
                   <button id="btn-mode-hybrid" class="btn btn-outline mode-btn" onclick="setComposerMode('hybrid')">
-                    🌟 7. 하이브리드 후킹 (전문가 뷰)
+                    🌟 4. 하이브리드 후킹 (전문가 뷰)
+                  </button>
+                  <button id="btn-mode-idol" class="btn btn-outline mode-btn" onclick="setComposerMode('idol')">
+                    🌸 5. 여돌/비주얼 칭찬 (남자 시점)
+                  </button>
+                  <button id="btn-mode-spicy" class="btn btn-outline mode-btn" onclick="setComposerMode('spicy')">
+                    🌶️ 6. 매운맛 꺼드럭 썰
+                  </button>
+                  <button id="btn-mode-mindset" class="btn btn-outline mode-btn" onclick="setComposerMode('mindset')">
+                    🧠 7. 멘탈/공감 힐링
                   </button>
                 </div>
               </div>
 
               <div class="form-group">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                  <label for="tweet-text-input" style="margin-bottom:0;">생성된 트윗 문구 (해시태그 제외된 깨끗한 본문):</label>
-                  <button id="btn-toggle-thread-mode" class="btn btn-outline btn-sm" style="color:var(--accent-gold); border-color:var(--accent-gold); font-weight:700;" onclick="toggleThreadMode()">
-                    🧵 2단 타래(Thread)로 분할하기
-                  </button>
+                <!-- Integrated Clean Quick Toolbar -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px; padding:6px 10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px;">
+                  <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                    <span style="font-size:11px; font-weight:700; color:var(--text-muted);">🏷️ 코너:</span>
+                    <button type="button" class="btn btn-outline btn-xs" style="padding:1px 6px; font-size:10px; border-radius:4px;" onclick="applyCornerTag('#Jook_Insight')">📊 #Jook_Insight</button>
+                    <button type="button" class="btn btn-outline btn-xs" style="padding:1px 6px; font-size:10px; border-radius:4px;" onclick="applyCornerTag('#Jook_Life')">🍿 #Jook_Life</button>
+                    <button type="button" class="btn btn-outline btn-xs" style="padding:1px 6px; font-size:10px; border-radius:4px; border-color:var(--accent-cyan); color:var(--accent-cyan);" onclick="applyCornerTag('#Jook_Bridge')">⚡ #Jook_Bridge</button>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                    <span style="font-size:11px; font-weight:700; color:var(--accent-cyan);">💬 질문 훅:</span>
+                    <button type="button" class="btn btn-outline btn-xs" style="padding:1px 6px; font-size:10px; border-radius:4px;" onclick="appendEngagementHook('다들 어떻게 생각하시나요? 👀')">+ 의견 묻기 👀</button>
+                    <button type="button" class="btn btn-outline btn-xs" style="padding:1px 6px; font-size:10px; border-radius:4px;" onclick="appendEngagementHook('어디까지 갈 거라고 보시나요? 💭')">+ 전망 묻기 💭</button>
+                    <button type="button" class="btn btn-outline btn-xs" style="padding:1px 6px; font-size:10px; border-radius:4px;" onclick="appendEngagementHook('여러분들의 선택은? 💬')">+ 선택 묻기 💬</button>
+                  </div>
                 </div>
                 
                 <!-- Single Tweet View -->
                 <div id="single-tweet-container">
-                  <textarea id="tweet-text-input" rows="8" placeholder="왼쪽 기사를 선택하면 최적의 트윗 문구가 1초 만에 자동 생성됩니다..."></textarea>
+                  <textarea id="tweet-text-input" rows="8" placeholder="왼쪽 기사를 선택하거나 내 생각을 적으면 최적의 트윗 문구가 1초 만에 자동 생성됩니다..."></textarea>
                   <div class="char-count-wrapper">
                     <span id="char-counter" class="char-counter">0 / 280자</span>
                     <span id="ai-badge" class="badge badge-info" style="display:inline-block;">스마트 본문 파싱 완료</span>
@@ -417,20 +449,21 @@
                 </div>
               </div>
 
+              <!-- Integrated Single Image & Video AI Preview & Switcher Section -->
               <!-- Integrated Single Image Preview & Switcher Section -->
               <div id="thumbnail-section" style="margin-top:16px; padding:14px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
                 <div style="margin-bottom:12px;">
                   <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">🖼️ 트윗 첨부 포토 선택 (클릭 시 1초 만에 캡처/생성 및 미리보기):</label>
                   <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <button class="btn btn-outline btn-sm" onclick="fetchOriginalImageForSelected()">🖼️ 원본 기사 사진</button>
                     <button class="btn btn-outline btn-sm" onclick="generateHeadlineCardForSelected()">📰 뉴스 헤드라인 카드</button>
                     <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard('photo')">📸 기사 캡처 (제목+사진)</button>
                     <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard('title')">📝 기사 캡처 (제목만)</button>
                     <button class="btn btn-outline btn-sm" onclick="generateArticleCaptureCard('text')">📄 기사 캡처 (제목+본문)</button>
+                    <button class="btn btn-outline btn-sm" onclick="fetchOriginalImageForSelected()">🖼️ 원본 기사 사진</button>
                   </div>
                 </div>
 
-                <!-- Single Active Image Preview Container -->
+                <!-- Single Active Media Preview Container -->
                 <div id="active-image-preview-container" style="background:rgba(0,0,0,0.3); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); text-align:center; min-height:80px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                   <p id="active-image-placeholder" style="font-size:11px; color:var(--text-dim); margin:10px 0;">위 이미지 버튼을 터치하면 포토가 1초 만에 생성되어 여기에 나타납니다.</p>
                   <div id="active-image-display" style="display:none; width:100%;"></div>
@@ -477,6 +510,119 @@
           </div>
         </div>
       </section>
+
+      <!-- TAB: Visual Media & Fancam Studio (📸 웹 직캠·화보 X 포스팅) -->
+      <section id="tab-visual-media" class="tab-content">
+        <div class="visual-studio-container" style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:16px;">
+          
+          <!-- Left Column: Media Discovery & Gallery -->
+          <div class="visual-gallery-panel">
+            <div class="card" style="margin-bottom:16px;">
+              <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:20px;">📸</span>
+                  <h3 style="margin:0; font-size:16px; font-weight:800; background:linear-gradient(135deg, #f472b6, #c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">웹 직캠·화보 & 핫클립 탐색기</h3>
+                </div>
+                <span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; border:1px solid rgba(236,72,153,0.4); font-size:11px;">실시간 웹 수집</span>
+              </div>
+              <div class="card-body">
+                <!-- Preset Category Pills -->
+                <div id="visual-preset-pills" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+                  <!-- Dynamically populated or static fallbacks -->
+                  <button class="preset-pill active" onclick="selectVisualPreset('코스프레 화보', this)">👙 코스프레/화보</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('여돌 직캠 레전드 움짤', this)">💃 여돌 직캠/댄스</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('인스타 모델 비주얼 화보', this)">✨ 모델/인플루언서</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('수영복 모델 화보', this)">🌊 수영복/비키니</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('레이싱모델 치어리더 화보', this)">🏎️ 레이싱모델/치어리더</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('그라비아 룩북 화보', this)">🌸 그라비아/룩북</button>
+                </div>
+
+                <!-- Search & Direct URL Input Bar -->
+                <div style="display:flex; gap:8px; margin-bottom:10px;">
+                  <input type="text" id="visual-search-input" placeholder="🔍 검색 키워드 또는 이미지/영상 웹링크를 직접 붙여넣으세요..." style="flex:1; padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.4); color:#fff; font-size:13px;" onkeypress="if(event.key==='Enter') searchVisualMediaFromInput()">
+                  <button class="btn btn-accent" onclick="searchVisualMediaFromInput()" style="padding:9px 16px; font-weight:800; white-space:nowrap;">
+                    ⚡ 탐색
+                  </button>
+                </div>
+                
+                <p style="font-size:11px; color:var(--text-dim); margin:0;">
+                  💡 사진/움짤을 클릭하면 우측 스튜디오에 로드되며, AI가 자동으로 시선을 끄는 바이럴 트윗 문구를 완성합니다.
+                </p>
+              </div>
+            </div>
+
+            <!-- Media Gallery Grid -->
+            <div id="visual-media-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; max-height:680px; overflow-y:auto; padding-right:4px;">
+              <div class="skeleton-loader" style="grid-column:1/-1; text-align:center; padding:30px;">화보/직캠 미디어를 검색하는 중입니다...</div>
+            </div>
+          </div>
+
+          <!-- Right Column: Viral X Posting Studio -->
+          <div class="visual-studio-panel">
+            <div class="card" style="position:sticky; top:80px;">
+              <div class="card-header" style="background:linear-gradient(135deg, rgba(236,72,153,0.1), rgba(168,85,247,0.1)); border-bottom:1px solid rgba(236,72,153,0.2);">
+                <h3 style="font-size:15px; font-weight:800; color:#fff; display:flex; align-items:center; gap:6px;">
+                  <span>✨</span> 바이럴 X 포스팅 스튜디오
+                </h3>
+              </div>
+              <div class="card-body">
+                
+                <!-- Selected Media Preview -->
+                <div id="visual-active-preview-box" style="background:rgba(0,0,0,0.5); border-radius:10px; border:1px solid rgba(255,255,255,0.1); padding:10px; text-align:center; margin-bottom:14px; min-height:160px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                  <p id="visual-preview-placeholder" style="font-size:12px; color:var(--text-dim); margin:0;">좌측에서 포토/영상을 선택하거나 링크를 입력하세요.</p>
+                  <div id="visual-preview-content" style="display:none; width:100%;"></div>
+                </div>
+
+                <!-- Media Title / Topic -->
+                <div class="form-group" style="margin-bottom:12px;">
+                  <label style="font-size:12px; font-weight:700; color:var(--text-muted);">📌 미디어 주제 / 키워드:</label>
+                  <input type="text" id="visual-topic-input" placeholder="예: 코스프레 수영복 화보" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.3); color:#fff; font-size:12px;">
+                </div>
+
+                <!-- Viral Tone Style Selector -->
+                <div class="form-group" style="margin-bottom:14px;">
+                  <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">🎭 어그로/바이럴 문체 스타일 선택:</label>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                    <button class="style-choice-btn active" data-style="shock" onclick="setVisualTweetStyle('shock', this)">🔥 [심쿵] 알고리즘 훅</button>
+                    <button class="style-choice-btn" data-style="admire" onclick="setVisualTweetStyle('admire', this)">🌸 [남성 시점] 쿨한 찬사</button>
+                    <button class="style-choice-btn" data-style="question" onclick="setVisualTweetStyle('question', this)">💬 [토론] 댓글 54배 유도</button>
+                    <button class="style-choice-btn" data-style="spicy" onclick="setVisualTweetStyle('spicy', this)">🌶️ [매운맛] 도파민 썰</button>
+                  </div>
+                </div>
+
+                <!-- AI Tweet Generate Button -->
+                <button id="btn-generate-visual-tweet" class="btn btn-accent" style="width:100%; font-weight:800; padding:10px; font-size:13px; margin-bottom:12px;" onclick="generateVisualAiTweet()">
+                  ✨ AI 바이럴 트윗 문구 다시 생성
+                </button>
+
+                <!-- Tweet Output Textarea -->
+                <div class="form-group" style="margin-bottom:12px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label style="font-size:12px; font-weight:700; color:var(--text-muted);">📝 완성된 트윗 본문:</label>
+                    <span id="visual-char-count" style="font-size:11px; color:var(--text-dim);">0 / 280자</span>
+                  </div>
+                  <textarea id="visual-tweet-output" rows="4" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.4); color:#fff; font-size:13px; line-height:1.5; resize:vertical;" placeholder="좌측에서 사진을 클릭하거나 위 'AI 바이럴 트윗 생성'을 누르면 매력적인 문구가 여기에 자동 입력됩니다."></textarea>
+                </div>
+
+                <!-- Direct Action Buttons -->
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <button class="btn btn-primary" style="font-weight:800; padding:11px; font-size:13px;" onclick="postVisualTweetToX()">
+                    🌐 X(트위터) 작성창 열기 (100% 자동 채움)
+                  </button>
+                  <div style="display:flex; gap:8px;">
+                    <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="copyVisualTweetText()">📋 문구 복사</button>
+                    <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="downloadActiveVisualMedia()">💾 미디어 다운로드</button>
+                    <button class="btn btn-outline btn-sm" onclick="saveVisualTweetDraft()">⭐ 보관</button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
       <!-- TAB 4: AI & Security Settings -->
       <section id="tab-settings" class="tab-content">
         <div class="card" style="max-width:600px; margin-bottom:20px;">
@@ -512,6 +658,64 @@
             <button id="btn-save-key" class="btn btn-primary" style="margin-top:10px;">
               💾 API 키 저장
             </button>
+          </div>
+        </div>
+
+        <!-- Telegram Notification Settings -->
+        <div class="card" style="max-width:600px; margin-top:20px;">
+          <div class="card-header">
+            <h3>📲 텔레그램 봇 자동 알림 설정</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+              서버가 실행될 때마다 새 외부 접속 링크(trycloudflare.com)를 텔레그램으로 즉시 푸시 전송합니다.
+            </p>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label><input type="checkbox" id="telegram-enabled-toggle"> 텔레그램 알림 활성화</label>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label for="telegram-token-input">텔레그램 봇 토큰 (Bot Token):</label>
+              <input type="password" id="telegram-token-input" placeholder="123456789:ABCdef..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+              <label for="telegram-chatid-input">텔레그램 Chat ID:</label>
+              <input type="text" id="telegram-chatid-input" placeholder="12345678" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button id="btn-save-telegram" class="btn btn-primary">💾 텔레그램 설정 저장</button>
+              <button id="btn-test-telegram" class="btn btn-secondary">🔔 테스트 발송</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Email Notification Settings -->
+        <div class="card" style="max-width:600px; margin-top:20px;">
+          <div class="card-header">
+            <h3>📧 이메일 자동 알림 설정</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+              서버 구동 시 생성된 접속 주소를 사용자의 이메일로 자동 발송합니다. (Gmail 사용 시 앱 비밀번호 사용 권장)
+            </p>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label><input type="checkbox" id="email-enabled-toggle"> 이메일 알림 활성화</label>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label for="email-user-input">발신 이메일 주소 (SMTP User):</label>
+              <input type="text" id="email-user-input" placeholder="myaccount@gmail.com" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label for="email-pass-input">이메일 앱 비밀번호 (App Password):</label>
+              <input type="password" id="email-pass-input" placeholder="xxxx xxxx xxxx xxxx" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+              <label for="email-to-input">수신 이메일 주소 (Recipient Email):</label>
+              <input type="text" id="email-to-input" placeholder="myaccount@gmail.com" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button id="btn-save-email" class="btn btn-primary">💾 이메일 설정 저장</button>
+              <button id="btn-test-email" class="btn btn-secondary">🔔 테스트 발송</button>
+            </div>
           </div>
         </div>
       </section>

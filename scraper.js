@@ -591,13 +591,15 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
     const globalEconomy = await fetchGlobalNewsRssArticles('economy', 'Fed OR Federal Reserve OR Interest Rate OR Inflation', '글로벌 경제', '💵 경제', 6, scanBatchTimeVal);
     await new Promise(r => setTimeout(r, 1500));
 
-    const blindNews = await fetchNewsRssArticles('blind', '블라인드 직장인 이직 연봉', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d');
+    const blindNews = await fetchNewsRssArticles('blind', '블라인드 OR 직장인썰 OR 퇴사 OR 이직', '블라인드', '🏢 블라인드 / 직장썰', 8, scanBatchTimeVal, '5d');
     await new Promise(r => setTimeout(r, 1500));
     const pannNews = await fetchNatePannArticles(8, scanBatchTimeVal);
     await new Promise(r => setTimeout(r, 1500));
-    const gossipNews = await fetchNewsRssArticles('gossip', '연예인 근황', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d');
+    const gossipNews = await fetchNewsRssArticles('gossip', '연예인 OR 열애 OR 논란 OR 피지컬', '가십', '🗣️ 가십 / 연예 / 화제 이슈', 8, scanBatchTimeVal, '5d');
     await new Promise(r => setTimeout(r, 1500));
-    const mindsetNews = await fetchNewsRssArticles('mindset', '심리학 멘탈 대인관계 자존감', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d');
+    const idolNews = await fetchNewsRssArticles('idol', '걸그룹 OR 여자아이돌 OR 고윤정 OR 장원영 OR 카리나 OR 미모 OR 비주얼 OR 화보 OR 연예인 포토', '아이돌/비주얼 연예인', '🌸 아이돌 / 비주얼 연예인', 8, scanBatchTimeVal, '5d');
+    await new Promise(r => setTimeout(r, 1500));
+    const mindsetNews = await fetchNewsRssArticles('mindset', '심리학 OR 멘탈 OR 대인관계 OR 자존감', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d');
 
     let allArticles = [
       ...heisenberg,
@@ -612,6 +614,7 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
       ...blindNews,
       ...pannNews,
       ...gossipNews,
+      ...idolNews,
       ...mindsetNews
     ];
 
