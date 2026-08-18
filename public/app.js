@@ -2415,7 +2415,8 @@ function renderVisualMediaGrid(list) {
     if (isVideo) badgeHtml = '🎬 동영상';
     else if (isGif) badgeHtml = '✨ 움짤';
 
-    const dateBadge = item.date ? `<span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.75); color:#cbd5e1; font-size:9px; padding:1px 5px; border-radius:4px; font-weight:700; border:1px solid rgba(255,255,255,0.15);">📅 ${item.date}</span>` : '';
+    const displayDate = item.date || '최신';
+    const dateBadge = `<span style="position:absolute; top:6px; left:6px; z-index:3; background:rgba(0,0,0,0.8); color:#38bdf8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800; border:1px solid rgba(56,189,248,0.4); box-shadow:0 2px 4px rgba(0,0,0,0.5);">📅 ${displayDate}</span>`;
 
     return `
       <div class="visual-media-card ${isSelected ? 'selected' : ''}" onclick="selectVisualMediaByIndex('${item.id}')">
@@ -2451,11 +2452,13 @@ function selectVisualMediaItem(media) {
     const isVideo = media.mediaType === 'video' || media.url.toLowerCase().includes('.mp4');
     const isGif = media.mediaType === 'gif' || media.url.toLowerCase().includes('.gif');
     const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(media.url)}`;
+    const mediaDate = media.date || '최신 등록';
 
     if (isVideo && (media.url.endsWith('.mp4') || media.url.endsWith('.webm'))) {
       previewBox.innerHTML = `
         <div style="position:relative; display:inline-block; max-width:100%;">
           <video src="${media.url}" controls autoplay muted loop playsinline style="max-height:280px; max-width:100%; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.6);"></video>
+          <span style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.85); color:#38bdf8; font-size:11px; padding:3px 8px; border-radius:5px; font-weight:800; border:1px solid rgba(56,189,248,0.4);">📅 ${mediaDate}</span>
           <span style="position:absolute; bottom:8px; right:8px; background:rgba(239,68,68,0.85); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800;">🎬 MP4 동영상</span>
         </div>
       `;
@@ -2463,6 +2466,7 @@ function selectVisualMediaItem(media) {
       previewBox.innerHTML = `
         <div style="position:relative; display:inline-block; max-width:100%;">
           <img src="${proxyUrl}" onerror="this.onerror=null; this.src='${media.url}';" alt="${media.title}" style="max-height:280px; max-width:100%; border-radius:8px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,0.6);" />
+          <span style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.85); color:#38bdf8; font-size:11px; padding:3px 8px; border-radius:5px; font-weight:800; border:1px solid rgba(56,189,248,0.4);">📅 ${mediaDate}</span>
           <span style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">${isVideo ? '🎬 동영상 미디어' : (isGif ? '✨ 모션 움짤' : '📷 고화질 사진')}</span>
         </div>
       `;
