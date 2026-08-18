@@ -2676,23 +2676,16 @@ async function syncLatestGithubCode() {
 
 
 
-function toggleJookLifeMenu() {
+function toggleVisualStudioMenu() {
   const checkbox = document.getElementById('jook-life-toggle-checkbox');
-  const menu = document.getElementById('jook-life-menu-items');
-  const commStat1 = document.getElementById('dashboard-comm-stat-1');
-  const commStat2 = document.getElementById('dashboard-comm-stat-2');
-  const commSection = document.getElementById('dashboard-comm-section');
-  const commPills = document.getElementById('dashboard-comm-pills');
+  const navItemVisual = document.getElementById('nav-item-visual-media');
   const visualMediaTab = document.getElementById('tab-visual-media');
   
   const isChecked = checkbox ? checkbox.checked : false;
-  const displayStyle = isChecked ? '' : 'none';
-
-  if (menu) menu.style.display = displayStyle;
-  if (commStat1) commStat1.style.display = displayStyle;
-  if (commStat2) commStat2.style.display = displayStyle;
-  if (commSection) commSection.style.display = displayStyle;
-  if (commPills) commPills.style.display = isChecked ? 'inline-flex' : 'none';
+  
+  if (navItemVisual) {
+    navItemVisual.style.display = isChecked ? 'flex' : 'none';
+  }
   
   // If toggled off, ensure visual media tab is completely hidden and return to dashboard if needed
   if (!isChecked) {
@@ -2709,4 +2702,9 @@ function toggleJookLifeMenu() {
       visualMediaTab.style.display = '';
     }
   }
+}
+
+// Backward compatibility aliases
+function toggleJookLifeMenu() {
+  toggleVisualStudioMenu();
 }
