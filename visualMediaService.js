@@ -121,17 +121,33 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
     }
   }
 
-  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video') || cleanKeyword.includes('직캠') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('M2');
+  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('M2') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('4K 직캠') || cleanKeyword.includes('video');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
 
   // 1. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion moving GIFs)
   if (isVideoCategory || isForeign) {
     try {
-      let searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').replace('직캠', '').trim();
-      if (!searchTarget || searchTarget === '여돌') {
-        searchTarget = 'kpop idol fancam';
-      } else if (cleanKeyword.includes('karina') || cleanKeyword.includes('wonyoung')) {
-        searchTarget = 'karina wonyoung fancam';
+      let searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').replace('직캠', '').replace('4k', '').replace('4K', '').trim();
+      
+      // Strict clean English mapping for Tenor to prevent random meme/sticker pollution
+      if (cleanKeyword.includes('CHOOM') || cleanKeyword.includes('M2')) {
+        searchTarget = 'studio choom';
+      } else if (cleanKeyword.includes('음방') || cleanKeyword.includes('Kpop') || cleanKeyword.includes('현장')) {
+        searchTarget = 'kpop idol stage dance';
+      } else if (!searchTarget || searchTarget === '여돌' || searchTarget === '아이돌') {
+        searchTarget = 'kpop girl group fancam';
+      } else if (searchTarget.includes('에스파') || searchTarget.includes('카리나')) {
+        searchTarget = 'aespa karina fancam';
+      } else if (searchTarget.includes('아이브') || searchTarget.includes('장원영')) {
+        searchTarget = 'ive wonyoung fancam';
+      } else if (searchTarget.includes('뉴진스')) {
+        searchTarget = 'newjeans fancam';
+      } else if (searchTarget.includes('트와이스')) {
+        searchTarget = 'twice fancam';
+      } else if (searchTarget.includes('블랙핑크')) {
+        searchTarget = 'blackpink fancam';
+      } else if (searchTarget.includes('르세라핌')) {
+        searchTarget = 'le sserafim fancam';
       }
 
       const tenorUrl = `https://tenor.com/search/${encodeURIComponent(searchTarget)}-gifs`;
