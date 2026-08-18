@@ -2,20 +2,11 @@ const axios = require('axios');
 const { getConfig } = require('./config');
 const { addLog } = require('./history');
 
-// Preset Visual Keyword Categories (Including Official Broadcast / Curator Channels)
+// Preset Visual Keyword Categories (3 Essential Basic Presets)
 const VISUAL_PRESETS = [
-  { id: 'video_archive', name: '🎬 직캠 MP4 영상', query: '여돌 직캠 MP4' },
-  { id: 'official_curator', name: '💎 M2/스튜디오춤 4K 직캠', query: 'Mnet M2 STUDIO CHOOM 직캠 4k' },
-  { id: 'broadcast_fancam', name: '🌟 음방/현장 직캠 핫클립', query: 'KBS SBS MBC Kpop 직캠 핫클립' },
-  { id: 'idol_fancam', name: '💃 여돌 레전드 움짤', query: '여돌 직캠 레전드 움짤' },
-  { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
-  { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
-  { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
-  { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
-  { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '일본 모델 화보' },
-  { id: 'western_sns', name: '💖 해외 SNS 여신', query: 'barbara palvin smile' },
-  { id: 'western_celeb', name: '✨ 청순 해외스타', query: 'sydney sweeney cute' },
-  { id: 'global_video', name: '🎬 해외 핫클립 MP4', query: 'aesthetic girl selfie' }
+  { id: 'video_archive', name: '🎬 여돌 직캠 MP4', query: '여돌 직캠 MP4' },
+  { id: 'idol_fancam', name: '💃 여돌 레전드 움짤', query: '여돌 레전드 움짤' },
+  { id: 'influencer', name: '✨ 모델/화보 고화질', query: '인스타 모델 비주얼 화보' }
 ];
 
 /**
@@ -368,8 +359,6 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
           const isGif = url.toLowerCase().includes('.gif');
           mediaList.push({
             id: 'media_' + Math.random().toString(36).substring(2, 9),
-            title: `[${cleanKeyword}] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
-            url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
             source: 'Daum'
@@ -380,6 +369,27 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
       // ignore
     }
   }
+
+  // Sort results by date descending (Newest/Latest items FIRST, older items towards the back)
+  mediaList.sort((a, b) => {
+    const parseDateWeight = (dateStr) => {
+      if (!dateStr || dateStr === '연도미상') return 0;
+      if (dateStr.includes('시간 전') || dateStr.includes('분 전') || dateStr.includes('방금') || dateStr === '최신') return 999999;
+      if (dateStr.includes('일 전')) {
+        const days = parseInt(dateStr, 10) || 1;
+        return 999000 - days * 10;
+      }
+      const match = dateStr.match(/\b(201\d|202\d)(?:\.(\d{1,2}))?\b/);
+      if (match) {
+        const y = parseInt(match[1], 10);
+        const m = parseInt(match[2] || '1', 10);
+        return y * 100 + m;
+      }
+      return 1;
+    };
+
+    return parseDateWeight(b.date) - parseDateWeight(a.date);
+  });
 
   return mediaList.slice(0, 30);
 }

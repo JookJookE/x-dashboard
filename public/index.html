@@ -531,26 +531,16 @@
                 <span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; border:1px solid rgba(236,72,153,0.4); font-size:11px;">실시간 웹 수집</span>
               </div>
               <div class="card-body">
-                <!-- Preset Category Pills -->
+                <!-- Preset Category Pills (3 Essential Presets) -->
                 <div id="visual-preset-pills" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
-                  <!-- Dynamically populated or static fallbacks -->
-                  <button class="preset-pill active" onclick="selectVisualPreset('여돌 직캠 MP4', this)" style="border-color:#ef4444; color:#ef4444; font-weight:800;">🎬 직캠 MP4 영상</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('Mnet M2 STUDIO CHOOM 직캠 4k', this)" style="border-color:#8b5cf6; color:#c084fc; font-weight:800;">💎 M2/스튜디오춤 4K 직캠</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('KBS SBS MBC Kpop 직캠 핫클립', this)" style="border-color:#38bdf8; color:#38bdf8; font-weight:800;">🌟 음방/현장 직캠</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('여돌 직캠 레전드 움짤', this)">💃 여돌 레전드 움짤</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('코스프레 화보', this)">👙 코스프레/화보</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('인스타 모델 비주얼 화보', this)">✨ 모델/인플루언서</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('수영복 모델 화보', this)">🌊 수영복/비키니</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('레이싱모델 치어리더 화보', this)">🏎️ 레이싱모델/치어리더</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('일본 모델 화보', this)">🌸 그라비아/룩북</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('barbara palvin smile', this)" style="border-color:#ec4899; color:#f472b6;">💖 해외 SNS 여신</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('sydney sweeney cute', this)" style="border-color:#f59e0b; color:#fbbf24;">✨ 청순 해외스타</button>
-                  <button class="preset-pill" onclick="selectVisualPreset('aesthetic girl selfie', this)" style="border-color:#10b981; color:#34d399; font-weight:800;">🎬 해외 핫클립 MP4</button>
+                  <button class="preset-pill active" onclick="selectVisualPreset('여돌 직캠 MP4', this)" style="border-color:#ef4444; color:#ef4444; font-weight:800;">🎬 여돌 직캠 MP4</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('여돌 레전드 움짤', this)" style="border-color:#8b5cf6; color:#c084fc; font-weight:800;">💃 여돌 레전드 움짤</button>
+                  <button class="preset-pill" onclick="selectVisualPreset('인스타 모델 비주얼 화보', this)" style="border-color:#ec4899; color:#f472b6; font-weight:800;">✨ 모델/화보 고화질</button>
                 </div>
 
                 <!-- Search & Direct URL Input Bar -->
                 <div style="display:flex; gap:8px; margin-bottom:10px;">
-                  <input type="text" id="visual-search-input" placeholder="🔍 키워드 검색 또는 X(트위터)/인스타/유튜브 링크를 직접 붙여넣으세요..." style="flex:1; padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.4); color:#fff; font-size:13px;" onkeypress="if(event.key==='Enter') searchVisualMediaFromInput()">
+                  <input type="text" id="visual-search-input" placeholder="🔍 인물/키워드 검색 (예: 카리나 직캠, 윈터 공항) 또는 X/유튜브 링크 붙여넣기..." style="flex:1; padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.4); color:#fff; font-size:13px;" onkeypress="if(event.key==='Enter') searchVisualMediaFromInput()">
                   <button class="btn btn-accent" onclick="searchVisualMediaFromInput()" style="padding:9px 16px; font-weight:800; white-space:nowrap;">
                     ⚡ 탐색
                   </button>
