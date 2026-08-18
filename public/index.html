@@ -64,9 +64,11 @@
           <span>해외뉴스 (글로벌 외신)</span>
         </button>
 
-        <div class="menu-label" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleJookLifeMenu()">
+        <div class="menu-label" style="display: flex; justify-content: space-between; align-items: center;">
           <span>🍿 Jook Life (트렌드 & 엔터)</span>
-          <span id="jook-life-toggle-icon" style="transition: transform 0.2s;">▼</span>
+          <label style="margin:0; display:flex; align-items:center; cursor:pointer;" title="Jook Life 관련 메뉴/기사 표시 켜기/끄기">
+            <input type="checkbox" id="jook-life-toggle-checkbox" checked onchange="toggleJookLifeMenu()" style="cursor:pointer; width:16px; height:16px; accent-color:var(--accent-gold);">
+          </label>
         </div>
         <div id="jook-life-menu-items">
         <button class="nav-item" data-tab="visual-media" data-cat="visual" data-hours="0" style="background: linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15)); border: 1px solid rgba(236,72,153,0.35);">
@@ -170,14 +172,14 @@
               <span class="stat-value" id="stat-tech-unread" style="color:#38bdf8;">0건 (클릭)</span>
             </div>
           </div>
-          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('comm_all')">
+          <div class="stat-card" id="dashboard-comm-stat-1" style="cursor:pointer;" onclick="selectCategoryNav('comm_all')">
             <div class="stat-icon purple">🗣️</div>
             <div class="stat-data">
               <span class="stat-label">커뮤니티 & 썰 / 멘탈</span>
               <span class="stat-value" id="stat-comm-count">0건</span>
             </div>
           </div>
-          <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('comm_all', true)">
+          <div class="stat-card" id="dashboard-comm-stat-2" style="cursor:pointer;" onclick="selectCategoryNav('comm_all', true)">
             <div class="stat-icon" style="background:rgba(250, 204, 21, 0.15); color:#facc15;">👀</div>
             <div class="stat-data">
               <span class="stat-label">커뮤니티/썰 미확인</span>
@@ -201,7 +203,7 @@
           </div>
 
           <!-- Section 2: Community & Mental Mini List -->
-          <div class="card card-flex-1">
+          <div class="card card-flex-1" id="dashboard-comm-section">
             <div class="card-header">
               <h3>🗣️ 커뮤니티 & 썰 / 멘탈 소식</h3>
               <button class="btn-link" style="white-space:nowrap; flex-shrink:0;" onclick="selectCategoryNav('comm_all')">전체보기 &rarr;</button>

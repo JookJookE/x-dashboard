@@ -2669,12 +2669,29 @@ async function syncLatestGithubCode() {
 
 
 function toggleJookLifeMenu() {
+  const checkbox = document.getElementById('jook-life-toggle-checkbox');
   const menu = document.getElementById('jook-life-menu-items');
-  const icon = document.getElementById('jook-life-toggle-icon');
-  if (menu.style.display === 'none') {
-    menu.style.display = 'block';
-    icon.style.transform = 'rotate(0deg)';
-  } else {
+  const commStat1 = document.getElementById('dashboard-comm-stat-1');
+  const commStat2 = document.getElementById('dashboard-comm-stat-2');
+  const commSection = document.getElementById('dashboard-comm-section');
+  const visualMediaTab = document.getElementById('tab-visual-media');
+  
+  const isChecked = checkbox ? checkbox.checked : true;
+  const displayStyle = isChecked ? '' : 'none';
+
+  if (menu) menu.style.display = displayStyle;
+  if (commStat1) commStat1.style.display = displayStyle;
+  if (commStat2) commStat2.style.display = displayStyle;
+  if (commSection) commSection.style.display = displayStyle;
+  
+  // If toggled off, make sure visual media tab is hidden and switch to dashboard if needed
+  if (!isChecked) {
+    if (visualMediaTab && visualMediaTab.classList.contains('active')) {
+      const dashboardBtn = document.querySelector('.nav-item[data-tab="dashboard"]');
+      if (dashboardBtn) dashboardBtn.click();
+    }
+  }
+} else {
     menu.style.display = 'none';
     icon.style.transform = 'rotate(-90deg)';
   }
