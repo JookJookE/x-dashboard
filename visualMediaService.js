@@ -5,7 +5,7 @@ const { addLog } = require('./history');
 // Preset Visual Keyword Categories (3 Essential Basic Presets)
 const VISUAL_PRESETS = [
   { id: 'video_archive', name: '🎬 여돌 직캠 MP4', query: '여돌 직캠 MP4' },
-  { id: 'idol_fancam', name: '💃 여돌 레전드 움짤', query: '여돌 레전드 움짤' },
+  { id: 'idol_fancam', name: '💃 여돌 움짤', query: '여돌 움짤' },
   { id: 'influencer', name: '✨ 모델/화보 고화질', query: '인스타 모델 비주얼 화보' }
 ];
 
@@ -197,6 +197,25 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
     }
 
     if (mediaList.length > 0) {
+      // Sort Tenor items by descending timestamp / date (newest first)
+      mediaList.sort((a, b) => {
+        const parseDateWeight = (dateStr) => {
+          if (!dateStr || dateStr === '연도미상') return 0;
+          if (dateStr.includes('시간 전') || dateStr.includes('분 전') || dateStr.includes('방금') || dateStr === '최신') return 999999;
+          if (dateStr.includes('일 전')) {
+            const days = parseInt(dateStr, 10) || 1;
+            return 999000 - days * 10;
+          }
+          const match = dateStr.match(/\b(201\d|202\d)(?:\.(\d{1,2}))?\b/);
+          if (match) {
+            const y = parseInt(match[1], 10);
+            const m = parseInt(match[2] || '1', 10);
+            return y * 100 + m;
+          }
+          return 1;
+        };
+        return parseDateWeight(b.date) - parseDateWeight(a.date);
+      });
       return mediaList.slice(0, 30);
     }
   }
