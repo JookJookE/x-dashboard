@@ -762,7 +762,13 @@ app.post('/api/generate-visual-tweet', async (req, res) => {
       return res.status(400).json({ success: false, message: '미디어 주제나 이미지가 필요합니다.' });
     }
     const result = await generateVisualTweet(titleOrTopic || '비주얼 화보', style || 'shock', imageUrl || '', mediaDate || '연도미상');
-    res.json({ success: true, text: result.text, isAiGenerated: result.isAiGenerated, style: result.style });
+    res.json({ 
+      success: true, 
+      text: result.text, 
+      isAiGenerated: result.isAiGenerated, 
+      style: result.style,
+      suggestedTags: result.suggestedTags || [] 
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

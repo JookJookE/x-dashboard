@@ -602,12 +602,23 @@
                 </button>
 
                 <!-- Tweet Output Textarea -->
-                <div class="form-group" style="margin-bottom:12px;">
+                <div class="form-group" style="margin-bottom:8px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                     <label style="font-size:12px; font-weight:700; color:var(--text-muted);">📝 완성된 트윗 본문:</label>
                     <span id="visual-char-count" style="font-size:11px; color:var(--text-dim);">0 / 280자</span>
                   </div>
                   <textarea id="visual-tweet-output" rows="4" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.4); color:#fff; font-size:13px; line-height:1.5; resize:vertical;" placeholder="좌측에서 사진을 클릭하거나 위 'AI 바이럴 트윗 생성'을 누르면 매력적인 문구가 여기에 자동 입력됩니다."></textarea>
+                </div>
+
+                <!-- Suggested Hashtag Action Chips -->
+                <div style="margin-bottom:12px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--text-dim); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🏷️ 추천 해시태그 (클릭 시 본문 끝에 자동 추가):</span>
+                    <button type="button" onclick="clearVisualHashtags()" style="background:none; border:none; color:#f87171; font-size:10px; cursor:pointer; padding:0;">태그 지우기</button>
+                  </div>
+                  <div id="visual-suggested-tags" style="display:flex; gap:6px; flex-wrap:wrap; min-height:26px;">
+                    <span style="font-size:11px; color:rgba(255,255,255,0.3);">미디어를 선택하면 추천 태그가 생성됩니다.</span>
+                  </div>
                 </div>
 
                 <!-- Direct Action Buttons -->

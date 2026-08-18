@@ -376,11 +376,12 @@ ${styleInstruction}
    - '탐라'라는 단어는 절대로 쓰지 마세요! (대신 "피드", "스크롤 내리다가", "알고리즘" 같은 자연스러운 표현 사용)
    - "~에 대해 알아보겠습니다", "~를 추천합니다", "~골라주세요", "~어떠신가요?" 같은 안내원 말투 100% 금지!
    - 엉뚱한 사람 이름을 지어내지 말고, 사진 속 비주얼/분위기/착장/포즈 자체에 대한 리액션으로 작성하세요.
-2. ⭕ **리얼 트위터/커뮤니티 구어체 사용**:
+2. ⭕ **해시태그(#) 본문 직접 삽입 금지**:
+   - 본문 텍스트 안에 해시태그(#)를 직접 붙이지 마세요! 오직 멘트 문장만 작성하세요.
+3. ⭕ **리얼 트위터/커뮤니티 구어체 사용**:
    - "ㄷㄷ", "ㅋㅋㅋ", "..", "진짜", "실화냐", "폼 미침", "살벌하네", "반칙" 등 진짜 사람들이 쓰는 짧고 찰진 어미를 활용하세요.
-3. 📏 **길이**: 가독성 좋은 1~2줄 (공백 포함 50~100자 내외).
-4. 🏷️ **해시태그**: 끝에 자연스러운 해시태그 1~2개만 가볍게 첨부 (예: #비주얼 #직캠 #핫클립 등).
-5. ✍️ 오직 완성된 트윗 본문만 출력하세요 (따옴표나 부연 설명 일체 금지).
+4. 📏 **길이**: 가독성 좋은 1~2줄 (공백 포함 40~80자 내외).
+5. ✍️ 오직 완성된 트윗 본문만 출력하세요 (따옴표, 해시태그, 부연 설명 일체 금지).
 `;
 
     const parts = [{ text: promptText }];
@@ -407,9 +408,9 @@ ${styleInstruction}
 
         let text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (text && text.length > 5) {
-          text = text.replace(/^["']|["']$/g, '').trim();
+          text = text.replace(/^["']|["']$/g, '').replace(/#[^\s#]+/g, '').trim();
           addLog('SUCCESS', `📸 비주얼 바이럴 트윗 ${hasVision ? '(Gemini 시각 분석)' : '(텍스트 분석)'} AI 생성 완료 (${text.length}자)`);
-          return { text, isAiGenerated: true, style };
+          return { text, isAiGenerated: true, style, suggestedTags: getSuggestedTags(titleOrTopic, isPastMedia, yearNum) };
         }
       } catch (e) {
         // try next model
@@ -420,39 +421,67 @@ ${styleInstruction}
   // High-Quality Human Fallback Templates
   const fallbacks = {
     admire: isPastMedia ? [
-      `다시 봐도 이때 컨셉이랑 착장은 진짜 레전드였음.. 분위기 살벌하네 ㄷㄷ ✨ #레전드 #화보`,
-      `언제 봐도 이 시절 폼은 탈인간급임.. 실물 포스 미쳤다 🌸 #비주얼 #명작`,
-      `주기적으로 봐줘야 하는 레전드 짤 보소.. 이건 영구 소장각 🔥 #스타일`
+      `다시 봐도 이때 컨셉이랑 착장은 진짜 레전드였음.. 분위기 살벌하네 ㄷㄷ ✨`,
+      `언제 봐도 이 시절 폼은 탈인간급임.. 실물 포스 미쳤다 🌸`,
+      `주기적으로 봐줘야 하는 레전드 짤 보소.. 이건 영구 소장각 🔥`
     ] : [
-      `와 이번 착장이랑 컨셉 진짜 미쳤다.. 사진 한 장으로 분위기 다 압도하네 ㄷㄷ ✨ #비주얼 #화보`,
-      `볼 때마다 느끼는 건데 폼이 그냥 탈인간급임.. 실물 포스 살벌하네 🌸 #레전드 #화보`,
-      `화면 뚫고 나오는 비주얼 보소.. 이건 저장 안 할 수가 없다 🔥 #스타일`
+      `와 이번 착장이랑 컨셉 진짜 미쳤다.. 사진 한 장으로 분위기 다 압도하네 ㄷㄷ ✨`,
+      `볼 때마다 느끼는 건데 폼이 그냥 탈인간급임.. 실물 포스 살벌하네 🌸`,
+      `화면 뚫고 나오는 비주얼 보소.. 이건 저장 안 할 수가 없다 🔥`
     ],
     question: [
-      `솔직히 이 착장 1번 vs 2번 중에 뭐가 더 레전드임? 다들 뭐 고름? 👀 #투표 #비주얼`,
-      `이 영상 보고 뇌정지 왔는데.. 다들 어떻게 생각함? 실시간으로 피드 씹어먹는 중 💬 #핫클립 #직캠`
+      `솔직히 이 착장 1번 vs 2번 중에 뭐가 더 레전드임? 다들 뭐 고름? 👀`,
+      `이 영상 보고 뇌정지 왔는데.. 다들 어떻게 생각함? 실시간으로 피드 씹어먹는 중 💬`
     ],
     spicy: [
       `이 정도면 그냥 화면 찢고 나오는 수준 아니냐 ㅋㅋㅋ 혼자 다른 세상 사네 폼 미쳤음 🔥`,
       `아직도 이거 안 본 사람 없제? ㅋㅋㅋ 실시간으로 피드 다 터지는 중 성지순례 와라 🚀`
     ],
     bridge: [
-      `비주얼 트렌드 보면 확실히 무드가 독보적인 듯.. 결국 시선을 사로잡는 기획력이 전부다 🔥 #트렌드 #인사이트`
+      `비주얼 트렌드 보면 확실히 무드가 독보적인 듯.. 결국 시선을 사로잡는 기획력이 전부다 🔥`
     ],
     shock: isPastMedia ? [
-      `알고리즘이 왜 이 과거 영상을 다시 띄우는지 바로 납득함.. 명작은 시간 지나도 안 변하네 ✨ #핫클립 #레전드`,
-      `방금 스크롤 내리다가 멈칫함;; 이때 이목구비 자기주장 살벌했네 진짜 ㄷㄷ 🌸 #비주얼`
+      `알고리즘이 왜 이 과거 영상을 다시 띄우는지 바로 납득함.. 명작은 시간 지나도 안 변하네 ✨`,
+      `방금 스크롤 내리다가 멈칫함;; 이때 이목구비 자기주장 살벌했네 진짜 ㄷㄷ 🌸`
     ] : [
-      `알고리즘이 왜 이 영상을 계속 띄우는지 딱 1초 만에 납득함.. 분위기 진짜 독보적이네 ✨ #핫클립 #레전드`,
-      `방금 스크롤 내리다가 폰 떨어뜨릴 뻔함;; 이목구비 자기주장 살벌하다 진짜 ㄷㄷ 🌸 #비주얼`,
-      `이건 알고리즘도 무조건 멈추게 만드네.. 실시간으로 반응 터진 이유가 있었음 😮 #화보`
+      `알고리즘이 왜 이 영상을 계속 띄우는지 딱 1초 만에 납득함.. 분위기 진짜 독보적이네 ✨`,
+      `방금 스크롤 내리다가 폰 떨어뜨릴 뻔함;; 이목구비 자기주장 살벌하다 진짜 ㄷㄷ 🌸`,
+      `이건 알고리즘도 무조건 멈추게 만드네.. 실시간으로 반응 터진 이유가 있었음 😮`
     ]
   };
 
   const list = fallbacks[style] || fallbacks.shock;
-  const text = list[Math.floor(Math.random() * list.length)];
+  let text = list[Math.floor(Math.random() * list.length)];
+  text = text.replace(/#[^\s#]+/g, '').trim();
 
-  return { text, isAiGenerated: false, style };
+  return { text, isAiGenerated: false, style, suggestedTags: getSuggestedTags(titleOrTopic, isPastMedia, yearNum) };
+}
+
+function getSuggestedTags(topic = '', isPast = false, year = null) {
+  const baseTags = [];
+  const t = topic.toLowerCase();
+
+  if (t.includes('코스프레')) {
+    baseTags.push('#코스프레', '#코스어', '#cosplay', '#화보');
+  } else if (t.includes('직캠') || t.includes('여돌') || t.includes('움짤')) {
+    baseTags.push('#여돌', '#직캠', '#움짤', '#비주얼', '#아이돌');
+  } else if (t.includes('수영복') || t.includes('비키니')) {
+    baseTags.push('#수영복', '#비키니', '#비주얼', '#몸매', '#화보');
+  } else if (t.includes('레이싱') || t.includes('치어리더')) {
+    baseTags.push('#레이싱모델', '#치어리더', '#직캠', '#핫클립');
+  } else if (t.includes('그라비아') || t.includes('룩북') || t.includes('일본')) {
+    baseTags.push('#룩북', '#그라비아', '#화보', '#스타일');
+  } else {
+    baseTags.push('#비주얼', '#화보', '#모델', '#인플루언서');
+  }
+
+  if (isPast && year) {
+    baseTags.push(`#${year}년`, '#레전드', '#추억');
+  } else {
+    baseTags.push('#핫클립', '#트렌드', '#레전드');
+  }
+
+  return [...new Set(baseTags)].slice(0, 6);
 }
 
 module.exports = {

@@ -2567,6 +2567,10 @@ async function generateVisualAiTweet() {
         const counter = document.getElementById('visual-char-count');
         if (counter) counter.innerText = `${data.text.length} / 280자`;
       }
+
+      // Render Suggested Hashtag Action Chips
+      renderSuggestedHashtags(data.suggestedTags || []);
+
       showToast('✨ 바이럴 트윗 문구 생성 완료!');
     } else {
       if (tweetOutput) tweetOutput.value = '문구 생성에 실패했습니다.';
@@ -2576,6 +2580,64 @@ async function generateVisualAiTweet() {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+function renderSuggestedHashtags(tags) {
+  const container = document.getElementById('visual-suggested-tags');
+  if (!container) return;
+
+  if (!tags || tags.length === 0) {
+    tags = ['#비주얼', '#화보', '#직캠', '#레전드', '#핫클립'];
+  }
+
+  container.innerHTML = tags.map(tag => {
+    return `<button type="button" class="preset-pill" onclick="appendHashtagToVisualTweet('${tag}', this)" style="padding:3px 8px; font-size:11px; border-radius:12px; background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); font-weight:700; cursor:pointer;">+ ${tag}</button>`;
+  }).join('');
+}
+
+function appendHashtagToVisualTweet(tag, btnEl) {
+  const tweetOutput = document.getElementById('visual-tweet-output');
+  if (!tweetOutput) return;
+
+  let current = tweetOutput.value.trim();
+  if (current.includes(tag)) {
+    showToast(`이미 '${tag}' 태그가 본문에 있습니다.`);
+    return;
+  }
+
+  tweetOutput.value = current ? `${current} ${tag}` : tag;
+  const counter = document.getElementById('visual-char-count');
+  if (counter) counter.innerText = `${tweetOutput.value.length} / 280자`;
+
+  if (btnEl) {
+    btnEl.style.opacity = '0.5';
+    btnEl.innerText = `✓ ${tag}`;
+    btnEl.disabled = true;
+  }
+  showToast(`🏷️ '${tag}' 태그가 추가되었습니다!`);
+}
+
+function clearVisualHashtags() {
+  const tweetOutput = document.getElementById('visual-tweet-output');
+  if (!tweetOutput) return;
+
+  let text = tweetOutput.value.replace(/#[^\s#]+/g, '').replace(/\s{2,}/g, ' ').trim();
+  tweetOutput.value = text;
+  const counter = document.getElementById('visual-char-count');
+  if (counter) counter.innerText = `${text.length} / 280자`;
+
+  // Reset tag buttons
+  const container = document.getElementById('visual-suggested-tags');
+  if (container) {
+    container.querySelectorAll('button').forEach(b => {
+      b.disabled = false;
+      b.style.opacity = '1';
+      if (b.innerText.startsWith('✓ ')) {
+        b.innerText = b.innerText.replace('✓ ', '+ ');
+      }
+    });
+  }
+  showToast('🧹 본문에서 모든 해시태그를 지웠습니다.');
 }
 
 function copyVisualMediaToClipboard(showManualToast = true) {
