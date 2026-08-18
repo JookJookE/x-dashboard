@@ -113,6 +113,14 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
         const url = data.murl ? data.murl.replace(/\\/g, '') : '';
         const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
 
+        // Extract exact upload year and month from URL path or description
+        let dateStr = '최신';
+        const urlForDate = `${url} ${data.purl || ''} ${data.desc || ''}`;
+        const dateMatch = urlForDate.match(/\b(201[5-9]|202[0-6])[\/\.\-_](\d{1,2})\b/);
+        if (dateMatch) {
+          dateStr = `${dateMatch[1]}.${dateMatch[2].padStart(2, '0')}`;
+        }
+
         if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
@@ -123,6 +131,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
+            date: dateStr,
             source: 'Bing'
           });
         }
@@ -165,13 +174,20 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
         ) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
+
+          let dateStr = '최신';
+          const dateMatch = url.match(/\b(201[5-9]|202[0-6])[\/\.\-_](\d{1,2})\b/);
+          if (dateMatch) {
+            dateStr = `${dateMatch[1]}.${dateMatch[2].padStart(2, '0')}`;
+          }
+
           mediaList.push({
             id: 'media_' + Math.random().toString(36).substring(2, 9),
             title: `[${cleanKeyword}] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
-            date: '최신',
+            date: dateStr,
             source: 'Naver'
           });
         }
