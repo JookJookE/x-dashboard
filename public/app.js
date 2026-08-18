@@ -2691,8 +2691,4 @@ function toggleJookLifeMenu() {
       if (dashboardBtn) dashboardBtn.click();
     }
   }
-} else {
-    menu.style.display = 'none';
-    icon.style.transform = 'rotate(-90deg)';
-  }
 }
