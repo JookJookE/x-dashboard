@@ -2415,8 +2415,9 @@ function renderVisualMediaGrid(list) {
     if (isVideo) badgeHtml = '🎬 동영상';
     else if (isGif) badgeHtml = '✨ 움짤';
 
-    const displayDate = item.date || '최신';
-    const dateBadge = `<span style="position:absolute; top:6px; left:6px; z-index:3; background:rgba(0,0,0,0.8); color:#38bdf8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800; border:1px solid rgba(56,189,248,0.4); box-shadow:0 2px 4px rgba(0,0,0,0.5);">📅 ${displayDate}</span>`;
+    const displayDate = item.date || '연도미상';
+    const isUnknown = displayDate === '연도미상';
+    const dateBadge = `<span style="position:absolute; top:6px; left:6px; z-index:3; background:rgba(0,0,0,0.85); color:${isUnknown ? '#94a3b8' : '#38bdf8'}; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800; border:1px solid ${isUnknown ? 'rgba(148,163,184,0.3)' : 'rgba(56,189,248,0.4)'}; box-shadow:0 2px 4px rgba(0,0,0,0.5);">📅 ${displayDate}</span>`;
 
     return `
       <div class="visual-media-card ${isSelected ? 'selected' : ''}" onclick="selectVisualMediaByIndex('${item.id}')">
@@ -2452,7 +2453,7 @@ function selectVisualMediaItem(media) {
     const isVideo = media.mediaType === 'video' || media.url.toLowerCase().includes('.mp4');
     const isGif = media.mediaType === 'gif' || media.url.toLowerCase().includes('.gif');
     const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(media.url)}`;
-    const mediaDate = media.date || '최신 등록';
+    const mediaDate = media.date || '연도미상';
 
     if (isVideo && (media.url.endsWith('.mp4') || media.url.endsWith('.webm'))) {
       previewBox.innerHTML = `
