@@ -4,94 +4,44 @@ const { addLog } = require('./history');
 
 // Preset Visual Keyword Categories
 const VISUAL_PRESETS = [
-  { id: 'today_airport', name: '✈️ 오늘자 공항/출근길', query: '오늘자 아이돌 공항 출국' },
-  { id: 'today_fancam', name: '🔥 실시간 4K 직캠', query: '에스파 아이브 카리나 장원영 직캠 4k' },
-  { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
+  { id: 'video_archive', name: '🎬 직캠 MP4 영상', query: '여돌 직캠 MP4' },
   { id: 'idol_fancam', name: '💃 여돌 레전드 움짤', query: '여돌 직캠 레전드 움짤' },
+  { id: 'today_fancam', name: '🔥 카리나/장원영 직캠 MP4', query: 'karina wonyoung fancam MP4' },
+  { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
   { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
   { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '일본 모델 화보' },
-  { id: 'western_sns', name: '💖 해외 SNS 여신/인플루언서', query: 'barbara palvin smile' },
-  { id: 'western_celeb', name: '✨ 청순 해외스타/셀럽', query: 'sydney sweeney cute' },
+  { id: 'western_sns', name: '💖 해외 SNS 여신', query: 'barbara palvin smile' },
+  { id: 'western_celeb', name: '✨ 청순 해외스타', query: 'sydney sweeney cute' },
   { id: 'global_video', name: '🎬 해외 핫클립 MP4', query: 'aesthetic girl selfie' }
 ];
 
 /**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
  * Multi-Tier Pipeline:
- *  0. Real-time YouTube Shorts & 4K Fancams (sp=CAISBAgDEAE%253D - This Week / Today real-time)
- *  1. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos)
+ *  1. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos & moving gifs)
  *  2. Bing Image & GIF HD Search (Primary, 0% IP block, direct original high-res murl)
  *  3. Naver Image Search (Secondary HD with anti-block headers)
  *  4. Daum Image Search (Tertiary fallback)
  */
-async function searchVisualMedia(keyword = '오늘자 아이돌 공항 출국', page = 1) {
+async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   const mediaList = [];
   const seen = new Set();
   const cleanKeyword = keyword.trim();
-  const isRealtime = cleanKeyword.includes('오늘') || cleanKeyword.includes('실시간') || cleanKeyword.includes('공항') || cleanKeyword.includes('출국') || cleanKeyword.includes('출근길');
-  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video');
-
-  // 0. Realtime YouTube Live / This Week 4K Uploads (100% Free, zero API cost)
-  if (isRealtime) {
-    try {
-      const ytThisWeekUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanKeyword)}&sp=CAISBAgDEAE%253D`;
-      const res = await axios.get(ytThisWeekUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept-Language': 'ko-KR,ko;q=0.9'
-        },
-        timeout: 5000
-      });
-
-      const ytDataMatch = res.data.match(/var ytInitialData = ({.*?});<\/script>/);
-      if (ytDataMatch) {
-        const data = JSON.parse(ytDataMatch[1]);
-        const contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
-        
-        for (const item of contents) {
-          const v = item.videoRenderer;
-          if (v && v.videoId) {
-            const title = v.title?.runs?.[0]?.text || cleanKeyword;
-            const uploadTime = v.publishedTimeText?.simpleText || '실시간';
-            const thumbs = v.thumbnail?.thumbnails || [];
-            const thumb = thumbs[thumbs.length - 1]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
-            const videoUrl = `https://www.youtube.com/watch?v=${v.videoId}`;
-            
-            if (!seen.has(thumb)) {
-              seen.add(thumb);
-              mediaList.push({
-                id: 'yt_' + v.videoId,
-                title: `[실시간] ${title}`,
-                url: thumb,
-                videoUrl: videoUrl,
-                mediaType: 'image',
-                thumbnail: thumb,
-                date: uploadTime,
-                source: 'YouTube Realtime'
-              });
-            }
-          }
-        }
-      }
-    } catch (ytErr) {
-      // fallback to Bing
-    }
-
-    if (mediaList.length > 0) {
-      return mediaList.slice(0, 30);
-    }
-  }
-
-  // Map keywords to optimized high-precision search queries
-  let searchQuery = cleanKeyword;
+  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video') || cleanKeyword.includes('직캠');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
 
-  // 1. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion foreign aesthetic GIFs)
+  // 1. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion moving GIFs)
   if (isVideoCategory || isForeign) {
     try {
-      const searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').trim() || 'sydney sweeney cute';
+      let searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').replace('직캠', '').trim();
+      if (!searchTarget || searchTarget === '여돌') {
+        searchTarget = 'kpop idol fancam';
+      } else if (cleanKeyword.includes('karina') || cleanKeyword.includes('wonyoung')) {
+        searchTarget = 'karina wonyoung fancam';
+      }
+
       const tenorUrl = `https://tenor.com/search/${encodeURIComponent(searchTarget)}-gifs`;
       const res = await axios.get(tenorUrl, {
         headers: {
@@ -117,10 +67,9 @@ async function searchVisualMedia(keyword = '오늘자 아이돌 공항 출국', 
               const thumbUrl = item.media_formats?.nanomp4?.url || item.media_formats?.gif?.url || item.media_formats?.tinymp4?.url;
               const titleText = item.content_description || item.title || searchTarget;
               
-              const chosenUrl = isVideoCategory ? mp4Url : (gifUrl || mp4Url);
+              const chosenUrl = isVideoCategory ? (mp4Url || gifUrl) : (gifUrl || mp4Url);
 
-              // Created date or relative tag
-              let dateStr = '연도미상';
+              let dateStr = '최신';
               if (item.created) {
                 const d = new Date(item.created * 1000);
                 if (!isNaN(d.getTime())) {
@@ -132,12 +81,12 @@ async function searchVisualMedia(keyword = '오늘자 아이돌 공항 출국', 
                 seen.add(chosenUrl);
                 mediaList.push({
                   id: 'media_v_' + Math.random().toString(36).substring(2, 9),
-                  title: `[해외 비주얼] ${titleText.substring(0, 45)}`,
+                  title: isVideoCategory ? `[MP4 직캠] ${titleText.substring(0, 45)}` : `[움짤] ${titleText.substring(0, 45)}`,
                   url: chosenUrl,
                   mediaType: isVideoCategory ? 'video' : 'gif',
                   thumbnail: thumbUrl || chosenUrl,
                   date: dateStr,
-                  source: 'Tenor Global'
+                  source: 'Tenor Video'
                 });
               }
             }
@@ -152,6 +101,9 @@ async function searchVisualMedia(keyword = '오늘자 아이돌 공항 출국', 
       return mediaList.slice(0, 30);
     }
   }
+
+  // Map keywords to optimized high-precision search queries
+  let searchQuery = cleanKeyword;
 
   // 2. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
   try {
