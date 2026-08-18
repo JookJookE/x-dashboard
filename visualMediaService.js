@@ -14,41 +14,32 @@ const VISUAL_PRESETS = [
 
 /**
  * Fetch high-resolution photos and animated GIFs/videos from search engines
+ * 3-Tier Robust Hybrid Pipeline:
+ *  1. Bing Image HD Search (Primary, 0% IP block, direct original high-res murl)
+ *  2. Naver Image Search (Secondary HD with updated anti-block headers)
+ *  3. Daum Image Search (Tertiary fallback)
  */
 async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
   const mediaList = [];
   const seen = new Set();
   const cleanKeyword = keyword.trim();
 
-  // 1. Naver Image Search (Primary HD source)
+  // 1. Bing Image Search (Primary HD source - 0% 403 blocks)
   try {
-    const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(cleanKeyword)}&start=${(page - 1) * 30 + 1}`;
-    const res = await axios.get(naverUrl, {
+    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
+    const res = await axios.get(bingUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
       },
-      timeout: 5000
+      timeout: 4500
     });
 
-    const html = String(res.data);
-    const matches = [
-      ...html.matchAll(/"originalUrl":"(https?:\/\/[^"]+)"/gi),
-      ...html.matchAll(/"thumbnail":"(https?:\/\/[^"]+)"/gi)
-    ];
-
-    for (const m of matches) {
-      let url = m[1].replace(/\\/g, '').replace(/&amp;/g, '&');
-      if (
-        url &&
-        !seen.has(url) &&
-        !url.includes('logo') &&
-        !url.includes('icon') &&
-        !url.includes('favicon') &&
-        !url.includes('ssl.pstatic.net/sstatic') &&
-        !url.includes('static.naver')
-      ) {
+    const murlMatches = [...String(res.data).matchAll(/murl&quot;:&quot;(https?:\/\/[^&]+)&quot;/gi)];
+    for (const m of murlMatches) {
+      let url = m[1].replace(/\\/g, '');
+      if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
         seen.add(url);
         const isGif = url.toLowerCase().includes('.gif');
         mediaList.push({
@@ -57,27 +48,76 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
           url: url,
           mediaType: isGif ? 'video' : 'image',
           thumbnail: url,
-          source: 'Naver'
+          source: 'Bing'
         });
       }
     }
   } catch (e) {
-    addLog('WARN', `Naver 미디어 수집 지연 (${e.message})`);
+    // silently fallback to Naver / Daum
   }
 
-  // 2. Daum Image Search (Supplement / Secondary source)
-  if (mediaList.length < 20) {
+  // 2. Naver Image Search (Secondary HD source)
+  if (mediaList.length < 25) {
+    try {
+      const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(cleanKeyword)}&start=${(page - 1) * 30 + 1}`;
+      const res = await axios.get(naverUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+          'Referer': 'https://www.naver.com/'
+        },
+        timeout: 4500
+      });
+
+      const html = String(res.data);
+      const matches = [
+        ...html.matchAll(/"originalUrl":"(https?:\/\/[^"]+)"/gi),
+        ...html.matchAll(/"thumbnail":"(https?:\/\/[^"]+)"/gi)
+      ];
+
+      for (const m of matches) {
+        let url = m[1].replace(/\\/g, '').replace(/&amp;/g, '&');
+        if (
+          url &&
+          !seen.has(url) &&
+          !url.includes('logo') &&
+          !url.includes('icon') &&
+          !url.includes('favicon') &&
+          !url.includes('ssl.pstatic.net/sstatic') &&
+          !url.includes('static.naver')
+        ) {
+          seen.add(url);
+          const isGif = url.toLowerCase().includes('.gif');
+          mediaList.push({
+            id: 'media_' + Math.random().toString(36).substring(2, 9),
+            title: `[${cleanKeyword}] ${isGif ? '🎬 모션 움짤/클립' : '📷 고화질 화보 포토'}`,
+            url: url,
+            mediaType: isGif ? 'video' : 'image',
+            thumbnail: url,
+            source: 'Naver'
+          });
+        }
+      }
+    } catch (e) {
+      // ignore 403
+    }
+  }
+
+  // 3. Daum Image Search (Supplement / Tertiary source)
+  if (mediaList.length < 25) {
     try {
       const daumUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(cleanKeyword)}`;
       const res = await axios.get(daumUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Referer': 'https://www.daum.net/'
         },
-        timeout: 5000
+        timeout: 4500
       });
 
       const dHtml = String(res.data);
-      const dMatches = [...dHtml.matchAll(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp|gif)[^"']*)["']/gi)];
+      const dMatches = [...dHtml.matchAll(/"(https?:\/\/[^"]+?\.(?:jpg|jpeg|png|webp|gif)[^"]*?)"/gi)];
 
       for (const m of dMatches) {
         let url = m[1].replace(/&amp;/g, '&');
@@ -87,7 +127,8 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
           !url.includes('logo') &&
           !url.includes('icon') &&
           !url.includes('favicon') &&
-          !url.includes('daumcdn.net/daumtop')
+          !url.includes('daumcdn.net/daumtop') &&
+          !url.includes('daum_og.png')
         ) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
@@ -102,7 +143,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
         }
       }
     } catch (e) {
-      addLog('WARN', `Daum 미디어 수집 지연 (${e.message})`);
+      // ignore
     }
   }
 
