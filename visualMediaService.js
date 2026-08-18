@@ -4,9 +4,10 @@ const { addLog } = require('./history');
 
 // Preset Visual Keyword Categories
 const VISUAL_PRESETS = [
+  { id: 'today_airport', name: '✈️ 오늘자 공항/출근길', query: '오늘자 아이돌 공항 출국' },
+  { id: 'today_fancam', name: '🔥 실시간 4K 직캠', query: '에스파 아이브 카리나 장원영 직캠 4k' },
   { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
-  { id: 'idol_fancam', name: '💃 여돌 직캠 / 움짤', query: '여돌 직캠 레전드 움짤' },
-  { id: 'video_archive', name: '🎬 직캠/핫클립 MP4 영상', query: '여돌 직캠 MP4' },
+  { id: 'idol_fancam', name: '💃 여돌 레전드 움짤', query: '여돌 직캠 레전드 움짤' },
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
   { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
@@ -19,16 +20,69 @@ const VISUAL_PRESETS = [
 /**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
  * Multi-Tier Pipeline:
+ *  0. Real-time YouTube Shorts & 4K Fancams (sp=CAISBAgDEAE%253D - This Week / Today real-time)
  *  1. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos)
  *  2. Bing Image & GIF HD Search (Primary, 0% IP block, direct original high-res murl)
  *  3. Naver Image Search (Secondary HD with anti-block headers)
  *  4. Daum Image Search (Tertiary fallback)
  */
-async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
+async function searchVisualMedia(keyword = '오늘자 아이돌 공항 출국', page = 1) {
   const mediaList = [];
   const seen = new Set();
   const cleanKeyword = keyword.trim();
+  const isRealtime = cleanKeyword.includes('오늘') || cleanKeyword.includes('실시간') || cleanKeyword.includes('공항') || cleanKeyword.includes('출국') || cleanKeyword.includes('출근길');
   const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video');
+
+  // 0. Realtime YouTube Live / This Week 4K Uploads (100% Free, zero API cost)
+  if (isRealtime) {
+    try {
+      const ytThisWeekUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanKeyword)}&sp=CAISBAgDEAE%253D`;
+      const res = await axios.get(ytThisWeekUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept-Language': 'ko-KR,ko;q=0.9'
+        },
+        timeout: 5000
+      });
+
+      const ytDataMatch = res.data.match(/var ytInitialData = ({.*?});<\/script>/);
+      if (ytDataMatch) {
+        const data = JSON.parse(ytDataMatch[1]);
+        const contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
+        
+        for (const item of contents) {
+          const v = item.videoRenderer;
+          if (v && v.videoId) {
+            const title = v.title?.runs?.[0]?.text || cleanKeyword;
+            const uploadTime = v.publishedTimeText?.simpleText || '실시간';
+            const thumbs = v.thumbnail?.thumbnails || [];
+            const thumb = thumbs[thumbs.length - 1]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+            const videoUrl = `https://www.youtube.com/watch?v=${v.videoId}`;
+            
+            if (!seen.has(thumb)) {
+              seen.add(thumb);
+              mediaList.push({
+                id: 'yt_' + v.videoId,
+                title: `[실시간] ${title}`,
+                url: thumb,
+                videoUrl: videoUrl,
+                mediaType: 'image',
+                thumbnail: thumb,
+                date: uploadTime,
+                source: 'YouTube Realtime'
+              });
+            }
+          }
+        }
+      }
+    } catch (ytErr) {
+      // fallback to Bing
+    }
+
+    if (mediaList.length > 0) {
+      return mediaList.slice(0, 30);
+    }
+  }
 
   // Map keywords to optimized high-precision search queries
   let searchQuery = cleanKeyword;
