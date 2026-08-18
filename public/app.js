@@ -2655,16 +2655,18 @@ function downloadActiveVisualMedia() {
   }
 
   const mediaUrl = selectedVisualMedia.url;
-  const isGif = mediaUrl.toLowerCase().includes('.gif');
-  const isMp4 = mediaUrl.toLowerCase().includes('.mp4');
-  const ext = isMp4 ? '.mp4' : (isGif ? '.gif' : '.jpg');
-  const filename = `x_media_${Date.now()}${ext}`;
-
-  // Fetch via proxy to bypass CORS and download file
   showToast('💾 미디어 파일을 다운로드하는 중...');
+
   fetch(`/api/proxy-image?url=${encodeURIComponent(mediaUrl)}`)
     .then(res => res.blob())
     .then(blob => {
+      let ext = '.jpg';
+      if (blob.type.includes('gif') || mediaUrl.toLowerCase().includes('.gif')) ext = '.gif';
+      else if (blob.type.includes('png')) ext = '.png';
+      else if (blob.type.includes('webp')) ext = '.webp';
+      else if (blob.type.includes('mp4') || mediaUrl.toLowerCase().includes('.mp4')) ext = '.mp4';
+      
+      const filename = `x_media_${Date.now()}${ext}`;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -2673,10 +2675,9 @@ function downloadActiveVisualMedia() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      showToast('✅ 미디어 다운로드 완료! X에 바로 첨부하세요.');
+      showToast(`✅ 미디어 다운로드 완료 (${ext.toUpperCase()})! X에 바로 첨부하세요.`);
     })
     .catch(() => {
-      // Fallback: open directly in new tab
       window.open(mediaUrl, '_blank');
     });
 }
