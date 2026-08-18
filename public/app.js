@@ -2726,59 +2726,42 @@ async function downloadActiveVisualMedia() {
   }
 
   const mediaUrl = selectedVisualMedia.url;
-  const mediaTitle = selectedVisualMedia.title || 'x_media';
-  showToast('💾 바탕화면 전용 폴더(X_Media_Downloads)에 저장 중...');
+  const rawTitle = selectedVisualMedia.title || 'x_media';
+  const cleanTitle = rawTitle.replace(/\[.*?\]/g, '').replace(/[\/\\:*?"<>|]/g, '').trim() || 'viral_media';
+  
+  showToast('💾 사용자 PC로 미디어를 다운로드하는 중...');
 
   try {
-    const res = await fetch('/api/save-media-to-desktop', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: mediaUrl, title: mediaTitle })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast(`✅ 바탕화면 [X_Media_Downloads] 폴더에 저장 완료! (${data.filename})`);
-      return;
-    }
-  } catch (e) {
-    // fallback to browser download
-  }
+    const res = await fetch(mediaUrl.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(mediaUrl)}` : mediaUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    
+    let ext = '.jpg';
+    if (blob.type.includes('gif') || mediaUrl.toLowerCase().includes('.gif')) ext = '.gif';
+    else if (blob.type.includes('png')) ext = '.png';
+    else if (blob.type.includes('webp')) ext = '.webp';
+    else if (blob.type.includes('mp4') || mediaUrl.toLowerCase().includes('.mp4')) ext = '.mp4';
 
-  // Browser Fallback Download
-  fetch(`/api/proxy-image?url=${encodeURIComponent(mediaUrl)}`)
-    .then(res => res.blob())
-    .then(blob => {
-      let ext = '.jpg';
-      if (blob.type.includes('gif') || mediaUrl.toLowerCase().includes('.gif')) ext = '.gif';
-      else if (blob.type.includes('png')) ext = '.png';
-      else if (blob.type.includes('webp')) ext = '.webp';
-      else if (blob.type.includes('mp4') || mediaUrl.toLowerCase().includes('.mp4')) ext = '.mp4';
-      
-      const filename = `x_media_${Date.now()}${ext}`;
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      showToast(`✅ 미디어 다운로드 완료 (${ext.toUpperCase()})!`);
-    })
-    .catch(() => {
-      window.open(mediaUrl, '_blank');
-    });
-}
-
-async function openDesktopMediaFolder() {
-  try {
-    const res = await fetch('/api/open-desktop-folder', { method: 'POST' });
-    const data = await res.json();
-    if (data.success) {
-      showToast('📂 바탕화면 [X_Media_Downloads] 다운로드 폴더가 열렸습니다!');
-    }
-  } catch (e) {
-    showToast('⚠️ 폴더 열기 오류');
+    const filename = `${cleanTitle}_${Date.now()}${ext}`;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast(`✅ 내 PC 다운로드 완료 (${ext.toUpperCase()})!`);
+  } catch (err) {
+    // Direct link fallback
+    const a = document.createElement('a');
+    a.href = mediaUrl;
+    a.target = '_blank';
+    a.download = 'media_download';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('✅ 미디어 다운로드 창을 열었습니다.');
   }
 }
 
