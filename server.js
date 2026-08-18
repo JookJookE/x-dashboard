@@ -812,6 +812,12 @@ app.post('/api/save-media-to-desktop', async (req, res) => {
     fs.writeFileSync(targetFile, mediaRes.data);
     addLog('SUCCESS', `💾 바탕화면 전용 폴더 저장 완료: ${filename}`);
 
+    // Automatically open/reveal the saved file in Windows Explorer
+    const { exec } = require('child_process');
+    try {
+      exec(`explorer.exe /select,"${targetFile}"`);
+    } catch (openErr) {}
+
     res.json({
       success: true,
       filename,
