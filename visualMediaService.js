@@ -36,21 +36,32 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
       timeout: 4500
     });
 
-    const murlMatches = [...String(res.data).matchAll(/murl&quot;:&quot;(https?:\/\/[^&]+)&quot;/gi)];
+    const murlMatches = [
+      ...String(res.data).matchAll(/class="iusc"[^>]*m="([^"]+)"/gi),
+      ...String(res.data).matchAll(/m="(\{[^"]+\})"/gi)
+    ];
+
     for (const m of murlMatches) {
-      let url = m[1].replace(/\\/g, '');
-      if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
-        seen.add(url);
-        const isGif = url.toLowerCase().includes('.gif');
-        mediaList.push({
-          id: 'media_' + Math.random().toString(36).substring(2, 9),
-          title: `[${cleanKeyword}] ${isGif ? '🎬 모션 움짤/클립' : '📷 고화질 화보 포토'}`,
-          url: url,
-          mediaType: isGif ? 'video' : 'image',
-          thumbnail: url,
-          source: 'Bing'
-        });
-      }
+      try {
+        const rawJson = m[1].replace(/&quot;/g, '"');
+        const data = JSON.parse(rawJson);
+        const url = data.murl ? data.murl.replace(/\\/g, '') : '';
+        const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
+
+        if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
+          seen.add(url);
+          const isGif = url.toLowerCase().includes('.gif');
+          const finalTitle = titleText && titleText.length > 2 ? titleText : cleanKeyword;
+          mediaList.push({
+            id: 'media_' + Math.random().toString(36).substring(2, 9),
+            title: `[${cleanKeyword}] ${finalTitle}`,
+            url: url,
+            mediaType: isGif ? 'video' : 'image',
+            thumbnail: url,
+            source: 'Bing'
+          });
+        }
+      } catch (e) {}
     }
   } catch (e) {
     // silently fallback to Naver / Daum
@@ -91,7 +102,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
           const isGif = url.toLowerCase().includes('.gif');
           mediaList.push({
             id: 'media_' + Math.random().toString(36).substring(2, 9),
-            title: `[${cleanKeyword}] ${isGif ? '🎬 모션 움짤/클립' : '📷 고화질 화보 포토'}`,
+            title: `[${cleanKeyword}] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
             url: url,
             mediaType: isGif ? 'video' : 'image',
             thumbnail: url,
@@ -134,7 +145,7 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
           const isGif = url.toLowerCase().includes('.gif');
           mediaList.push({
             id: 'media_' + Math.random().toString(36).substring(2, 9),
-            title: `[${cleanKeyword}] ${isGif ? '🎬 모션 움짤/클립' : '📷 고화질 화보 포토'}`,
+            title: `[${cleanKeyword}] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
             url: url,
             mediaType: isGif ? 'video' : 'image',
             thumbnail: url,
@@ -183,7 +194,7 @@ async function generateVisualTweet(titleOrTopic = '코스프레 화보', style =
   if (apiKey) {
     const promptText = `
 당신은 X(트위터)에서 수많은 리트윗과 북마크를 이끌어내는 탑티어 인플루언서입니다.
-아래 비주얼 포토/영상 테마를 바탕으로, 타임라인에서 시선을 강탈하는 **진짜 사람이 쓴 것 같은 매력적인 한글 바이럴 트윗**을 작성하세요.
+아래 비주얼 포토/영상 테마와 제목 정보를 바탕으로, 타임라인에서 시선을 강탈하는 **진짜 사람이 쓴 것 같은 매력적인 한글 바이럴 트윗**을 작성하세요.
 
 [미디어 주제/제목]: ${titleOrTopic}
 
@@ -191,10 +202,11 @@ async function generateVisualTweet(titleOrTopic = '코스프레 화보', style =
 ${styleInstruction}
 
 🚨 [필수 작성 규칙]:
-1. ❌ "🔹", "🧠", "💡", "1️⃣", "2️⃣" 같은 기계적인 AI 요약 기호나 딱딱한 설명문은 100% 절대 금지합니다.
-2. ⭕ 진짜 트위터 유저가 폰으로 방금 보고 홀려서 쓴 것처럼 자연스러운 줄바꿈과 찰진 구어체로 1~3줄 작성하세요.
-3. 끝에 어울리는 이모지 1~2개와 해시태그 1~2개를 자연스럽게 붙이세요.
-4. 오직 완성된 트윗 문구만 출력하세요. (따옴표나 설명 금지)
+1. ⭐ **인물/연예인/인플루언서 이름 필수 포함**: 사진이나 제목에 언급된 인물이 아이돌, 배우, 모델, 치어리더, 인플루언서 등 유명인이거나 이름을 유추할 수 있다면, 반드시 트윗 본문이나 해시태그에 해당 인물의 이름(예: 장원영, 카리나, 오해원, 신유빈, 하지원 등)을 자연스럽게 콕 집어 언급하세요!
+2. ❌ "🔹", "🧠", "💡", "1️⃣", "2️⃣" 같은 기계적인 AI 요약 기호나 딱딱한 설명문은 100% 절대 금지합니다.
+3. ⭕ 진짜 트위터 유저가 폰으로 방금 보고 홀려서 쓴 것처럼 자연스러운 줄바꿈과 찰진 구어체로 1~3줄 작성하세요.
+4. 끝에 어울리는 이모지 1~2개와 인물명/키워드 해시태그 1~3개(예: #아이돌이름 #직캠 #화보)를 자연스럽게 붙이세요.
+5. 오직 완성된 트윗 문구만 출력하세요. (따옴표나 부가 설명 금지)
 `;
 
     const modelsToTry = [
