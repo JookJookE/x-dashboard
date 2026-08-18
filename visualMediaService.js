@@ -2,9 +2,11 @@ const axios = require('axios');
 const { getConfig } = require('./config');
 const { addLog } = require('./history');
 
-// Preset Visual Keyword Categories
+// Preset Visual Keyword Categories (Including Official Broadcast / Curator Channels)
 const VISUAL_PRESETS = [
   { id: 'video_archive', name: '🎬 직캠 MP4 영상', query: '여돌 직캠 MP4' },
+  { id: 'official_curator', name: '💎 M2/스튜디오춤 4K 직캠', query: 'Mnet M2 STUDIO CHOOM 직캠 4k' },
+  { id: 'broadcast_fancam', name: '🌟 음방/현장 직캠 핫클립', query: 'KBS SBS MBC Kpop 직캠 핫클립' },
   { id: 'idol_fancam', name: '💃 여돌 레전드 움짤', query: '여돌 직캠 레전드 움짤' },
   { id: 'cosplay', name: '👙 코스프레 / 화보', query: '코스프레 화보' },
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
@@ -17,8 +19,90 @@ const VISUAL_PRESETS = [
 ];
 
 /**
+ * Direct Social Media Link Parser:
+ * Extracts highest quality MP4 video / HD image, title, and date from any direct URL
+ */
+async function parseDirectSnsUrl(url) {
+  const cleanUrl = url.trim();
+
+  // 1. X / Twitter Tweet URL
+  if (cleanUrl.includes('x.com/') || cleanUrl.includes('twitter.com/')) {
+    const tweetMatch = cleanUrl.match(/status\/(\d+)/);
+    if (tweetMatch) {
+      const tweetId = tweetMatch[1];
+      try {
+        const fxUrl = `https://api.fxtwitter.com/status/${tweetId}`;
+        const res = await axios.get(fxUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          timeout: 5000
+        });
+        const tweet = res.data?.tweet;
+        if (tweet) {
+          const author = tweet.author?.name || tweet.author?.screen_name || 'X User';
+          const text = tweet.text || '';
+          const video = tweet.media?.videos?.[0];
+          const photo = tweet.media?.photos?.[0];
+          const mediaUrl = video?.url || photo?.url || '';
+          const isVideo = !!video;
+          
+          return {
+            id: 'x_' + tweetId,
+            title: `[X @${tweet.author?.screen_name || 'tweet'}] ${text.substring(0, 45)}`,
+            url: mediaUrl,
+            mediaType: isVideo ? 'video' : 'image',
+            thumbnail: video?.thumbnail_url || photo?.url || mediaUrl,
+            date: tweet.created_at || '최신',
+            source: 'X (Twitter)',
+            rawText: text
+          };
+        }
+      } catch (e) {}
+    }
+  }
+
+  // 2. YouTube / Shorts URL
+  if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
+    let videoId = '';
+    const vMatch = cleanUrl.match(/[?&]v=([^&#]+)/) || cleanUrl.match(/youtu\.be\/([^?&#]+)/) || cleanUrl.match(/shorts\/([^?&#]+)/);
+    if (vMatch) videoId = vMatch[1];
+
+    if (videoId) {
+      const thumb = `https://i.ytimg.com/vi/${videoId}/hq720.jpg`;
+      return {
+        id: 'yt_' + videoId,
+        title: `[YouTube 영상] ID: ${videoId}`,
+        url: thumb,
+        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        mediaType: 'image',
+        thumbnail: thumb,
+        date: '최신',
+        source: 'YouTube'
+      };
+    }
+  }
+
+  // 3. Direct Image / Video URL
+  if (cleanUrl.startsWith('http')) {
+    const isVideo = cleanUrl.toLowerCase().includes('.mp4') || cleanUrl.toLowerCase().includes('.webm');
+    const isGif = cleanUrl.toLowerCase().includes('.gif');
+    return {
+      id: 'direct_' + Date.now(),
+      title: `[직접 링크] ${cleanUrl.substring(0, 40)}`,
+      url: cleanUrl,
+      mediaType: isVideo ? 'video' : (isGif ? 'gif' : 'image'),
+      thumbnail: cleanUrl,
+      date: '직접 입력',
+      source: 'Direct Link'
+    };
+  }
+
+  return null;
+}
+
+/**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
  * Multi-Tier Pipeline:
+ *  0. Direct SNS URL Parser (X/Twitter, YouTube, Direct Links)
  *  1. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos & moving gifs)
  *  2. Bing Image & GIF HD Search (Primary, 0% IP block, direct original high-res murl)
  *  3. Naver Image Search (Secondary HD with anti-block headers)
@@ -28,7 +112,16 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   const mediaList = [];
   const seen = new Set();
   const cleanKeyword = keyword.trim();
-  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video') || cleanKeyword.includes('직캠');
+
+  // 0. Direct URL Check
+  if (cleanKeyword.startsWith('http://') || cleanKeyword.startsWith('https://')) {
+    const directResult = await parseDirectSnsUrl(cleanKeyword);
+    if (directResult) {
+      return [directResult];
+    }
+  }
+
+  const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video') || cleanKeyword.includes('직캠') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('M2');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
 
   // 1. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion moving GIFs)
