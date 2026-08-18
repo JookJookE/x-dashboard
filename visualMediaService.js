@@ -10,7 +10,10 @@ const VISUAL_PRESETS = [
   { id: 'influencer', name: '✨ 모델 / 인플루언서', query: '인스타 모델 비주얼 화보' },
   { id: 'swimwear', name: '🌊 수영복 / 비키니', query: '수영복 모델 화보' },
   { id: 'racing_cheer', name: '🏎️ 레이싱모델 / 치어리더', query: '레이싱모델 치어리더 화보' },
-  { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '일본 모델 화보' }
+  { id: 'gravure', name: '🌸 그라비아 / 룩북', query: '일본 모델 화보' },
+  { id: 'western_model', name: '🌍 외국/서양 모델 화보', query: '서양 모델 화보 photoshoot' },
+  { id: 'hollywood_celeb', name: '👱‍♀️ 할리우드/해외 셀럽', query: '할리우드 여배우 레드카펫 화보' },
+  { id: 'global_video', name: '🎬 해외 핫클립 MP4', query: 'foreign model dance MP4' }
 ];
 
 /**
@@ -498,6 +501,10 @@ function getSuggestedTags(topic = '', isPast = false, year = null) {
     baseTags.push('#레이싱모델', '#치어리더', '#직캠', '#핫클립');
   } else if (t.includes('그라비아') || t.includes('룩북') || t.includes('일본')) {
     baseTags.push('#룩북', '#그라비아', '#화보', '#스타일');
+  } else if (t.includes('서양') || t.includes('외국') || t.includes('photoshoot')) {
+    baseTags.push('#외국모델', '#서양모델', '#photoshoot', '#비주얼', '#화보');
+  } else if (t.includes('할리우드') || t.includes('셀럽') || t.includes('여배우')) {
+    baseTags.push('#할리우드', '#해외셀럽', '#레드카펫', '#비주얼', '#여배우');
   } else {
     baseTags.push('#비주얼', '#화보', '#모델', '#인플루언서');
   }
