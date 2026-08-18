@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
   initTabs();
   initCategoryFilters();
+  toggleJookLifeMenu();
   loadArticles();
   loadLogs();
   loadStatus();
@@ -332,6 +333,13 @@ async function markAllArticlesAsRead() {
 }
 
 function switchTab(tabId) {
+  if (tabId === 'visual-media') {
+    const checkbox = document.getElementById('jook-life-toggle-checkbox');
+    if (!checkbox || !checkbox.checked) {
+      switchTab('dashboard');
+      return;
+    }
+  }
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
 
@@ -2674,21 +2682,31 @@ function toggleJookLifeMenu() {
   const commStat1 = document.getElementById('dashboard-comm-stat-1');
   const commStat2 = document.getElementById('dashboard-comm-stat-2');
   const commSection = document.getElementById('dashboard-comm-section');
+  const commPills = document.getElementById('dashboard-comm-pills');
   const visualMediaTab = document.getElementById('tab-visual-media');
   
-  const isChecked = checkbox ? checkbox.checked : true;
+  const isChecked = checkbox ? checkbox.checked : false;
   const displayStyle = isChecked ? '' : 'none';
 
   if (menu) menu.style.display = displayStyle;
   if (commStat1) commStat1.style.display = displayStyle;
   if (commStat2) commStat2.style.display = displayStyle;
   if (commSection) commSection.style.display = displayStyle;
+  if (commPills) commPills.style.display = isChecked ? 'inline-flex' : 'none';
   
-  // If toggled off, make sure visual media tab is hidden and switch to dashboard if needed
+  // If toggled off, ensure visual media tab is completely hidden and return to dashboard if needed
   if (!isChecked) {
-    if (visualMediaTab && visualMediaTab.classList.contains('active')) {
-      const dashboardBtn = document.querySelector('.nav-item[data-tab="dashboard"]');
-      if (dashboardBtn) dashboardBtn.click();
+    if (visualMediaTab) {
+      visualMediaTab.style.display = 'none';
+      visualMediaTab.classList.remove('active');
+    }
+    const currentActiveTab = document.querySelector('.tab-content.active');
+    if (currentActiveTab && currentActiveTab.id === 'tab-visual-media') {
+      switchTab('dashboard');
+    }
+  } else {
+    if (visualMediaTab) {
+      visualMediaTab.style.display = '';
     }
   }
 }
