@@ -113,12 +113,23 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
         const url = data.murl ? data.murl.replace(/\\/g, '') : '';
         const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
 
-        // Extract exact upload year and month from URL path or description
+        // Extract exact upload year and month from URL path, page link, or description using 5-tier regex
         let dateStr = '연도미상';
-        const urlForDate = `${url} ${data.purl || ''} ${data.desc || ''}`;
-        const dateMatch = urlForDate.match(/\b(201[5-9]|202[0-6])[\/\.\-_](\d{1,2})\b/);
-        if (dateMatch) {
-          dateStr = `${dateMatch[1]}.${dateMatch[2].padStart(2, '0')}`;
+        const textToSearch = `${url} ${data.purl || ''} ${data.desc || ''} ${data.t || ''}`;
+        
+        const match1 = textToSearch.match(/\b(201\d|202\d)[\/\.\-_](\d{1,2})\b/);
+        const match2 = textToSearch.match(/\b(201\d|202\d)(\d{2})(\d{2})\b/);
+        const match3 = textToSearch.match(/\b(201\d|202\d)년\s*(\d{1,2})?월?/);
+        const match4 = textToSearch.match(/\b(201[5-9]|202[0-6])\b/);
+
+        if (match1) {
+          dateStr = `${match1[1]}.${match1[2].padStart(2, '0')}`;
+        } else if (match2 && parseInt(match2[2]) >= 1 && parseInt(match2[2]) <= 12) {
+          dateStr = `${match2[1]}.${match2[2]}`;
+        } else if (match3) {
+          dateStr = match3[2] ? `${match3[1]}.${match3[2].padStart(2, '0')}` : `${match3[1]}`;
+        } else if (match4) {
+          dateStr = `${match4[1]}`;
         }
 
         if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
@@ -176,9 +187,15 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
           const isGif = url.toLowerCase().includes('.gif');
 
           let dateStr = '연도미상';
-          const dateMatch = url.match(/\b(201[5-9]|202[0-6])[\/\.\-_](\d{1,2})\b/);
-          if (dateMatch) {
-            dateStr = `${dateMatch[1]}.${dateMatch[2].padStart(2, '0')}`;
+          const match1 = url.match(/\b(201\d|202\d)[\/\.\-_](\d{1,2})\b/);
+          const match2 = url.match(/\b(201\d|202\d)(\d{2})(\d{2})\b/);
+          const match3 = url.match(/\b(201[5-9]|202[0-6])\b/);
+          if (match1) {
+            dateStr = `${match1[1]}.${match1[2].padStart(2, '0')}`;
+          } else if (match2 && parseInt(match2[2]) >= 1 && parseInt(match2[2]) <= 12) {
+            dateStr = `${match2[1]}.${match2[2]}`;
+          } else if (match3) {
+            dateStr = `${match3[1]}`;
           }
 
           mediaList.push({
