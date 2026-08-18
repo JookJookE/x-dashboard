@@ -30,15 +30,27 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
   const cleanKeyword = keyword.trim();
   const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('영상') || cleanKeyword.includes('video');
 
+  // Map keywords to optimized high-precision search queries
+  let searchQuery = cleanKeyword;
+  const isForeign = cleanKeyword.includes('서양') || cleanKeyword.includes('외국') || cleanKeyword.includes('할리우드') || cleanKeyword.includes('foreign');
+  
+  if (cleanKeyword.includes('서양') || cleanKeyword.includes('외국 모델')) {
+    searchQuery = 'caucasian fashion model photoshoot high fashion';
+  } else if (cleanKeyword.includes('할리우드') || cleanKeyword.includes('해외셀럽')) {
+    searchQuery = 'hollywood actress celebrity red carpet glamour';
+  } else if (cleanKeyword.includes('foreign') && cleanKeyword.includes('MP4')) {
+    searchQuery = 'model dance viral';
+  }
+
   // 1. Tenor MP4 Direct Video Search (For pure MP4 video streaming and direct file download)
   if (isVideoCategory) {
     try {
-      const searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').trim() || '여돌 직캠';
+      const searchTarget = isForeign ? 'model dance' : (cleanKeyword.replace('MP4', '').replace('영상', '').trim() || '여돌 직캠');
       const tenorUrl = `https://tenor.com/search/${encodeURIComponent(searchTarget)}-gifs`;
       const res = await axios.get(tenorUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
+          'Accept-Language': isForeign ? 'en-US,en;q=0.9' : 'ko-KR,ko;q=0.9,en-US;q=0.8'
         },
         timeout: 5000
       });
@@ -94,12 +106,12 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
 
   // 2. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
   try {
-    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
+    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(searchQuery)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
     const res = await axios.get(bingUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
+        'Accept-Language': isForeign ? 'en-US,en;q=0.9' : 'ko-KR,ko;q=0.9,en-US;q=0.8'
       },
       timeout: 4500
     });
@@ -155,8 +167,8 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     // silently fallback to Naver / Daum
   }
 
-  // 3. Naver Image Search (Secondary HD source)
-  if (mediaList.length < 25) {
+  // 3. Naver Image Search (Secondary HD source - only for domestic queries)
+  if (!isForeign && mediaList.length < 25) {
     try {
       const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(cleanKeyword)}&start=${(page - 1) * 30 + 1}`;
       const res = await axios.get(naverUrl, {
@@ -217,8 +229,8 @@ async function searchVisualMedia(keyword = '코스프레 화보', page = 1) {
     }
   }
 
-  // 4. Daum Image Search (Supplement / Tertiary source)
-  if (mediaList.length < 25) {
+  // 4. Daum Image Search (Supplement / Tertiary source - domestic only)
+  if (!isForeign && mediaList.length < 25) {
     try {
       const daumUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(cleanKeyword)}`;
       const res = await axios.get(daumUrl, {
