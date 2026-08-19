@@ -48,9 +48,13 @@ async function sendTelegramCardWithButtons(imagePath, caption, article) {
   const imageBuffer = fs.readFileSync(imagePath);
   const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2)}`;
 
-  // Direct 1-Click X Web Intent URL
-  const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(caption)}`;
-  const articleUrl = article.link || article.url || 'https://x.com';
+  // Direct 1-Click X Web Intent URL (Includes article URL for auto photo preview card)
+  const articleUrl = article.link || article.url || '';
+  let tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(caption)}`;
+  if (articleUrl && !articleUrl.includes('heisenberg.kr/wp-json')) {
+    tweetIntentUrl += `&url=${encodeURIComponent(articleUrl)}`;
+  }
+
 
   const inlineKeyboard = {
     inline_keyboard: [
