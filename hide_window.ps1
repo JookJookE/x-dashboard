@@ -21,14 +21,16 @@ using System.Runtime.InteropServices;
 public class WinUtil {
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")]
+    public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 }
 "@
 Add-Type -TypeDefinition $code
-
-$hwnd = [WinUtil]::GetConsoleWindow()
-
-if ($hwnd -ne [IntPtr]::Zero) {
+$hwnd = [WinUtil]::FindWindow($null, "X Tweet Generator Server")
+if ($hwnd -eq [IntPtr]::Zero) {
+    $p = Get-Process -Name cmd -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like "*X Tweet Generator Server*" }
+    if ($p) { $hwnd = $p.MainWindowHandle }
+}
+if ($hwnd -and $hwnd -ne [IntPtr]::Zero) {
     [WinUtil]::ShowWindow($hwnd, 0)
 }
