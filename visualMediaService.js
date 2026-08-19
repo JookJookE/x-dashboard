@@ -97,59 +97,111 @@ async function parseDirectSnsUrl(url) {
 }
 
 /**
- * [더쿠 전용 스마트 바이패스 수집 엔진]
- * Cloudflare 봇 방화벽을 우회하여 더쿠(theqoo.net) 핫게시판/스퀘어에 등록된 실시간 아이돌 짤/움짤을 100% 수집
+ * [더쿠 전용 스마트 대량 수집 & 날짜 정밀 추출 엔진]
+ * Cloudflare 봇 방화벽을 우회하여 더쿠(theqoo.net) 핫게시판/스퀘어/연예의 실시간 아이돌 짤/움짤을 대량 수집
  * @param {string} keyword
  * @returns {Promise<Array>}
  */
 async function fetchTheqooMedia(keyword = '아이돌') {
   const results = [];
   const seen = new Set();
-  const cleanKw = keyword.replace('더쿠', '').replace('핫게', '').trim() || '아이돌';
+  const cleanKw = keyword.replace('더쿠', '').replace('핫게', '').replace('픽', '').trim() || '아이돌';
 
-  // 1. Bing Theqoo Index Parser (Cloudflare 0% 차단 우회)
+  // 4종 다중 타겟 쿼리로 대량 수집
+  const queries = [
+    `site:theqoo.net ${cleanKw} 핫게`,
+    `site:theqoo.net/square ${cleanKw} 짤 OR 화보 OR 직캠`,
+    `site:theqoo.net ${cleanKw} 움짤 OR 비주얼`,
+    `site:theqoo.net/hot ${cleanKw}`
+  ];
+
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
+  };
+
+  const fetchTasks = [];
+  for (const q of queries) {
+    // 1페이지 및 2페이지 병렬 조회
+    for (const first of [1, 35]) {
+      const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(q)}&form=HDRSC2&first=${first}`;
+      fetchTasks.push(
+        axios.get(bingUrl, { headers, timeout: 5000 })
+          .then(res => String(res.data))
+          .catch(() => '')
+      );
+    }
+  }
+
   try {
-    const theqooSearchQuery = `site:theqoo.net ${cleanKw} 핫게`;
-    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(theqooSearchQuery)}&form=HDRSC2&first=1`;
-    const res = await axios.get(bingUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
-      },
-      timeout: 5000
-    });
+    const htmlList = await Promise.all(fetchTasks);
 
-    const murlMatches = [
-      ...String(res.data).matchAll(/class="iusc"[^>]*m="([^"]+)"/gi),
-      ...String(res.data).matchAll(/m="(\{[^"]+\})"/gi)
-    ];
+    for (const html of htmlList) {
+      if (!html) continue;
 
-    for (const m of murlMatches) {
-      try {
-        const rawJson = m[1].replace(/&quot;/g, '"');
-        const data = JSON.parse(rawJson);
-        const url = data.murl ? data.murl.replace(/\\/g, '') : '';
-        const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
+      const murlMatches = [
+        ...html.matchAll(/class="iusc"[^>]*m="([^"]+)"/gi),
+        ...html.matchAll(/m="({[^"]+})"/gi)
+      ];
 
-        if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
-          seen.add(url);
-          const isGif = url.toLowerCase().includes('.gif');
-          const finalTitle = titleText && titleText.length > 2 ? titleText : `[더쿠 핫게] ${cleanKw}`;
-          const now = new Date();
-          const timeStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          results.push({
-            id: 'theqoo_' + Math.random().toString(36).substring(2, 9),
-            title: `[더쿠 핫게] ${finalTitle.substring(0, 45)}`,
-            url: url,
-            mediaType: isGif ? 'gif' : 'image',
-            thumbnail: url,
-            date: timeStr,
-            source: '더쿠'
-          });
-          if (results.length >= 25) break;
-        }
-      } catch (e) {}
+      for (const m of murlMatches) {
+        try {
+          const rawJson = m[1].replace(/&quot;/g, '"');
+          const data = JSON.parse(rawJson);
+          const url = data.murl ? data.murl.replace(/\\/g, '') : '';
+          const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
+          const purl = data.purl || '';
+
+          if (
+            url &&
+            !seen.has(url) &&
+            !url.includes('logo') &&
+            !url.includes('icon') &&
+            !url.includes('favicon') &&
+            !url.includes('avatar') &&
+            !url.includes('banner')
+          ) {
+            seen.add(url);
+            const isGif = url.toLowerCase().includes('.gif');
+            const finalTitle = titleText && titleText.length > 2 ? titleText : `[더쿠 핫게] ${cleanKw}`;
+
+            // 📅 정밀 날짜 파싱 (URL, purl, 제목, 설명문에서 실제 등록일자 추출)
+            const textToSearch = `${url} ${purl} ${data.desc || ''} ${data.t || ''}`;
+            let dateStr = '모름';
+
+            const matchDate = textToSearch.match(/\b(202[2-6]|201\d)[\/\.\-_](0?[1-9]|1[0-2])[\/\.\-_](0?[1-9]|[12]\d|3[01])\b/);
+            const matchYearMonth = textToSearch.match(/\b(202[2-6]|201\d)[\/\.\-_](0?[1-9]|1[0-2])\b/);
+            const matchYear = textToSearch.match(/\b(202[2-6]|201[7-9])\b/);
+
+            if (matchDate) {
+              const y = matchDate[1];
+              const m = matchDate[2].padStart(2, '0');
+              const d = matchDate[3].padStart(2, '0');
+              dateStr = `${y}.${m}.${d}`;
+            } else if (matchYearMonth) {
+              const y = matchYearMonth[1];
+              const m = matchYearMonth[2].padStart(2, '0');
+              dateStr = `${y}.${m}`;
+            } else if (matchYear) {
+              dateStr = `${matchYear[1]}`;
+            }
+
+            results.push({
+              id: 'theqoo_' + Math.random().toString(36).substring(2, 9),
+              title: `[더쿠 핫게] ${finalTitle.substring(0, 50)}`,
+              url: url,
+              mediaType: isGif ? 'gif' : 'image',
+              thumbnail: url,
+              date: dateStr,
+              source: '더쿠'
+            });
+
+            if (results.length >= 80) break;
+          }
+        } catch (e) {}
+      }
+      if (results.length >= 80) break;
     }
   } catch (e) {}
 
