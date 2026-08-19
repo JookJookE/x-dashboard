@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const iconv = require('iconv-lite');
 
 let sharp = null;
 try {
@@ -22,6 +23,92 @@ function escapeXml(unsafe) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/**
+ * Actively extract real image URL from article links (Google News redirects, Nate Pann, Blind, Naver, Hankyung, etc.)
+ */
+async function resolveArticleImageUrl(article) {
+  if (article.imageUrl && article.imageUrl.startsWith('http')) {
+    const lower = article.imageUrl.toLowerCase();
+    if (!lower.includes('logo') && !lower.includes('icon') && !lower.includes('avatar') && !lower.includes('banner')) {
+      return article.imageUrl;
+    }
+  }
+
+  let targetUrl = article.link || article.url || '';
+  if (!targetUrl) return null;
+
+  try {
+    // 1. Resolve Google redirect link if needed
+    if (targetUrl.includes('news.google.com')) {
+      try {
+        const gRes = await axios.get(targetUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 4000,
+          maxRedirects: 5
+        });
+        if (gRes.request?.res?.responseUrl && !gRes.request.res.responseUrl.includes('news.google.com')) {
+          targetUrl = gRes.request.res.responseUrl;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fetch direct webpage
+    if (targetUrl && !targetUrl.includes('news.google.com')) {
+      const directRes = await axios.get(targetUrl, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/*,*/*;q=0.8'
+        },
+        timeout: 6000,
+        responseType: 'arraybuffer'
+      });
+
+      let dHtml = directRes.data.toString('utf-8');
+      if (dHtml.toLowerCase().includes('charset=euc-kr')) {
+        dHtml = iconv.decode(directRes.data, 'EUC-KR');
+      }
+
+      // Meta og:image & twitter:image
+      const ogMatches = [
+        ...dHtml.matchAll(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/gi),
+        ...dHtml.matchAll(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/gi),
+        ...dHtml.matchAll(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/gi),
+        ...dHtml.matchAll(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/gi)
+      ];
+
+      for (const og of ogMatches) {
+        if (og && og[1]) {
+          let photo = og[1].replace(/&amp;/g, '&').trim();
+          if (photo.startsWith('//')) photo = 'https:' + photo;
+          const pLower = photo.toLowerCase();
+          if (!pLower.includes('logo') && !pLower.includes('icon') && !pLower.includes('avatar') && !pLower.includes('banner')) {
+            return photo;
+          }
+        }
+      }
+
+      // Body <img> tags
+      const imgMatches = [...dHtml.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)];
+      for (const im of imgMatches) {
+        let photo = im[1].replace(/&amp;/g, '&').trim();
+        if (photo.startsWith('//')) photo = 'https:' + photo;
+        if (photo.startsWith('http')) {
+          const pLower = photo.toLowerCase();
+          if (pLower.includes('.jpg') || pLower.includes('.jpeg') || pLower.includes('.png') || pLower.includes('.webp')) {
+            if (!pLower.includes('logo') && !pLower.includes('icon') && !pLower.includes('avatar') && !pLower.includes('banner') && !pLower.includes('btn') && !pLower.includes('ad_')) {
+              return photo;
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Silent on network error, fallback to title mode
+  }
+
+  return null;
 }
 
 /**
@@ -106,10 +193,14 @@ async function generateCardNewsImage(article) {
     day: 'numeric'
   });
 
-  // 1. Check article image
+  // 1. Actively resolve article image URL from metadata or source webpage
+  const finalImageUrl = await resolveArticleImageUrl(article);
   let imgData = null;
-  if (article.imageUrl && article.imageUrl.startsWith('http')) {
-    imgData = await fetchImageData(article.imageUrl);
+  if (finalImageUrl) {
+    imgData = await fetchImageData(finalImageUrl);
+    if (imgData) {
+      article.imageUrl = finalImageUrl; // Cache resolved image URL
+    }
   }
 
   const hasPhoto = Boolean(imgData);
@@ -214,5 +305,6 @@ async function generateCardNewsImage(article) {
 
 module.exports = {
   generateCardNewsImage,
-  fetchImageData
+  fetchImageData,
+  resolveArticleImageUrl
 };
