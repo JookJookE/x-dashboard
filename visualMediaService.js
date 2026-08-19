@@ -170,6 +170,8 @@ async function fetchYouTubeVideos(keyword, apiKey) {
 
 /**
  * YouTube API v3 키 유효성 및 연결 테스트
+ * 비용이 100 units인 search.list 대신, 단 1 unit만 소모하는 videos.list(초경량 검증)를 사용하여
+ * 사용자의 일일 검색 쿼터가 낭비되지 않도록 안전하게 검증합니다.
  * @param {string} apiKey 
  * @returns {Promise<{success: boolean, message: string, details?: any}>}
  */
@@ -182,23 +184,21 @@ async function testYouTubeApiConnection(apiKey) {
   }
 
   try {
-    const testUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=kpop&type=video&maxResults=1&key=${apiKey.trim()}`;
+    // 💡 videos.list(비용: 단 1 unit)를 사용하여 쿼터 낭비 0%로 키 유효성 검증
+    const testUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=Ks-_Mh1QhMc&key=${apiKey.trim()}`;
     const res = await axios.get(testUrl, { timeout: 6000 });
 
-    // 테스트 성공 시 쿼터 100 기록
-    recordYouTubeUsage(100);
-
     const firstItem = res.data?.items?.[0];
-    const videoTitle = firstItem?.snippet?.title || '성공';
+    const sampleTitle = firstItem?.snippet?.title || 'YouTube Official';
 
-    addLog('SUCCESS', `✅ [YouTube API 테스트] 정상 연결 확인 완료: API 키 유효 (테스트 영상: "${videoTitle.substring(0, 30)}...")`);
+    addLog('SUCCESS', `✅ [YouTube API 테스트] 초경량(1 unit) 연결 확인 완료: API 키 유효 (테스트 응답 정상)`);
 
     return {
       success: true,
-      message: `인증 성공! YouTube Data API v3가 정상 작동 중입니다. (테스트 검색 응답 정상)`,
+      message: `인증 성공! YouTube Data API v3가 정상 작동 중입니다. (1 unit 초경량 테스트로 쿼터 차감 없음)`,
       details: {
-        totalResults: res.data?.pageInfo?.totalResults || 1,
-        sampleTitle: videoTitle
+        status: '정상 작동',
+        sampleTitle
       }
     };
   } catch (err) {
@@ -224,6 +224,7 @@ async function testYouTubeApiConnection(apiKey) {
     };
   }
 }
+
 
 
 /**

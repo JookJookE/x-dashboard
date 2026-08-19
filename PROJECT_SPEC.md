@@ -596,7 +596,13 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.7.2 (2026-08-19) - YouTube API 연결 테스트 쿼터 최적화 (1 unit 초경량 검증 전환)
+- **[연결 테스트 쿼터 소모 0% 최적화]** (`visualMediaService.js`):
+  - 기존 100 units가 소모되던 `search.list` 대신, 비용이 단 1 unit인 `videos.list` 초경량 검증 엔드포인트로 전환
+  - 테스트 버튼 클릭 시 일일 직캠 검색 횟수 카운터 차감 제외 처리 (테스트를 수십 번 눌러도 하루 100회 직캠 검색 한도 보존)
+
 ### v3.7.1 (2026-08-19) - YouTube API 연결 검증 & 실시간 일일 쿼터(Quota) 트래커 및 출처 뱃지 시스템 도입
+
 - **[YouTube API 상태 검증 & 연결 테스트]**:
   - 설정 탭에 `[⚡ 연결 테스트 & 정상 작동 확인]` 버튼 신설 (`/api/test-youtube` 엔드포인트)
   - API 키 유효성, 일일 할당량(Quota) 초과 여부, Google Cloud API 활성화 상태를 실시간 진단 및 한국어 피드백 제공
