@@ -545,9 +545,10 @@
                   <h3 style="margin:0; font-size:16px; font-weight:800; background:linear-gradient(135deg, #f472b6, #c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">웹 직캠·화보 & 핫클립 탐색기</h3>
                 </div>
                 <div style="display:flex; align-items:center; gap:6px;">
-                  <span id="visual-youtube-status-badge" class="badge" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4); font-size:11px; cursor:pointer;" onclick="switchTab('settings')" title="클릭 시 설정 탭으로 이동하여 쿼터 상세 확인">🎬 YouTube API: 확인 중</span>
-                  <span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; border:1px solid rgba(236,72,153,0.4); font-size:11px;">실시간 웹 수집</span>
+                  <span class="badge" style="background:rgba(139,92,246,0.2); color:#c084fc; border:1px solid rgba(139,92,246,0.4); font-size:11px;">무제한 실시간 수집</span>
+                  <span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; border:1px solid rgba(236,72,153,0.4); font-size:11px;">더쿠·DC·Tenor·HD</span>
                 </div>
+
               </div>
               <div class="card-body">
                 <!-- Preset Category Pills (3 Essential Presets) -->
@@ -626,10 +627,6 @@
 
                 <!-- Suggested Hashtag Action Chips -->
                 <div style="margin-bottom:12px;">
-                  <div style="font-size:11px; font-weight:700; color:var(--text-dim); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>🏷️ 추천 해시태그 (클릭 시 본문 끝에 자동 추가):</span>
-                    <button type="button" onclick="clearVisualHashtags()" style="background:none; border:none; color:#f87171; font-size:10px; cursor:pointer; padding:0;">태그 지우기</button>
-                  </div>
                   <div id="visual-suggested-tags" style="display:flex; gap:6px; flex-wrap:wrap; min-height:26px;">
                     <span style="font-size:11px; color:rgba(255,255,255,0.3);">미디어를 선택하면 추천 태그가 생성됩니다.</span>
                   </div>
@@ -693,82 +690,8 @@
           </div>
         </div>
 
-        <!-- YouTube Data API v3 키 설정 및 쿼터 모니터링 -->
-        <div class="card" style="max-width:600px; margin-top:20px;">
-          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h3>🎬 YouTube Data API v3 키 설정 &amp; 일일 쿼터 현황</h3>
-            <span id="youtube-status-badge" class="badge" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); font-size:11px;">미연결</span>
-          </div>
-          <div class="card-body">
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
-              YouTube Data API v3 키를 입력하면 <strong>최근 24시간 이내 아이돌 직캠 영상</strong>을 실시간으로 수집합니다. (Google Cloud Console에서 무료 발급, 하루 10,000 쿼터 기본 제공)
-            </p>
-            <div class="form-group" style="margin-bottom:12px;">
-              <label for="youtube-key-input">YouTube Data API v3 Key:</label>
-              <input type="password" id="youtube-key-input" placeholder="AIzaSy..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
-            </div>
-            
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-              <button id="btn-save-youtube-key" class="btn btn-primary" style="background:linear-gradient(135deg, #ef4444, #dc2626);">
-                💾 API 키 저장
-              </button>
-              <button id="btn-test-youtube-key" class="btn btn-secondary" style="border-color:#ef4444; color:#fff;">
-                ⚡ 연결 테스트 &amp; 정상 작동 확인
-              </button>
-            </div>
-            
-            <p id="youtube-key-status" style="font-size:12px; color:#4ade80; margin-top:8px; display:none;">✅ YouTube API 키가 저장되었습니다.</p>
-            <div id="youtube-test-feedback" style="display:none; margin-top:10px; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.5;"></div>
 
-            <!-- 📊 실시간 YouTube 일일 쿼터(Quota) 모니터링 위젯 -->
-            <div style="margin-top:18px; padding:14px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08);">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span style="font-size:12px; font-weight:800; color:#fff; display:flex; align-items:center; gap:5px;">
-                  📊 오늘 YouTube API 쿼터 사용량
-                </span>
-                <span id="youtube-quota-text" style="font-size:12px; font-weight:800; color:#38bdf8;">0 / 10,000 units (0%)</span>
-              </div>
-              
-              <!-- Progress Bar -->
-              <div style="width:100%; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; margin-bottom:8px;">
-                <div id="youtube-quota-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #38bdf8, #ef4444); transition:width 0.3s ease;"></div>
-              </div>
 
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-dim); flex-wrap:wrap; gap:6px;">
-                <span id="youtube-remaining-calls">남은 직캠 검색 가능 횟수: 약 100회 (1회 검색 = 100 units)</span>
-                <div style="display:flex; gap:8px; align-items:center;">
-                  <button type="button" onclick="syncYouTubeQuotaToConsole()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#cbd5e1; font-size:10px; padding:2px 6px; border-radius:4px; cursor:pointer;" title="대시보드 카운터를 구글 콘솔과 동기화(초기화)">
-                    🔄 카운터 맞춤
-                  </button>
-                  <a href="https://console.cloud.google.com/apis/api/youtube.googleapis.com/quotas" target="_blank" rel="noopener noreferrer" style="color:#ef4444; text-decoration:none; font-weight:700; display:flex; align-items:center; gap:3px;">
-                    Google 콘솔 실시간 확인 ↗
-                  </a>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-        <!-- X Bearer Token 설정 (검색 API용) -->
-        <div class="card" style="max-width:600px; margin-top:20px;">
-          <div class="card-header">
-            <h3>🐦 X (Twitter) Bearer Token 설정</h3>
-          </div>
-          <div class="card-body">
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
-              X Bearer Token을 입력하면 <strong>X recent_search API</strong>로 실시간 트위터 미디어를 탐색할 수 있습니다. (X Developer Portal 발급, 읽기 전용 - 기존 포스팅 키와 별개)
-            </p>
-            <div class="form-group" style="margin-bottom:12px;">
-              <label for="x-bearer-token-input">X Bearer Token:</label>
-              <input type="password" id="x-bearer-token-input" placeholder="AAAA..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
-            </div>
-            <button id="btn-save-x-bearer" class="btn btn-primary" style="margin-top:10px; background:linear-gradient(135deg, #1d9bf0, #1a8ed1);">
-              💾 Bearer Token 저장
-            </button>
-            <p id="x-bearer-status" style="font-size:12px; color:#4ade80; margin-top:8px; display:none;">✅ X Bearer Token이 저장되었습니다.</p>
-          </div>
-        </div>
 
         <!-- Telegram Notification Settings -->
 

@@ -1,14 +1,6 @@
 const axios = require('axios');
 const { getConfig } = require('./config');
 const { addLog } = require('./history');
-const { recordYouTubeUsage, getYouTubeQuotaStatus } = require('./quotaTracker');
-
-// Last YouTube Operation Status
-let lastYouTubeStatus = { status: 'idle', message: '', timestamp: Date.now() };
-
-function getLatestYouTubeStatus() {
-  return lastYouTubeStatus;
-}
 
 // Preset Visual Keyword Categories (3 Essential Basic Presets)
 const VISUAL_PRESETS = [
@@ -16,6 +8,10 @@ const VISUAL_PRESETS = [
   { id: 'idol_fancam', name: '💃 여돌 움짤', query: '여돌 움짤' },
   { id: 'influencer', name: '✨ 모델/화보 고화질', query: '인스타 모델 비주얼 화보' }
 ];
+
+// Full Visual Media Search In-Memory Cache (5-minute TTL to prevent unnecessary repeated requests)
+const visualMediaFullCache = new Map();
+const MEDIA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Direct Social Media Link Parser:
@@ -59,7 +55,7 @@ async function parseDirectSnsUrl(url) {
     }
   }
 
-  // 2. YouTube / Shorts URL
+  // 2. YouTube / Shorts URL (Direct Link Support)
   if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
     let videoId = '';
     const vMatch = cleanUrl.match(/[?&]v=([^&#]+)/) || cleanUrl.match(/youtu\.be\/([^?&#]+)/) || cleanUrl.match(/shorts\/([^?&#]+)/);
@@ -69,9 +65,10 @@ async function parseDirectSnsUrl(url) {
       const thumb = `https://i.ytimg.com/vi/${videoId}/hq720.jpg`;
       return {
         id: 'yt_' + videoId,
-        title: `[YouTube 영상] ID: ${videoId}`,
+        title: `[YouTube 링크] ID: ${videoId}`,
         url: thumb,
         videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        sourceUrl: `https://www.youtube.com/watch?v=${videoId}`,
         mediaType: 'image',
         thumbnail: thumb,
         date: '최신',
@@ -98,186 +95,8 @@ async function parseDirectSnsUrl(url) {
   return null;
 }
 
-// YouTube Search In-Memory Cache (5-minute TTL to prevent repeated quota waste)
-const youtubeSearchCache = new Map();
-const YOUTUBE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
 /**
- * [파이프라인 A] YouTube Data API v3: 최근 24시간 이내 아이돌 직캠/영상 수집
- * @param {string} keyword 검색 키워드 (한국어)
- * @param {string} apiKey YouTube Data API v3 key
- * @returns {Array} 미디어 아이템 배열
- */
-async function fetchYouTubeVideos(keyword, apiKey) {
-  if (!apiKey || !apiKey.trim()) {
-    lastYouTubeStatus = { status: 'not_configured', message: 'YouTube API 키 미설정', timestamp: Date.now() };
-    return [];
-  }
-
-  // 1. 사전 쿼터 확인 (이미 10,000 units를 다 썼으면 API 호출을 건너뛰고 자동 제외)
-  const quota = getYouTubeQuotaStatus();
-  if (quota.remainingQuota <= 0) {
-    const msg = 'YouTube 일일 쿼터(10,000)를 모두 사용하여 YouTube 수집을 자동 제외하고 커뮤니티 미디어로 대체 수집합니다.';
-    addLog('WARN', `🚨 [YouTube 제외] ${msg}`);
-    lastYouTubeStatus = { status: 'quota_exceeded', message: msg, timestamp: Date.now() };
-    return [];
-  }
-  
-  const cacheKey = (keyword || '').trim().toLowerCase();
-  const cached = youtubeSearchCache.get(cacheKey);
-  const now = Date.now();
-
-  // 2. 5분 이내 동일 키워드 검색 시 쿼터 소모 없이 캐시 즉시 반환 (중복 쿼터 소모 0%)
-  if (cached && (now - cached.timestamp < YOUTUBE_CACHE_TTL_MS)) {
-    addLog('INFO', `⚡ [YouTube 캐시 로드] "${keyword}" 캐시 재사용 (쿼터 소모: 0 units)`);
-    lastYouTubeStatus = { status: 'cached', message: '5분 내 캐시된 YouTube 직캠 로드 완료', timestamp: now };
-    return cached.results;
-  }
-
-  const results = [];
-  try {
-    // 24시간 전 ISO 문자열 생성
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-    // 키워드 → 영어 매핑 (YouTube 검색 정밀도 향상)
-    const koToEnMap = {
-      '에스파': 'aespa', '카리나': 'karina aespa', '윈터': 'winter aespa',
-      '아이브': 'IVE', '장원영': 'wonyoung ive', '안유진': 'yujin ive',
-      '뉴진스': 'newjeans', '르세라핌': 'le sserafim', '블랙핑크': 'blackpink',
-      '트와이스': 'TWICE', '아이유': 'IU', '지수': 'jisoo', '리사': 'LISA',
-      '레드벨벳': 'red velvet', '여자아이들': '(G)I-DLE', '스트레이키즈': 'stray kids'
-    };
-    let ytKeyword = keyword;
-    for (const [ko, en] of Object.entries(koToEnMap)) {
-      if (keyword.includes(ko)) { ytKeyword = en; break; }
-    }
-    // 직캠/영상 카테고리면 fancam 접미사 추가
-    const isVideoKw = keyword.includes('직캠') || keyword.includes('MP4') || keyword.includes('영상');
-    const searchQ = isVideoKw ? `${ytKeyword} fancam` : `${ytKeyword} kpop`;
-
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQ)}&type=video&order=date&publishedAfter=${encodeURIComponent(since)}&maxResults=15&key=${apiKey}`;
-    const res = await axios.get(url, { timeout: 6000 });
-
-    // 쿼터 기록 (search.list 호출 1회 = 100 units)
-    recordYouTubeUsage(100);
-
-    for (const item of (res.data.items || [])) {
-      const videoId = item.id?.videoId;
-      if (!videoId) continue;
-      const snippet = item.snippet || {};
-      const thumb = snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || '';
-      const title = snippet.title || ytKeyword;
-      const publishedAt = snippet.publishedAt || '';
-      let dateStr = '최신';
-      if (publishedAt) {
-        const d = new Date(publishedAt);
-        dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-      }
-      results.push({
-        id: 'yt_' + videoId,
-        title: `[YouTube] ${title.substring(0, 60)}`,
-        url: thumb,
-        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
-        sourceUrl: `https://www.youtube.com/watch?v=${videoId}`,
-        mediaType: 'youtube',
-        thumbnail: thumb,
-        date: dateStr,
-        source: 'YouTube',
-        youtubeId: videoId,
-        channelTitle: snippet.channelTitle || ''
-      });
-    }
-
-    if (results.length > 0) {
-      addLog('SUCCESS', `🎬 [YouTube API] "${searchQ}" 24시간 이내 직캠 ${results.length}건 수집 성공 (100 쿼터 차감)`);
-    } else {
-      addLog('INFO', `ℹ️ [YouTube API] "${searchQ}" 24시간 이내 직캠 0건 (100 쿼터 차감) -> 캐시 저장`);
-    }
-    // 5분 캐시 저장 (결과가 0건이어도 5분간 중복 호출 차단)
-    youtubeSearchCache.set(cacheKey, { timestamp: now, results });
-    lastYouTubeStatus = { status: 'success', message: `YouTube 24h 직캠 ${results.length}건 수집 완료`, timestamp: now };
-  } catch (e) {
-    const errorMsg = e.response?.data?.error?.message || e.message;
-    const isQuotaExceeded = errorMsg.includes('quota') || e.response?.status === 403;
-    if (isQuotaExceeded) {
-      const msg = 'YouTube 일일 쿼터(10,000)가 소진되어 YouTube가 제외되었습니다. (자정 자동 리셋)';
-      addLog('ERROR', `🚨 [YouTube 쿼터 소진 차단] ${msg} (${errorMsg})`);
-      lastYouTubeStatus = { status: 'quota_exceeded', message: msg, timestamp: Date.now() };
-    } else {
-      const msg = `YouTube API 키 오류 또는 권한 문제로 YouTube가 제외되었습니다. (${errorMsg})`;
-      addLog('WARN', `⚠️ [YouTube API 제외] ${msg} -> 커뮤니티/포털 미디어로 대체 수집`);
-      lastYouTubeStatus = { status: 'error', message: msg, timestamp: Date.now() };
-    }
-    // 에러 발생 시에도 1분간 반복 호출 방지 캐시
-    youtubeSearchCache.set(cacheKey, { timestamp: now, results: [] });
-  }
-  return results;
-}
-
-
-
-
-/**
- * YouTube API v3 키 유효성 및 연결 테스트
- * 비용이 100 units인 search.list 대신, 단 1 unit만 소모하는 videos.list(초경량 검증)를 사용하여
- * 사용자의 일일 검색 쿼터가 낭비되지 않도록 안전하게 검증합니다.
- * @param {string} apiKey 
- * @returns {Promise<{success: boolean, message: string, details?: any}>}
- */
-async function testYouTubeApiConnection(apiKey) {
-  if (!apiKey || !apiKey.trim()) {
-    return {
-      success: false,
-      message: 'YouTube API 키가 입력되지 않았습니다.'
-    };
-  }
-
-  try {
-    // 💡 videos.list(비용: 단 1 unit)를 사용하여 쿼터 낭비 0%로 키 유효성 검증
-    const testUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=Ks-_Mh1QhMc&key=${apiKey.trim()}`;
-    const res = await axios.get(testUrl, { timeout: 6000 });
-
-    const firstItem = res.data?.items?.[0];
-    const sampleTitle = firstItem?.snippet?.title || 'YouTube Official';
-
-    addLog('SUCCESS', `✅ [YouTube API 테스트] 초경량(1 unit) 연결 확인 완료: API 키 유효 (테스트 응답 정상)`);
-
-    return {
-      success: true,
-      message: `인증 성공! YouTube Data API v3가 정상 작동 중입니다. (1 unit 초경량 테스트로 쿼터 차감 없음)`,
-      details: {
-        status: '정상 작동',
-        sampleTitle
-      }
-    };
-  } catch (err) {
-    const errorData = err.response?.data?.error;
-    const errorMsg = errorData?.message || err.message || '알 수 없는 오류';
-    const reason = errorData?.errors?.[0]?.reason || '';
-
-    let friendlyMessage = `연결 실패: ${errorMsg}`;
-    if (reason === 'quotaExceeded' || errorMsg.includes('quota')) {
-      friendlyMessage = '❌ 일일 할당량(10,000 쿼터)이 초과되었습니다. 내일 자정(KST)에 자동 리셋됩니다.';
-    } else if (reason === 'keyInvalid' || errorMsg.includes('API key not valid')) {
-      friendlyMessage = '❌ YouTube API 키가 올바르지 않습니다. Google Cloud Console에서 키를 다시 확인해 주세요.';
-    } else if (reason === 'accessNotConfigured' || errorMsg.includes('has not been used')) {
-      friendlyMessage = '❌ Google Cloud Console에서 "YouTube Data API v3" 서비스가 활성화(Enable)되지 않았습니다.';
-    }
-
-    addLog('ERROR', `❌ [YouTube API 테스트 실패] ${friendlyMessage}`);
-
-    return {
-      success: false,
-      message: friendlyMessage,
-      rawError: errorMsg
-    };
-  }
-}
-
-
-
-/**
- * [파이프라인 B] 더쿠(Theqoo) 핫게시판 크롤링 시도 → 실패 시 DCInside 아이돌 갤러리 폴백
+ * [파이프라인 1] 더쿠(Theqoo) 핫게시판 크롤링 시도 → 실패 시 DCInside 아이돌 갤러리 폴백
  * 실시간 아이돌 커뮤니티 GIF/이미지 원본 미디어 링크 파싱
  * @param {string} keyword 검색 키워드
  * @returns {Array} 미디어 아이템 배열
@@ -289,8 +108,6 @@ async function fetchCommunityMedia(keyword) {
   // --- 더쿠 시도 ---
   const theqooAttempted = await (async () => {
     try {
-      const searchEncoded = encodeURIComponent(keyword.replace('MP4','').replace('직캠','').trim());
-      // 더쿠 연예 핫게시판 - 검색 파라미터 포함
       const theqooUrl = `https://theqoo.net/hot?filter_mode=hot&page=1`;
       const res = await axios.get(theqooUrl, {
         headers: {
@@ -308,7 +125,7 @@ async function fetchCommunityMedia(keyword) {
       });
 
       const html = String(res.data);
-      // CloudFlare 챌린지 감지 → 폴백
+      // CloudFlare 챌린지 감지 시 폴백
       if (html.includes('cf-browser-verification') || html.includes('Just a moment') || html.includes('cf_chl_opt')) {
         return false;
       }
@@ -321,7 +138,7 @@ async function fetchCommunityMedia(keyword) {
           seen.add(imgUrl);
           results.push({
             id: 'theqoo_' + Math.random().toString(36).substring(2, 9),
-            title: `[더쿠 핫게시판] ${keyword}`,
+            title: `[더쿠 핫게] ${keyword}`,
             url: imgUrl,
             mediaType: imgUrl.toLowerCase().includes('.gif') ? 'gif' : 'image',
             thumbnail: imgUrl,
@@ -340,13 +157,12 @@ async function fetchCommunityMedia(keyword) {
   // --- DCInside 아이돌 갤러리 폴백 ---
   if (!theqooAttempted && results.length === 0) {
     try {
-      // DCInside 마이너 갤러리: 아이돌 관련 갤러리 ID 매핑
       const gallMap = {
         '에스파': 'aespa', '카리나': 'aespa', '아이브': 'ive2', '장원영': 'ive2',
         '뉴진스': 'newjeans', '블랙핑크': 'blackpink', '트와이스': 'twice',
         '르세라핌': 'lesserafim', '여자아이들': 'gidle', '아이유': 'iu'
       };
-      let gallId = 'idol'; // 기본: 아이돌 통합 갤러리
+      let gallId = 'idol';
       for (const [ko, id] of Object.entries(gallMap)) {
         if (keyword.includes(ko)) { gallId = id; break; }
       }
@@ -362,7 +178,6 @@ async function fetchCommunityMedia(keyword) {
       });
       const html = String(res.data);
 
-      // 썸네일 이미지 URL 추출
       const thumbMatches = [...html.matchAll(/data-original=["'](https?:\/\/[^"']+)['"]/gi),
                            ...html.matchAll(/src=["'](https?:\/\/[^"']*(?:\.jpg|\.jpeg|\.png|\.gif|\.webp)[^"']*)['"]/gi)];
       for (const m of thumbMatches) {
@@ -381,27 +196,19 @@ async function fetchCommunityMedia(keyword) {
           if (results.length >= 10) break;
         }
       }
-    } catch (e) {
-      // DCInside도 실패하면 그냥 스킵
-    }
+    } catch (e) {}
   }
 
   return results;
 }
 
-// Full Visual Media Search In-Memory Cache (5-minute TTL)
-const visualMediaFullCache = new Map();
-
 /**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
  * Multi-Tier Pipeline:
  *  0. Direct SNS URL Parser (X/Twitter, YouTube, Direct Links)
- *  1. [NEW] YouTube Data API v3 (최근 24시간 직캠/영상 - 영상 카테고리 한정)
- *  2. [NEW] 더쿠 핫게시판 크롤링 시도 → DCInside 갤러리 폴백 (아이돌 커뮤니티 실시간 GIF/이미지)
- *  3. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos & moving gifs)
- *  4. Bing Image & GIF HD Search (Primary, 0% IP block, direct original high-res murl)
- *  5. Naver Image Search (Secondary HD with anti-block headers)
- *  6. Daum Image Search (Tertiary fallback)
+ *  1. [Tenor MP4 Direct Video Archive] (고화질 직캠 MP4 & 최신 모션 움짤)
+ *  2. [더쿠 핫게 & DCInside 갤러리] (실시간 아이돌 커뮤니티 미디어)
+ *  3. [Bing & Naver HD Search] (고화질 사진/화보 탐색)
  */
 async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   const cleanKeyword = keyword.trim();
@@ -414,11 +221,11 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
     }
   }
 
-  // ⚡ 5분 전체 미디어 메모리 캐시 확인 (동일 키워드&페이지 중복 호출 시 0.001초 즉시 반환)
+  // ⚡ 5분 전체 미디어 메모리 캐시 확인 (0.001초 즉시 반환)
   const fullCacheKey = `${cleanKeyword.toLowerCase()}_p${page}`;
   const cachedFull = visualMediaFullCache.get(fullCacheKey);
   const now = Date.now();
-  if (cachedFull && (now - cachedFull.timestamp < YOUTUBE_CACHE_TTL_MS)) {
+  if (cachedFull && (now - cachedFull.timestamp < MEDIA_CACHE_TTL_MS)) {
     return cachedFull.mediaList;
   }
 
@@ -429,23 +236,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
   const isIdolCategory = cleanKeyword.includes('직캠') || cleanKeyword.includes('여돌') || cleanKeyword.includes('아이돌') || cleanKeyword.includes('움짤') || cleanKeyword.includes('에스파') || cleanKeyword.includes('아이브') || cleanKeyword.includes('뉴진스') || cleanKeyword.includes('블랙핑크') || cleanKeyword.includes('트와이스') || cleanKeyword.includes('르세라핌') || cleanKeyword.includes('카리나') || cleanKeyword.includes('장원영');
 
-  // 1. [NEW] YouTube Data API v3 - 최근 24시간 영상 (영상 카테고리 & 아이돌 카테고리에서만 실행)
-  if ((isVideoCategory || isIdolCategory) && !isForeign && page === 1) {
-    const { getConfig } = require('./config');
-    const ytApiKey = getConfig().youtubeApiKey;
-    if (ytApiKey) {
-      const ytResults = await fetchYouTubeVideos(cleanKeyword, ytApiKey);
-      for (const item of ytResults) {
-        if (!seen.has(item.url)) {
-          seen.add(item.url);
-          mediaList.push(item);
-        }
-      }
-    }
-  }
-
-
-  // 2. [NEW] 더쿠 핫게시판 크롤링 → DCInside 폴백 (아이돌 카테고리 & page 1 한정)
+  // 1. [커뮤니티 미디어] 더쿠 핫게시판 & DCInside 갤러리 (아이돌 카테고리 & page 1)
   if (isIdolCategory && !isForeign && page === 1) {
     const communityResults = await fetchCommunityMedia(cleanKeyword);
     for (const item of communityResults) {
@@ -456,13 +247,12 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
     }
   }
 
-
-  // 3. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion moving GIFs)
+  // 2. [Tenor Direct Video/GIF Archive] - 고화질 MP4 직캠 및 최신 움직이는 움짤
   if (isVideoCategory || isForeign) {
     try {
       let searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').replace('직캠', '').replace('4k', '').replace('4K', '').trim();
       
-      // Strict clean English mapping for Tenor to prevent random meme/sticker pollution
+      // 최신 아이돌 영문 매핑 (Tenor 검색 정확도 극대화)
       if (cleanKeyword.includes('CHOOM') || cleanKeyword.includes('M2')) {
         searchTarget = 'studio choom';
       } else if (cleanKeyword.includes('음방') || cleanKeyword.includes('Kpop') || cleanKeyword.includes('현장')) {
@@ -487,6 +277,56 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
       const res = await axios.get(tenorUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept-Language': isForeign ? 'en-US,en;q=0.9' : 'ko-KR,ko;q=0.9,en-US;q=0.8'
+        },
+        timeout: 5000
+      });
+
+      const html = String(res.data);
+      const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
+      for (const s of scripts) {
+        if (s[1].includes('"media_formats"')) {
+          try {
+            const data = JSON.parse(s[1]);
+            const searchObj = data.universal?.search || {};
+            const firstKey = Object.keys(searchObj)[0];
+            const items = searchObj[firstKey]?.results || [];
+
+            for (const item of items) {
+              const mp4Url = item.media_formats?.mp4?.url || item.media_formats?.tinymp4?.url;
+              const gifUrl = item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url;
+              const thumbUrl = item.media_formats?.nanomp4?.url || item.media_formats?.gif?.url || item.media_formats?.tinymp4?.url;
+              const titleText = item.content_description || item.title || searchTarget;
+              
+              const chosenUrl = isVideoCategory ? (mp4Url || gifUrl) : (gifUrl || mp4Url);
+
+              let dateStr = '최신';
+              if (item.created) {
+                const d = new Date(item.created * 1000);
+                if (!isNaN(d.getTime())) {
+                  dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+                }
+              }
+
+              if (chosenUrl && !seen.has(chosenUrl)) {
+                seen.add(chosenUrl);
+                mediaList.push({
+                  id: 'media_v_' + Math.random().toString(36).substring(2, 9),
+                  title: isVideoCategory ? `[MP4 직캠] ${titleText.substring(0, 45)}` : `[움짤] ${titleText.substring(0, 45)}`,
+                  url: chosenUrl,
+                  mediaType: isVideoCategory ? 'video' : 'gif',
+                  thumbnail: thumbUrl || chosenUrl,
+                  date: dateStr,
+                  source: 'Tenor'
+                });
+              }
+            }
+          } catch (jsonErr) {}
+        }
+      }
+    } catch (tErr) {}
+  }
+ebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept-Language': isForeign ? 'en-US,en;q=0.9' : 'ko-KR,ko;q=0.9,en-US;q=0.8'
         },
         timeout: 5000
@@ -1055,11 +895,9 @@ module.exports = {
   VISUAL_PRESETS,
   searchVisualMedia,
   generateVisualTweet,
-  fetchYouTubeVideos,
-  fetchCommunityMedia,
-  testYouTubeApiConnection,
-  getLatestYouTubeStatus
+  fetchCommunityMedia
 };
+
 
 
 

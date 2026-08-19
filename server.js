@@ -8,8 +8,7 @@ const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, get
 const { fetchLatestArticles } = require('./scraper');
 const { generateSummary, generateThoughtTweet } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
-const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet, testYouTubeApiConnection, getLatestYouTubeStatus } = require('./visualMediaService');
-const { getYouTubeQuotaStatus, resetYouTubeQuota } = require('./quotaTracker');
+const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet } = require('./visualMediaService');
 const { getGitInfo, pullAndApplyUpdates, initGitAutoSync } = require('./gitAutoSync');
 const { initScheduler, generateDailyDraftsJob, getDailyDrafts } = require('./scheduler');
 const { sendTelegramMessage, sendEmailMessage, notifyNewTunnelUrl } = require('./notifier');
@@ -747,55 +746,15 @@ app.get('/api/visual-presets', (req, res) => {
 
 app.get('/api/visual-media', async (req, res) => {
   try {
-    const keyword = req.query.keyword || '코스프레 화보';
+    const keyword = req.query.keyword || '여돌 직캠 MP4';
     const page = parseInt(req.query.page || '1', 10);
     const mediaList = await searchVisualMedia(keyword, page);
-    const quotaInfo = getYouTubeQuotaStatus();
-    const ytStatus = getLatestYouTubeStatus();
-    res.json({ success: true, keyword, media: mediaList, quota: quotaInfo, youtubeStatus: ytStatus });
+    res.json({ success: true, keyword, media: mediaList });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-
-// YouTube API 쿼터 조회
-app.get('/api/youtube-quota', (req, res) => {
-  try {
-    const quota = getYouTubeQuotaStatus();
-    res.json({ success: true, quota });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// YouTube API 쿼터 카운터 수동 재설정/동기화
-app.post('/api/reset-youtube-quota', (req, res) => {
-  try {
-    const targetUnits = parseInt(req.body.targetUnits !== undefined ? req.body.targetUnits : '400', 10);
-    const updated = resetYouTubeQuota(targetUnits);
-    const quota = getYouTubeQuotaStatus();
-    res.json({ success: true, quota });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-// YouTube API 키 연결 테스트
-app.post('/api/test-youtube', async (req, res) => {
-  try {
-    const { apiKey } = req.body;
-    const config = getConfig();
-    const targetKey = apiKey || config.youtubeApiKey;
-
-    const result = await testYouTubeApiConnection(targetKey);
-    const quota = getYouTubeQuotaStatus();
-    res.json({ ...result, quota });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
 
 app.post('/api/generate-visual-tweet', async (req, res) => {

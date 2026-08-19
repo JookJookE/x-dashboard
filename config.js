@@ -14,10 +14,9 @@ const defaultConfig = {
   xAppSecret: '',
   xAccessToken: '',
   xAccessSecret: '',
-  xBearerToken: '',          // X API v2 Bearer Token (for recent_search read-only)
   geminiApiKey: process.env.GEMINI_API_KEY || '',
-  youtubeApiKey: '',         // YouTube Data API v3 key
   targetUrl: 'https://heisenberg.kr/wp-json/wp/v2/posts',
+
   scheduleTime: '07:00', // Set to 07:00 AM daily
   autoPostEnabled: true,  // Auto daily draft generation enabled
   maxTweetLength: 280,

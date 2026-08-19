@@ -1842,224 +1842,10 @@ async function saveGeminiApiKey() {
   }
 }
 
-async function saveYoutubeApiKey() {
-  const keyInput = document.getElementById('youtube-key-input');
-  const apiKey = keyInput ? keyInput.value.trim() : '';
-  try {
-    const res = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ youtubeApiKey: apiKey })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast('🎬 YouTube API 키가 저장되었습니다!');
-      const statusEl = document.getElementById('youtube-key-status');
-      if (statusEl) { statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 3000); }
-      loadYouTubeQuota();
-    } else {
-      showToast('저장 실패: ' + data.message);
-    }
-  } catch (err) {
-    showToast('저장 실패: ' + err.message);
-  }
-}
-
-async function testYouTubeApiKey() {
-  const keyInput = document.getElementById('youtube-key-input');
-  const apiKey = keyInput ? keyInput.value.trim() : '';
-  const feedbackEl = document.getElementById('youtube-test-feedback');
-  const testBtn = document.getElementById('btn-test-youtube-key');
-
-  if (!apiKey) {
-    showToast('⚠️ 먼저 YouTube API 키를 입력해 주세요.');
-    if (feedbackEl) {
-      feedbackEl.style.display = 'block';
-      feedbackEl.style.background = 'rgba(239,68,68,0.15)';
-      feedbackEl.style.border = '1px solid rgba(239,68,68,0.3)';
-      feedbackEl.style.color = '#f87171';
-      feedbackEl.innerHTML = '⚠️ API 키를 입력한 후 테스트를 진행해 주세요.';
-    }
-    return;
-  }
-
-  if (testBtn) {
-    testBtn.disabled = true;
-    testBtn.innerText = '🔄 연결 테스트 중...';
-  }
-  if (feedbackEl) {
-    feedbackEl.style.display = 'block';
-    feedbackEl.style.background = 'rgba(56,189,248,0.1)';
-    feedbackEl.style.border = '1px solid rgba(56,189,248,0.3)';
-    feedbackEl.style.color = '#38bdf8';
-    feedbackEl.innerHTML = '⏳ YouTube Data API v3 서버와 통신을 확인하는 중입니다...';
-  }
-
-  try {
-    const res = await fetch('/api/test-youtube', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey })
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      showToast('✅ YouTube API 정상 연결 확인 완료!');
-      if (feedbackEl) {
-        feedbackEl.style.background = 'rgba(34,197,94,0.15)';
-        feedbackEl.style.border = '1px solid rgba(34,197,94,0.4)';
-        feedbackEl.style.color = '#4ade80';
-        feedbackEl.innerHTML = `
-          <strong>✅ 정상 작동 중:</strong> ${data.message}<br>
-          <span style="font-size:11px; color:#cbd5e1;">(샘플 검색 결과: "${data.details?.sampleTitle || ''}" 정상 수신됨)</span>
-        `;
-      }
-      const badge = document.getElementById('youtube-status-badge');
-      if (badge) {
-        badge.innerText = '정상 작동';
-        badge.style.background = 'rgba(34,197,94,0.2)';
-        badge.style.color = '#4ade80';
-        badge.style.borderColor = 'rgba(34,197,94,0.4)';
-      }
-    } else {
-      showToast('❌ YouTube API 테스트 실패');
-      if (feedbackEl) {
-        feedbackEl.style.background = 'rgba(239,68,68,0.15)';
-        feedbackEl.style.border = '1px solid rgba(239,68,68,0.4)';
-        feedbackEl.style.color = '#f87171';
-        feedbackEl.innerHTML = `
-          <strong>❌ 연결 오류:</strong> ${data.message}<br>
-          <span style="font-size:11px; color:#94a3b8;">사유: ${data.rawError || 'API 키 또는 활성화 여부를 확인하세요'}</span>
-        `;
-      }
-      const badge = document.getElementById('youtube-status-badge');
-      if (badge) {
-        badge.innerText = '오류 발생';
-        badge.style.background = 'rgba(239,68,68,0.2)';
-        badge.style.color = '#ef4444';
-        badge.style.borderColor = 'rgba(239,68,68,0.4)';
-      }
-    }
-
-    if (data.quota) {
-      updateYouTubeQuotaUI(data.quota);
-    }
-  } catch (err) {
-    if (feedbackEl) {
-      feedbackEl.style.background = 'rgba(239,68,68,0.15)';
-      feedbackEl.style.border = '1px solid rgba(239,68,68,0.4)';
-      feedbackEl.style.color = '#f87171';
-      feedbackEl.innerHTML = `❌ 서버 통신 오류: ${err.message}`;
-    }
-  } finally {
-    if (testBtn) {
-      testBtn.disabled = false;
-      testBtn.innerText = '⚡ 연결 테스트 & 정상 작동 확인';
-    }
-  }
-}
-
-async function loadYouTubeQuota() {
-  try {
-    const res = await fetch('/api/youtube-quota');
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.success && data.quota) {
-      updateYouTubeQuotaUI(data.quota);
-    }
-  } catch (e) {}
-}
-
-async function syncYouTubeQuotaToConsole(targetUnits = 400) {
-  try {
-    const res = await fetch('/api/reset-youtube-quota', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetUnits })
-    });
-    const data = await res.json();
-    if (data.success && data.quota) {
-      updateYouTubeQuotaUI(data.quota);
-      showToast(`🔄 쿼터 카운터가 구글 콘솔(${targetUnits} units / ${Math.floor(targetUnits/100)}회)로 동기화되었습니다!`);
-    }
-  } catch (e) {
-    showToast('동기화 실패: ' + e.message);
-  }
-}
-
-function updateYouTubeQuotaUI(quota) {
-  if (!quota) return;
-
-  // 1. Settings tab widgets
-  const quotaText = document.getElementById('youtube-quota-text');
-  const quotaBar = document.getElementById('youtube-quota-bar');
-  const remainingCalls = document.getElementById('youtube-remaining-calls');
-
-  if (quotaText) {
-    quotaText.innerText = `${quota.usedQuota.toLocaleString()} / ${quota.maxQuota.toLocaleString()} units (${quota.percentUsed}%)`;
-    if (quota.percentUsed >= 80) quotaText.style.color = '#ef4444';
-    else if (quota.percentUsed >= 50) quotaText.style.color = '#f59e0b';
-    else quotaText.style.color = '#38bdf8';
-  }
-
-  if (quotaBar) {
-    quotaBar.style.width = `${Math.min(100, Math.max(1, quota.percentUsed))}%`;
-    if (quota.percentUsed >= 80) quotaBar.style.background = '#ef4444';
-    else if (quota.percentUsed >= 50) quotaBar.style.background = '#f59e0b';
-    else quotaBar.style.background = 'linear-gradient(90deg, #38bdf8, #ef4444)';
-  }
-
-  if (remainingCalls) {
-    remainingCalls.innerText = `오늘 남은 직캠 검색 가능 횟수: 약 ${quota.remainingCalls}회 (사용: ${quota.searchCalls}회)`;
-  }
-
-  // 2. Visual Media Tab Top Header Badge
-  const visualStatusBadge = document.getElementById('visual-youtube-status-badge');
-  if (visualStatusBadge) {
-    const keyInput = document.getElementById('youtube-key-input');
-    const hasKey = keyInput && keyInput.value.trim().length > 5;
-
-    if (!hasKey) {
-      visualStatusBadge.innerText = '🎬 YouTube 키 미설정';
-      visualStatusBadge.style.background = 'rgba(148,163,184,0.15)';
-      visualStatusBadge.style.color = '#94a3b8';
-      visualStatusBadge.style.borderColor = 'rgba(148,163,184,0.3)';
-    } else if (quota.remainingQuota <= 0) {
-      visualStatusBadge.innerText = '🚨 YouTube 일일 쿼터 소진';
-      visualStatusBadge.style.background = 'rgba(239,68,68,0.25)';
-      visualStatusBadge.style.color = '#ef4444';
-      visualStatusBadge.style.borderColor = 'rgba(239,68,68,0.5)';
-    } else {
-      visualStatusBadge.innerText = `🎬 YouTube 24h 직캠 활성 (오늘 쿼터: ${quota.usedQuota}/${quota.maxQuota})`;
-      visualStatusBadge.style.background = 'rgba(239,68,68,0.2)';
-      visualStatusBadge.style.color = '#ef4444';
-      visualStatusBadge.style.borderColor = 'rgba(239,68,68,0.4)';
-    }
-  }
-}
 
 
-async function saveXBearerToken() {
-  const tokenInput = document.getElementById('x-bearer-token-input');
-  const token = tokenInput ? tokenInput.value.trim() : '';
-  try {
-    const res = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xBearerToken: token })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast('🐦 X Bearer Token이 저장되었습니다!');
-      const statusEl = document.getElementById('x-bearer-status');
-      if (statusEl) { statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 3000); }
-    } else {
-      showToast('저장 실패: ' + data.message);
-    }
-  } catch (err) {
-    showToast('저장 실패: ' + err.message);
-  }
-}
+
+
 
 async function saveTelegramSettings() {
   const enabled = document.getElementById('telegram-enabled-toggle').checked;
@@ -2625,18 +2411,6 @@ async function loadVisualMedia(keyword = '코스프레 화보') {
     if (data.success && data.media) {
       currentVisualMediaList = data.media;
       renderVisualMediaGrid(data.media);
-      if (data.quota) {
-        updateYouTubeQuotaUI(data.quota);
-      }
-      
-      // 🚨 YouTube 제외 상태 감지 및 사용자 알림
-      if (data.youtubeStatus) {
-        if (data.youtubeStatus.status === 'quota_exceeded') {
-          showToast('⚠️ YouTube 일일 쿼터 소진으로 YouTube가 제외되고, 커뮤니티(더쿠/DC/Tenor/Bing)로 대체 수집되었습니다.');
-        } else if (data.youtubeStatus.status === 'error') {
-          showToast(`⚠️ YouTube API 오류로 YouTube가 제외되었습니다. (커뮤니티 미디어로 정상 수집)`);
-        }
-      }
 
       if (data.media.length > 0 && !selectedVisualMedia) {
         selectVisualMediaItem(data.media[0]);
@@ -2644,6 +2418,7 @@ async function loadVisualMedia(keyword = '코스프레 화보') {
     } else {
       if (gridEl) gridEl.innerHTML = '<p class="placeholder-text" style="grid-column:1/-1;">미디어를 불러오지 못했습니다.</p>';
     }
+
 
   } catch (err) {
     if (gridEl) gridEl.innerHTML = `<p class="placeholder-text" style="grid-column:1/-1; color:#f87171;">⚠️ ${err.message}</p>`;
