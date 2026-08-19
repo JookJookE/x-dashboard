@@ -596,7 +596,14 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.1 (2026-08-19) - 멀티 소스(Tenor, Naver, Bing, Daum) 동시 병행 융합(Blend) 수집 파이프라인 개방
+- **[조기 반환(Early Return) 제거 및 전 소스 동시 개방]** (`visualMediaService.js`):
+  - 기존 Tenor 수집 시 다음 소스가 차단되던 조기 반환 로직을 제거
+  - `Tenor (MP4 직캠/움짤)` + `Naver HD (최신 국내 연예/포토)` + `Bing HD (글로벌 4K)` + `Daum HD`가 항상 골고루 함께 수집되도록 개방
+  - 갤러리에 `💃 Tenor`, `🟢 Naver HD`, `🔍 Bing HD`, `💬 Daum HD` 등 다양한 출처가 풍성하게 융합되어 표시되도록 최적화
+
 ### v3.8.0 (2026-08-19) - YouTube API 제거 및 100% 무제한 무료 최신 미디어 파이프라인(Tenor MP4/더쿠/DC/Bing/Naver) 전면 고도화
+
 - **[YouTube API 의존성 완전 제거 & 스트레스 제로화]**:
   - 복잡하고 실효성 낮던 YouTube API 및 10,000 쿼터 제한 모니터링 시스템을 완전 제거
   - 쿼터 차감 걱정, API 키 발급/관리 스트레스 없이 100% 무제한 무료 미디어 탐색 시스템으로 전환

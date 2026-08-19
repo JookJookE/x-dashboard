@@ -204,11 +204,12 @@ async function fetchCommunityMedia(keyword) {
 
 /**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
- * Multi-Tier Pipeline:
+ * Multi-Tier Blended Pipeline:
  *  0. Direct SNS URL Parser (X/Twitter, YouTube, Direct Links)
  *  1. [Tenor MP4 Direct Video Archive] (고화질 직캠 MP4 & 최신 모션 움짤)
- *  2. [더쿠 핫게 & DCInside 갤러리] (실시간 아이돌 커뮤니티 미디어)
- *  3. [Bing & Naver HD Search] (고화질 사진/화보 탐색)
+ *  2. [Naver Image HD Search] (국내 연예/화보/직캠 고화질 포토)
+ *  3. [Bing Image & GIF HD Search] (글로벌 4K 고화질 원본)
+ *  4. [Daum Image HD Search] (국내 방송/미디어 보완)
  */
 async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   const cleanKeyword = keyword.trim();
@@ -234,25 +235,12 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
 
   const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('직캠') || cleanKeyword.includes('영상') || cleanKeyword.includes('음방') || cleanKeyword.includes('현장') || cleanKeyword.includes('핫클립') || cleanKeyword.includes('M2') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('video') || cleanKeyword.includes('움짤');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
-  const isIdolCategory = cleanKeyword.includes('직캠') || cleanKeyword.includes('여돌') || cleanKeyword.includes('아이돌') || cleanKeyword.includes('움짤') || cleanKeyword.includes('에스파') || cleanKeyword.includes('아이브') || cleanKeyword.includes('뉴진스') || cleanKeyword.includes('블랙핑크') || cleanKeyword.includes('트와이스') || cleanKeyword.includes('르세라핌') || cleanKeyword.includes('카리나') || cleanKeyword.includes('장원영');
 
-  // 1. [커뮤니티 미디어] 더쿠 핫게시판 & DCInside 갤러리 (아이돌 카테고리 & page 1)
-  if (isIdolCategory && !isForeign && page === 1) {
-    const communityResults = await fetchCommunityMedia(cleanKeyword);
-    for (const item of communityResults) {
-      if (!seen.has(item.url)) {
-        seen.add(item.url);
-        mediaList.push(item);
-      }
-    }
-  }
-
-  // 2. [Tenor Direct Video/GIF Archive] - 고화질 MP4 직캠 및 최신 움직이는 움짤
+  // 1. [Tenor Direct Video/GIF Archive] - 고화질 MP4 직캠 및 최신 움직이는 움짤
   if (isVideoCategory || isForeign) {
     try {
       let searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').replace('직캠', '').replace('4k', '').replace('4K', '').trim();
       
-      // 최신 아이돌 영문 매핑 (Tenor 검색 정확도 극대화)
       if (cleanKeyword.includes('CHOOM') || cleanKeyword.includes('M2')) {
         searchTarget = 'studio choom';
       } else if (cleanKeyword.includes('음방') || cleanKeyword.includes('Kpop') || cleanKeyword.includes('현장')) {
@@ -319,109 +307,20 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
                   date: dateStr,
                   source: 'Tenor'
                 });
+                if (mediaList.filter(x => x.source === 'Tenor').length >= 12) break;
               }
             }
           } catch (jsonErr) {}
         }
       }
     } catch (tErr) {}
-
-    if (mediaList.length > 0) {
-      // Sort Tenor items by descending timestamp / date (newest first)
-
-
-      mediaList.sort((a, b) => {
-        const parseDateWeight = (dateStr) => {
-          if (!dateStr || dateStr === '연도미상') return 0;
-          if (dateStr.includes('시간 전') || dateStr.includes('분 전') || dateStr.includes('방금') || dateStr === '최신') return 999999;
-          if (dateStr.includes('일 전')) {
-            const days = parseInt(dateStr, 10) || 1;
-            return 999000 - days * 10;
-          }
-          const match = dateStr.match(/\b(201\d|202\d)(?:\.(\d{1,2}))?\b/);
-          if (match) {
-            const y = parseInt(match[1], 10);
-            const m = parseInt(match[2] || '1', 10);
-            return y * 100 + m;
-          }
-          return 1;
-        };
-        return parseDateWeight(b.date) - parseDateWeight(a.date);
-      });
-      return mediaList.slice(0, 30);
-    }
   }
 
-  // Map keywords to optimized high-precision search queries
-  let searchQuery = cleanKeyword;
-
-  // 2. Bing Image & GIF HD Search (Primary HD source - 0% 403 blocks)
-  try {
-    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(searchQuery)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
-    const res = await axios.get(bingUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': isForeign ? 'en-US,en;q=0.9' : 'ko-KR,ko;q=0.9,en-US;q=0.8'
-      },
-      timeout: 4500
-    });
-
-    const murlMatches = [
-      ...String(res.data).matchAll(/class="iusc"[^>]*m="([^"]+)"/gi),
-      ...String(res.data).matchAll(/m="(\{[^"]+\})"/gi)
-    ];
-
-    for (const m of murlMatches) {
-      try {
-        const rawJson = m[1].replace(/&quot;/g, '"');
-        const data = JSON.parse(rawJson);
-        const url = data.murl ? data.murl.replace(/\\/g, '') : '';
-        const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
-
-        // Extract exact upload year and month from URL path, page link, or description using 5-tier regex
-        let dateStr = '연도미상';
-        const textToSearch = `${url} ${data.purl || ''} ${data.desc || ''} ${data.t || ''}`;
-        
-        const match1 = textToSearch.match(/\b(201\d|202\d)[\/\.\-_](\d{1,2})\b/);
-        const match2 = textToSearch.match(/\b(201\d|202\d)(\d{2})(\d{2})\b/);
-        const match3 = textToSearch.match(/\b(201\d|202\d)년\s*(\d{1,2})?월?/);
-        const match4 = textToSearch.match(/\b(201[5-9]|202[0-6])\b/);
-
-        if (match1) {
-          dateStr = `${match1[1]}.${match1[2].padStart(2, '0')}`;
-        } else if (match2 && parseInt(match2[2]) >= 1 && parseInt(match2[2]) <= 12) {
-          dateStr = `${match2[1]}.${match2[2]}`;
-        } else if (match3) {
-          dateStr = match3[2] ? `${match3[1]}.${match3[2].padStart(2, '0')}` : `${match3[1]}`;
-        } else if (match4) {
-          dateStr = `${match4[1]}`;
-        }
-
-        if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
-          seen.add(url);
-          const isGif = url.toLowerCase().includes('.gif');
-          const finalTitle = titleText && titleText.length > 2 ? titleText : cleanKeyword;
-          mediaList.push({
-            id: 'media_' + Math.random().toString(36).substring(2, 9),
-            title: `[${cleanKeyword}] ${finalTitle}`,
-            url: url,
-            mediaType: isGif ? 'gif' : 'image',
-            thumbnail: url,
-            date: dateStr,
-            source: 'Bing'
-          });
-        }
-      } catch (e) {}
-    }
-  } catch (e) {
-    // silently fallback to Naver / Daum
-  }
-
-  // 3. Naver Image Search (Secondary HD source - only for domestic queries)
-  if (!isForeign && mediaList.length < 25) {
+  // 2. [Naver Image HD Search] - 국내 포털 최신 고화질 포토/화보
+  if (!isForeign) {
     try {
-      const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(cleanKeyword)}&start=${(page - 1) * 30 + 1}`;
+      const naverQuery = cleanKeyword.replace('MP4', '').trim();
+      const naverUrl = `https://search.naver.com/search.naver?where=image&query=${encodeURIComponent(naverQuery)}&start=${(page - 1) * 30 + 1}`;
       const res = await axios.get(naverUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -452,7 +351,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
 
-          let dateStr = '연도미상';
+          let dateStr = '최신';
           const match1 = url.match(/\b(201\d|202\d)[\/\.\-_](\d{1,2})\b/);
           const match2 = url.match(/\b(201\d|202\d)(\d{2})(\d{2})\b/);
           const match3 = url.match(/\b(201[5-9]|202[0-6])\b/);
@@ -466,21 +365,77 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
 
           mediaList.push({
             id: 'media_' + Math.random().toString(36).substring(2, 9),
-            title: `[${cleanKeyword}] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
+            title: `[네이버] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
             date: dateStr,
             source: 'Naver'
           });
+          if (mediaList.filter(x => x.source === 'Naver').length >= 10) break;
         }
       }
-    } catch (e) {
-      // ignore 403
-    }
+    } catch (e) {}
   }
 
-  // 4. Daum Image Search (Supplement / Tertiary source - domestic only)
+  // 3. [Bing Image & GIF HD Search] - 글로벌 고화질 원본 수집
+  try {
+    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanKeyword)}&form=HDRSC2&first=${(page - 1) * 30 + 1}`;
+    const res = await axios.get(bingUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': isForeign ? 'en-US,en;q=0.9' : 'ko-KR,ko;q=0.9,en-US;q=0.8'
+      },
+      timeout: 4500
+    });
+
+    const murlMatches = [
+      ...String(res.data).matchAll(/class="iusc"[^>]*m="([^"]+)"/gi),
+      ...String(res.data).matchAll(/m="(\{[^"]+\})"/gi)
+    ];
+
+    for (const m of murlMatches) {
+      try {
+        const rawJson = m[1].replace(/&quot;/g, '"');
+        const data = JSON.parse(rawJson);
+        const url = data.murl ? data.murl.replace(/\\/g, '') : '';
+        const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
+
+        let dateStr = '최신';
+        const textToSearch = `${url} ${data.purl || ''} ${data.desc || ''} ${data.t || ''}`;
+        const match1 = textToSearch.match(/\b(201\d|202\d)[\/\.\-_](\d{1,2})\b/);
+        const match2 = textToSearch.match(/\b(201\d|202\d)(\d{2})(\d{2})\b/);
+        const match3 = textToSearch.match(/\b(201[5-9]|202[0-6])\b/);
+
+        if (match1) {
+          dateStr = `${match1[1]}.${match1[2].padStart(2, '0')}`;
+        } else if (match2 && parseInt(match2[2]) >= 1 && parseInt(match2[2]) <= 12) {
+          dateStr = `${match2[1]}.${match2[2]}`;
+        } else if (match3) {
+          dateStr = `${match3[1]}`;
+        }
+
+        if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
+          seen.add(url);
+          const isGif = url.toLowerCase().includes('.gif');
+          const finalTitle = titleText && titleText.length > 2 ? titleText : cleanKeyword;
+          mediaList.push({
+            id: 'media_' + Math.random().toString(36).substring(2, 9),
+            title: `[Bing] ${finalTitle}`,
+            url: url,
+            mediaType: isGif ? 'gif' : 'image',
+            thumbnail: url,
+            date: dateStr,
+            source: 'Bing'
+          });
+          if (mediaList.filter(x => x.source === 'Bing').length >= 10) break;
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
+
+  // 4. [Daum Image Search] - 국내 방송/포토 보완
   if (!isForeign && mediaList.length < 25) {
     try {
       const daumUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(cleanKeyword)}`;
@@ -510,18 +465,20 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
           const isGif = url.toLowerCase().includes('.gif');
           mediaList.push({
             id: 'media_' + Math.random().toString(36).substring(2, 9),
+            title: `[다음] ${cleanKeyword} ${isGif ? '🎬 움짤' : '📷 화보'}`,
+            url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
+            date: '최신',
             source: 'Daum'
           });
+          if (mediaList.filter(x => x.source === 'Daum').length >= 8) break;
         }
       }
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
   }
 
-  // Sort results by date descending (Newest/Latest items FIRST, older items towards the back)
+  // Sort results by date descending (Newest/Latest items FIRST)
   mediaList.sort((a, b) => {
     const parseDateWeight = (dateStr) => {
       if (!dateStr || dateStr === '연도미상') return 0;
@@ -547,6 +504,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   visualMediaFullCache.set(fullCacheKey, { timestamp: now, mediaList: finalResult });
   return finalResult;
 }
+
 
 
 /**
