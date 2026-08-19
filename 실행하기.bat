@@ -31,6 +31,7 @@ if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Micros
 :RUN_NODE
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000.*LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr "0.0.0.0:3000"') do taskkill /f /pid %%a >nul 2>&1
+taskkill /f /im node.exe >nul 2>&1
 taskkill /f /im cloudflared.exe >nul 2>&1
 node "%~dp0server.js"
 timeout /t 3 /nobreak >nul
@@ -40,6 +41,7 @@ goto RUN_NODE
 :RUN_PROGRAM_FILES
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000.*LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr "0.0.0.0:3000"') do taskkill /f /pid %%a >nul 2>&1
+taskkill /f /im node.exe >nul 2>&1
 taskkill /f /im cloudflared.exe >nul 2>&1
 "C:\Program Files\nodejs\node.exe" "%~dp0server.js"
 timeout /t 3 /nobreak >nul
@@ -49,6 +51,7 @@ goto RUN_PROGRAM_FILES
 :RUN_VS
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000.*LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr "0.0.0.0:3000"') do taskkill /f /pid %%a >nul 2>&1
+taskkill /f /im node.exe >nul 2>&1
 taskkill /f /im cloudflared.exe >nul 2>&1
 "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VisualStudio\NodeJs\node.exe" "%~dp0server.js"
 timeout /t 3 /nobreak >nul
