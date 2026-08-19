@@ -3023,7 +3023,7 @@ function initLiveClock() {
   setInterval(updateClock, 1000);
 }
 
-// ===== 🚀 𝕏 (트위터) & 3분 텔레그램 큐 관리 핸들러 =====
+// ===== 🚀 𝕏 (트위터) & 1시간 텔레그램 브리핑 관리 핸들러 =====
 async function loadQueueAndXStatus() {
   try {
     const res = await fetch('/api/telegram-queue/status');
@@ -3043,7 +3043,30 @@ async function loadQueueAndXStatus() {
       }
     }
   } catch (e) {}
+
+  // Also fetch config to show saved placeholder status
+  try {
+    const confRes = await fetch('/api/config');
+    const confData = await confRes.json();
+    if (confData.success && confData.config) {
+      const c = confData.config;
+      const kInput = document.getElementById('x-app-key-input');
+      const sInput = document.getElementById('x-app-secret-input');
+      const tInput = document.getElementById('x-access-token-input');
+      const asInput = document.getElementById('x-access-secret-input');
+      const btInput = document.getElementById('tele-briefing-token-input');
+      const bcInput = document.getElementById('tele-briefing-chatid-input');
+
+      if (kInput && c.hasXAppKey) kInput.placeholder = '✅ [저장됨] ' + (c.xAppKey || '••••••••');
+      if (sInput && c.hasXAppSecret) sInput.placeholder = '✅ [저장됨] ••••••••••••••••';
+      if (tInput && c.hasXAccessToken) tInput.placeholder = '✅ [저장됨] ••••••••••••••••';
+      if (asInput && c.hasXAccessSecret) asInput.placeholder = '✅ [저장됨] ••••••••••••••••';
+      if (btInput && c.telegramBriefingBotToken) btInput.placeholder = '✅ [저장됨] ••••••••••••••••';
+      if (bcInput && c.telegramBriefingChatId) bcInput.value = c.telegramBriefingChatId;
+    }
+  } catch (e) {}
 }
+
 
 async function saveXApiSettings() {
   const appKey = document.getElementById('x-app-key-input')?.value?.trim();
