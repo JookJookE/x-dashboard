@@ -26,7 +26,7 @@ function markAsRead(articleId) {
   map[articleId] = true;
   try {
     fs.writeFileSync(READ_STATUS_FILE, JSON.stringify(map, null, 2), 'utf8');
-  } catch (e) {}
+  } catch (e) { }
   return map;
 }
 
@@ -37,7 +37,7 @@ function markAllAsRead(articleIds = []) {
   });
   try {
     fs.writeFileSync(READ_STATUS_FILE, JSON.stringify(map, null, 2), 'utf8');
-  } catch (e) {}
+  } catch (e) { }
   return map;
 }
 
@@ -54,7 +54,7 @@ function saveStoredArticles(freshArticles) {
   const existing = getStoredArticles();
   const map = new Map(existing.map(a => [a.id, a]));
   freshArticles.forEach(a => map.set(a.id, a));
-  
+
   const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 3600 * 1000);
 
   let merged = Array.from(map.values())
@@ -72,7 +72,7 @@ function saveStoredArticles(freshArticles) {
     if (typeof isSimilarArticleTitle === 'function') {
       const deduplicated = [];
       merged.forEach(art => {
-        const isDup = deduplicated.some(existing => 
+        const isDup = deduplicated.some(existing =>
           existing.category === art.category && isSimilarArticleTitle(existing.title, art.title)
         );
         if (!isDup) {
@@ -81,13 +81,13 @@ function saveStoredArticles(freshArticles) {
       });
       merged = deduplicated;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const finalStored = merged.slice(0, 500);
-    
+
   try {
     fs.writeFileSync(ARTICLES_DB_FILE, JSON.stringify(finalStored, null, 2), 'utf8');
-  } catch (e) {}
+  } catch (e) { }
   return finalStored;
 }
 
@@ -110,7 +110,7 @@ function getOrCreateFetchedAt(articleId, defaultTimestamp = null) {
   map[articleId] = timestamp;
   try {
     fs.writeFileSync(FIRST_COLLECTED_FILE, JSON.stringify(map, null, 2), 'utf8');
-  } catch (e) {}
+  } catch (e) { }
   return timestamp;
 }
 
@@ -222,7 +222,7 @@ function saveSavedDraft(draftData) {
   const trimmed = drafts.slice(0, 100);
   try {
     fs.writeFileSync(SAVED_DRAFTS_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
-  } catch (e) {}
+  } catch (e) { }
   return newDraft;
 }
 
@@ -231,8 +231,80 @@ function deleteSavedDraft(draftId) {
   drafts = drafts.filter(d => String(d.id) !== String(draftId));
   try {
     fs.writeFileSync(SAVED_DRAFTS_FILE, JSON.stringify(drafts, null, 2), 'utf8');
-  } catch (e) {}
+  } catch (e) { }
   return drafts;
+}
+
+const TELEGRAM_QUEUE_FILE = path.join(DATA_DIR, 'telegram_queue_status.json');
+
+function getTelegramQueueMap() {
+  if (!fs.existsSync(TELEGRAM_QUEUE_FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(TELEGRAM_QUEUE_FILE, 'utf8'));
+  } catch (e) {
+    return {};
+  }
+}
+
+function markAsTelegramSent(articleId, data = {}) {
+  const map = getTelegramQueueMap();
+  map[articleId] = {
+    sentAt: new Date().toISOString(),
+    ...data
+  };
+  try {
+    fs.writeFileSync(TELEGRAM_QUEUE_FILE, JSON.stringify(map, null, 2), 'utf8');
+  } catch (e) { }
+  return map;
+}
+
+function isTelegramSent(articleId) {
+  const map = getTelegramQueueMap();
+  return Boolean(map[articleId]);
+}
+
+function getNextArticleForTelegramQueue() {
+  const articles = getStoredArticles();
+  const queueMap = getTelegramQueueMap();
+
+  // Find the most recent article that hasn't been sent to Telegram yet
+  const pending = articles.find(art => !queueMap[art.id] && art.title && art.title.trim().length > 0);
+  return pending || null;
+}
+
+const DAILY_X_POST_FILE = path.join(DATA_DIR, 'daily_x_post_counts.json');
+
+function getTodayKey() {
+  // Format: YYYY-MM-DD in KST (UTC+9)
+  const now = new Date();
+  const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  return kst.toISOString().split('T')[0];
+}
+
+function getDailyXPostData() {
+  if (!fs.existsSync(DAILY_X_POST_FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(DAILY_X_POST_FILE, 'utf8'));
+  } catch (e) {
+    return {};
+  }
+}
+
+function getTodayXPostCount() {
+  const data = getDailyXPostData();
+  const todayKey = getTodayKey();
+  return data[todayKey] || 0;
+}
+
+function incrementTodayXPostCount() {
+  const data = getDailyXPostData();
+  const todayKey = getTodayKey();
+  const newCount = (data[todayKey] || 0) + 1;
+  data[todayKey] = newCount;
+  try {
+    fs.writeFileSync(DAILY_X_POST_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {}
+  return newCount;
 }
 
 module.exports = {
@@ -251,5 +323,14 @@ module.exports = {
   addLog,
   getSavedDrafts,
   saveSavedDraft,
-  deleteSavedDraft
+  deleteSavedDraft,
+  getTelegramQueueMap,
+  markAsTelegramSent,
+  isTelegramSent,
+  getNextArticleForTelegramQueue,
+  getTodayXPostCount,
+  incrementTodayXPostCount,
+  getTodayKey
 };
+
+

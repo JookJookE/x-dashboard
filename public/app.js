@@ -3023,3 +3023,103 @@ function initLiveClock() {
   setInterval(updateClock, 1000);
 }
 
+// ===== 🚀 𝕏 (트위터) & 3분 텔레그램 큐 관리 핸들러 =====
+async function loadQueueAndXStatus() {
+  try {
+    const res = await fetch('/api/telegram-queue/status');
+    const data = await res.json();
+    if (data.success) {
+      const toggle = document.getElementById('telegram-queue-toggle');
+      const badge = document.getElementById('queue-status-badge');
+      if (toggle) toggle.checked = data.enabled;
+      if (badge) {
+        if (data.enabled) {
+          badge.style.background = '#10b981';
+          badge.innerText = '3분 큐 가동 중';
+        } else {
+          badge.style.background = '#64748b';
+          badge.innerText = '일시 중지됨';
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+async function saveXApiSettings() {
+  const appKey = document.getElementById('x-app-key-input')?.value?.trim();
+  const appSecret = document.getElementById('x-app-secret-input')?.value?.trim();
+  const accessToken = document.getElementById('x-access-token-input')?.value?.trim();
+  const accessSecret = document.getElementById('x-access-secret-input')?.value?.trim();
+  const queueEnabled = document.getElementById('telegram-queue-toggle')?.checked;
+
+  const payload = {
+    telegramQueueEnabled: Boolean(queueEnabled)
+  };
+  if (appKey) payload.xAppKey = appKey;
+  if (appSecret) payload.xAppSecret = appSecret;
+  if (accessToken) payload.xAccessToken = accessToken;
+  if (accessSecret) payload.xAccessSecret = accessSecret;
+
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ X API 키 및 텔레그램 큐 설정이 저장되었습니다!');
+      loadQueueAndXStatus();
+    } else {
+      showToast('⚠️ 저장 실패: ' + data.message);
+    }
+  } catch (err) {
+    showToast('저장 중 오류 발생: ' + err.message);
+  }
+}
+
+async function testXAuthentication() {
+  const statusEl = document.getElementById('x-auth-status-msg');
+  if (statusEl) statusEl.innerHTML = '<span style="color:#38bdf8;">🔄 X 계정 인증 확인 중...</span>';
+
+  try {
+    const res = await fetch('/api/twitter/test-auth', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`🎉 X 계정 연동 성공! (@${data.username})`);
+      if (statusEl) {
+        statusEl.innerHTML = `<span style="color:#10b981;">✅ 연동 완료: <strong>@${data.username}</strong> (${data.name})</span>`;
+      }
+    } else {
+      showToast('❌ X 계정 인증 실패');
+      if (statusEl) {
+        statusEl.innerHTML = `<span style="color:#ef4444;">❌ 인증 실패: ${data.error}</span>`;
+      }
+    }
+  } catch (err) {
+    showToast('확인 실패: ' + err.message);
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:#ef4444;">❌ 오류: ${err.message}</span>`;
+    }
+  }
+}
+
+async function triggerQueueNow() {
+  showToast('⚡ 다음 1건 텔레그램 발송을 시작합니다...');
+  try {
+    const res = await fetch('/api/telegram-queue/trigger-next', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('📱 텔레그램으로 기사 미리보기 및 승인 버튼이 발송되었습니다!');
+    } else {
+      showToast('⚠️ 발송 알림: ' + data.message);
+    }
+  } catch (err) {
+    showToast('발송 오류: ' + err.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadQueueAndXStatus();
+});
+

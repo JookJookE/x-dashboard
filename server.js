@@ -12,6 +12,11 @@ const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet } = require('./vi
 const { getGitInfo, pullAndApplyUpdates, initGitAutoSync } = require('./gitAutoSync');
 const { initScheduler, generateDailyDraftsJob, getDailyDrafts } = require('./scheduler');
 const { sendTelegramMessage, sendEmailMessage, notifyNewTunnelUrl } = require('./notifier');
+const { initTelegramQueueWorker, stopTelegramQueueWorker, isQueueActive, triggerHourlyTelegramBriefing, processAndSendArticle } = require('./services/telegramQueueService');
+const { postTweetWithMedia, testTwitterConnection } = require('./services/xPostService');
+const { generateCardNewsImage } = require('./services/cardNewsServerService');
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -392,6 +397,36 @@ app.post('/api/generate-daily-drafts', async (req, res) => {
 app.get('/api/logs', (req, res) => {
   res.json({ success: true, logs: getLogs() });
 });
+
+app.get('/api/config', (req, res) => {
+  const config = getConfig();
+  res.json({
+    success: true,
+    config: {
+      ...config,
+      // Masking or providing for form inputs
+      xAppKey: config.xAppKey ? '••••••••' + config.xAppKey.slice(-4) : '',
+      hasXAppKey: Boolean(config.xAppKey),
+      hasXAppSecret: Boolean(config.xAppSecret),
+      hasXAccessToken: Boolean(config.xAccessToken),
+      hasXAccessSecret: Boolean(config.xAccessSecret),
+      telegramQueueEnabled: Boolean(config.telegramQueueEnabled),
+      telegramBotToken: config.telegramBotToken ? '••••••••' : '',
+      telegramChatId: config.telegramChatId || ''
+    }
+  });
+});
+
+app.post('/api/config', (req, res) => {
+  try {
+    const updated = saveConfig(req.body);
+    addLog('SUCCESS', '⚙️ 시스템 설정이 성공적으로 업데이트되었습니다.');
+    res.json({ success: true, config: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 // ===== User Saved Drafts (⭐ 임시 보관함) =====
 app.get('/api/user-drafts', (req, res) => {
@@ -892,9 +927,71 @@ app.get('/api/git-info', async (req, res) => {
   res.json(info);
 });
 
-app.post('/api/git-sync', async (req, res) => {
-  const result = await pullAndApplyUpdates();
+// ===== 🤖 텔레그램 3분 큐 & X(트위터) 승인 포스팅 API =====
+app.get('/api/telegram-queue/status', (req, res) => {
+  const config = getConfig();
+  res.json({
+    success: true,
+    enabled: Boolean(config.telegramQueueEnabled),
+    isActive: isQueueActive()
+  });
+});
+
+app.post('/api/telegram-queue/toggle', (req, res) => {
+  try {
+    const config = getConfig();
+    const newEnabled = !config.telegramQueueEnabled;
+    saveConfig({ telegramQueueEnabled: newEnabled });
+
+    if (newEnabled) {
+      initTelegramQueueWorker();
+    } else {
+      stopTelegramQueueWorker();
+    }
+
+    res.json({ success: true, enabled: newEnabled, isActive: isQueueActive() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/telegram-queue/trigger-next', async (req, res) => {
+  try {
+    const result = await triggerHourlyTelegramBriefing(true);
+    res.json({ success: true, result, message: '핵심 5개 기사 텔레그램 발송 완료' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/telegram-queue/send-article', async (req, res) => {
+  try {
+    const { articleId } = req.body;
+    const articles = getStoredArticles();
+    const target = articles.find(a => String(a.id) === String(articleId));
+    if (!target) {
+      return res.status(404).json({ success: false, message: '기사를 찾을 수 없습니다.' });
+    }
+    const result = await processAndSendArticle(target);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/twitter/test-auth', async (req, res) => {
+  const result = await testTwitterConnection();
   res.json(result);
+});
+
+app.post('/api/twitter/post-direct', async (req, res) => {
+  try {
+    const { text, imagePath } = req.body;
+    const result = await postTweetWithMedia({ text, imagePath });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 const startServer = (port, retries = 5) => {
@@ -909,6 +1006,16 @@ const startServer = (port, retries = 5) => {
 
     // Start GitHub Auto-Sync (checks every 30s)
     initGitAutoSync(30);
+
+    // Initialize Telegram 3-Minute Queue Worker if enabled
+    const config = getConfig();
+    if (config.telegramQueueEnabled) {
+      try {
+        initTelegramQueueWorker();
+      } catch (teleErr) {
+        addLog('WARN', `텔레그램 큐 워커 시작 지연: ${teleErr.message}`);
+      }
+    }
 
     // Trigger initial article fetch asynchronously on server startup
     setTimeout(async () => {

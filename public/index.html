@@ -674,6 +674,53 @@
           </div>
         </div>
 
+        <!-- X (Twitter) & Telegram 3-Minute Approval Queue Settings -->
+        <div class="card" style="max-width:600px; margin-bottom:20px; border: 1px solid rgba(56, 189, 248, 0.4); background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>🚀 𝕏 (트위터) 연동 &amp; 1시간 텔레그램 승인 브리핑</h3>
+            <span id="queue-status-badge" class="badge" style="background:#10b981; color:#fff; font-size:11px; padding:3px 8px; border-radius:4px;">브리핑 가동 중</span>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+              매시간 정각마다 수집된 기사 중 <strong>중복 없는 핵심 5개(IT·코인·경제·커뮤니티 균형)</strong>를 <strong>[제목+사진]</strong> 또는 <strong>[제목만]</strong> 카드뉴스와 함께 텔레그램으로 전송합니다. (🌙 00시~07시는 취침 방해 방지 야간 정적 모드)
+            </p>
+            
+            <div class="form-group" style="margin-bottom:14px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:var(--accent-cyan);">
+                <input type="checkbox" id="telegram-queue-toggle" style="width:18px; height:18px; accent-color:var(--accent-cyan);">
+                1시간 주기 텔레그램 핵심 5개 자동 브리핑 활성화
+              </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom:10px;">
+              <label for="x-app-key-input">X API Key (Consumer Key):</label>
+              <input type="password" id="x-app-key-input" placeholder="API Key 입력..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:10px;">
+              <label for="x-app-secret-input">X API Key Secret (Consumer Secret):</label>
+              <input type="password" id="x-app-secret-input" placeholder="API Key Secret 입력..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:10px;">
+              <label for="x-access-token-input">X Access Token:</label>
+              <input type="password" id="x-access-token-input" placeholder="Access Token 입력..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:15px;">
+              <label for="x-access-secret-input">X Access Token Secret:</label>
+              <input type="password" id="x-access-secret-input" placeholder="Access Token Secret 입력..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <button id="btn-save-x-keys" class="btn btn-primary" onclick="saveXApiSettings()">💾 X 키 &amp; 브리핑 설정 저장</button>
+              <button id="btn-test-x-auth" class="btn btn-secondary" onclick="testXAuthentication()">🔑 X 계정 연결 확인</button>
+              <button id="btn-trigger-queue-now" class="btn btn-outline" style="border-color:var(--accent-gold); color:var(--accent-gold);" onclick="triggerQueueNow()">⚡ 즉시 핵심 5개 텔레그램 발송</button>
+            </div>
+            <div id="x-auth-status-msg" style="margin-top:10px; font-size:12px;"></div>
+          </div>
+        </div>
+
         <div class="card" style="max-width:600px;">
           <div class="card-header">
             <h3>⚙️ Gemini AI API 키 설정</h3>
@@ -691,8 +738,6 @@
             </button>
           </div>
         </div>
-
-
 
 
         <!-- Telegram Notification Settings -->

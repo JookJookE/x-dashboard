@@ -32,18 +32,29 @@ function saveDailyDrafts(drafts) {
 function initScheduler() {
   if (cronJobHourly) cronJobHourly.stop();
 
-  // Every 1 Hour Check (매시간 정각마다 신규 뉴스 자동 감지 및 DB 보관 - Gemini API 미호출)
+  // Every 1 Hour Check (매시간 정각마다 신규 뉴스 자동 감지 및 DB 보관 + 텔레그램 핵심 5개 브리핑)
   cronJobHourly = cron.schedule('0 * * * *', async () => {
-    addLog('INFO', '⏰ [1시간 주기 정각 감지] 신규 뉴스 탐지 중... (Gemini API 미호출, DB 수집만 수행)');
+    addLog('INFO', '⏰ [1시간 주기 정각 감지] 신규 뉴스 탐지 중...');
     try {
       const articles = await fetchLatestArticles(30);
       addLog('SUCCESS', `⏰ [1시간 주기 정각 감지] 총 ${articles.length}건의 최신 뉴스를 DB에 성공적으로 보관했습니다.`);
+
+      // 📱 Trigger Telegram Hourly Briefing (Top 5 Diverse Articles)
+      const config = getConfig();
+      if (config.telegramQueueEnabled) {
+        try {
+          const { triggerHourlyTelegramBriefing } = require('./services/telegramQueueService');
+          await triggerHourlyTelegramBriefing(false);
+        } catch (teleErr) {
+          addLog('ERROR', `텔레그램 정각 브리핑 실패: ${teleErr.message}`);
+        }
+      }
     } catch (e) {
       addLog('ERROR', `정각 뉴스 수집 실패: ${e.message}`);
     }
   });
 
-  addLog('INFO', '⏰ 스케줄러 활성화: 매시간 정각 최신 뉴스 수집 작동 중 (Gemini API 0회 소모)');
+  addLog('INFO', '⏰ 스케줄러 활성화: 매시간 정각 최신 뉴스 수집 & 텔레그램 핵심 5개 브리핑 연동 중');
 }
 
 async function checkAndGenerateNewDrafts(targetCount = 5) {
