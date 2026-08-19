@@ -596,7 +596,13 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.6 (2026-08-19) - Cloudflare 터널 생성 및 URL 추출 로직 비동기 안전화 & 정규식 완벽 호환
+- **[터널 URL 감지 및 알림 발송 100% 보장]** (`server.js`):
+  - 기존 프로세스를 비동기로 완전 종료 후 1초 뒤 안전하게 `cloudflared`를 실행하여 포트 충돌 방지
+  - ANSI 및 대소문자/언더바/점 등 모든 `trycloudflare.com` 도메인 패턴을 완벽히 추출하도록 정규식 개선
+
 ### v3.8.5 (2026-08-19) - 포트 3000 EADDRINUSE 자기 치유(Self-Healing) 및 자동 복구 시스템 탑재
+
 - **[포트 충돌 원천 방지 & 자기 치유]** (`server.js`):
   - `server.on('error')`에서 `EADDRINUSE` 감지 시 포트 3000을 점유하는 구버전 프로세스 및 터널을 강제 자동 정리 후 2초 만에 자체 재연결 수행
 

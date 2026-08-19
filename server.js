@@ -427,40 +427,50 @@ let activeTunnelProc = null;
 
 function startCloudflareTunnel() {
   const cloudflaredPath = path.join(__dirname, 'cloudflared.exe');
-  if (fs.existsSync(cloudflaredPath)) {
-    try {
-      // 기존에 남아있던 cloudflared 프로세스 정리
-      execSync('taskkill /f /im cloudflared.exe', { stdio: 'ignore' });
-    } catch (e) {}
-
-    activeTunnelProc = spawn(cloudflaredPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
-    let tunnelUrlFound = false;
-    let fullOutput = '';
-
-    function handleData(data) {
-      fullOutput += data.toString();
-      const match = fullOutput.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
-      if (match && !tunnelUrlFound) {
-        tunnelUrlFound = true;
-        const tunnelUrl = match[0];
-        console.log(`\n=======================================================`);
-        console.log(`🌐 외부(LTE/5G/스마트폰) 접속 주소:`);
-        console.log(`👉 ${tunnelUrl}`);
-        console.log(`🔑 보안 로그인: 아이디 admin / 설정하신 비밀번호`);
-        console.log(`=======================================================\n`);
-        addLog('SUCCESS', `🌐 Cloudflare 외부 접속 터널이 활성화되었습니다: ${tunnelUrl}`);
-        notifyNewTunnelUrl(tunnelUrl);
-      }
-    }
-
-    if (activeTunnelProc.stdout) activeTunnelProc.stdout.on('data', handleData);
-    if (activeTunnelProc.stderr) activeTunnelProc.stderr.on('data', handleData);
-
-    activeTunnelProc.on('error', (err) => {
-      console.log(`[터널 안내] cloudflared 터널 시작 중: ${err.message}`);
-    });
+  if (!fs.existsSync(cloudflaredPath)) {
+    console.log('[터널 안내] cloudflared.exe 파일이 없어 로컬 전용으로 동작합니다.');
+    return;
   }
+
+  const { exec, spawn } = require('child_process');
+  
+  // 1. 기존 잔여 cloudflared 프로세스를 확실하게 종료
+  exec('taskkill /f /im cloudflared.exe', () => {
+    setTimeout(() => {
+      try {
+        console.log('🌐 Cloudflare 외부 접속 터널을 생성하는 중입니다...');
+        activeTunnelProc = spawn(cloudflaredPath, ['tunnel', '--url', `http://127.0.0.1:${PORT}`]);
+        let tunnelUrlFound = false;
+
+        function handleOutput(data) {
+          const text = data.toString();
+          const match = text.match(/https:\/\/[a-zA-Z0-9._-]+\.trycloudflare\.com/i);
+          if (match && !tunnelUrlFound) {
+            tunnelUrlFound = true;
+            const tunnelUrl = match[0];
+            console.log(`\n=======================================================`);
+            console.log(`🌐 외부(LTE/5G/스마트폰) 접속 주소:`);
+            console.log(`👉 ${tunnelUrl}`);
+            console.log(`🔑 보안 로그인: 아이디 admin / 설정하신 비밀번호`);
+            console.log(`=======================================================\n`);
+            addLog('SUCCESS', `🌐 Cloudflare 외부 접속 터널이 활성화되었습니다: ${tunnelUrl}`);
+            notifyNewTunnelUrl(tunnelUrl);
+          }
+        }
+
+        if (activeTunnelProc.stdout) activeTunnelProc.stdout.on('data', handleOutput);
+        if (activeTunnelProc.stderr) activeTunnelProc.stderr.on('data', handleOutput);
+
+        activeTunnelProc.on('error', (err) => {
+          console.log(`[터널 에러] ${err.message}`);
+        });
+      } catch (err) {
+        console.error('[터널 시작 실패]', err);
+      }
+    }, 1000);
+  });
 }
+
 
 // Clean up child process on exit
 process.on('exit', () => {
