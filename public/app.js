@@ -83,10 +83,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSaveYoutubeKey = document.getElementById('btn-save-youtube-key');
   if (btnSaveYoutubeKey) btnSaveYoutubeKey.addEventListener('click', saveYoutubeApiKey);
 
+  const btnTestYoutubeKey = document.getElementById('btn-test-youtube-key');
+  if (btnTestYoutubeKey) btnTestYoutubeKey.addEventListener('click', testYouTubeApiKey);
+
   const btnSaveXBearer = document.getElementById('btn-save-x-bearer');
   if (btnSaveXBearer) btnSaveXBearer.addEventListener('click', saveXBearerToken);
 
   loadConfig();
+  loadYouTubeQuota();
 
   const textInput = document.getElementById('tweet-text-input');
   textInput.addEventListener('input', updateCharCount);
@@ -1849,9 +1853,10 @@ async function saveYoutubeApiKey() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('🎬 YouTube API 키가 저장되었습니다! 직캠 탭에서 실시간 수집이 활성화됩니다.');
+      showToast('🎬 YouTube API 키가 저장되었습니다!');
       const statusEl = document.getElementById('youtube-key-status');
       if (statusEl) { statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 3000); }
+      loadYouTubeQuota();
     } else {
       showToast('저장 실패: ' + data.message);
     }
@@ -1859,6 +1864,163 @@ async function saveYoutubeApiKey() {
     showToast('저장 실패: ' + err.message);
   }
 }
+
+async function testYouTubeApiKey() {
+  const keyInput = document.getElementById('youtube-key-input');
+  const apiKey = keyInput ? keyInput.value.trim() : '';
+  const feedbackEl = document.getElementById('youtube-test-feedback');
+  const testBtn = document.getElementById('btn-test-youtube-key');
+
+  if (!apiKey) {
+    showToast('⚠️ 먼저 YouTube API 키를 입력해 주세요.');
+    if (feedbackEl) {
+      feedbackEl.style.display = 'block';
+      feedbackEl.style.background = 'rgba(239,68,68,0.15)';
+      feedbackEl.style.border = '1px solid rgba(239,68,68,0.3)';
+      feedbackEl.style.color = '#f87171';
+      feedbackEl.innerHTML = '⚠️ API 키를 입력한 후 테스트를 진행해 주세요.';
+    }
+    return;
+  }
+
+  if (testBtn) {
+    testBtn.disabled = true;
+    testBtn.innerText = '🔄 연결 테스트 중...';
+  }
+  if (feedbackEl) {
+    feedbackEl.style.display = 'block';
+    feedbackEl.style.background = 'rgba(56,189,248,0.1)';
+    feedbackEl.style.border = '1px solid rgba(56,189,248,0.3)';
+    feedbackEl.style.color = '#38bdf8';
+    feedbackEl.innerHTML = '⏳ YouTube Data API v3 서버와 통신을 확인하는 중입니다...';
+  }
+
+  try {
+    const res = await fetch('/api/test-youtube', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast('✅ YouTube API 정상 연결 확인 완료!');
+      if (feedbackEl) {
+        feedbackEl.style.background = 'rgba(34,197,94,0.15)';
+        feedbackEl.style.border = '1px solid rgba(34,197,94,0.4)';
+        feedbackEl.style.color = '#4ade80';
+        feedbackEl.innerHTML = `
+          <strong>✅ 정상 작동 중:</strong> ${data.message}<br>
+          <span style="font-size:11px; color:#cbd5e1;">(샘플 검색 결과: "${data.details?.sampleTitle || ''}" 정상 수신됨)</span>
+        `;
+      }
+      const badge = document.getElementById('youtube-status-badge');
+      if (badge) {
+        badge.innerText = '정상 작동';
+        badge.style.background = 'rgba(34,197,94,0.2)';
+        badge.style.color = '#4ade80';
+        badge.style.borderColor = 'rgba(34,197,94,0.4)';
+      }
+    } else {
+      showToast('❌ YouTube API 테스트 실패');
+      if (feedbackEl) {
+        feedbackEl.style.background = 'rgba(239,68,68,0.15)';
+        feedbackEl.style.border = '1px solid rgba(239,68,68,0.4)';
+        feedbackEl.style.color = '#f87171';
+        feedbackEl.innerHTML = `
+          <strong>❌ 연결 오류:</strong> ${data.message}<br>
+          <span style="font-size:11px; color:#94a3b8;">사유: ${data.rawError || 'API 키 또는 활성화 여부를 확인하세요'}</span>
+        `;
+      }
+      const badge = document.getElementById('youtube-status-badge');
+      if (badge) {
+        badge.innerText = '오류 발생';
+        badge.style.background = 'rgba(239,68,68,0.2)';
+        badge.style.color = '#ef4444';
+        badge.style.borderColor = 'rgba(239,68,68,0.4)';
+      }
+    }
+
+    if (data.quota) {
+      updateYouTubeQuotaUI(data.quota);
+    }
+  } catch (err) {
+    if (feedbackEl) {
+      feedbackEl.style.background = 'rgba(239,68,68,0.15)';
+      feedbackEl.style.border = '1px solid rgba(239,68,68,0.4)';
+      feedbackEl.style.color = '#f87171';
+      feedbackEl.innerHTML = `❌ 서버 통신 오류: ${err.message}`;
+    }
+  } finally {
+    if (testBtn) {
+      testBtn.disabled = false;
+      testBtn.innerText = '⚡ 연결 테스트 & 정상 작동 확인';
+    }
+  }
+}
+
+async function loadYouTubeQuota() {
+  try {
+    const res = await fetch('/api/youtube-quota');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.success && data.quota) {
+      updateYouTubeQuotaUI(data.quota);
+    }
+  } catch (e) {}
+}
+
+function updateYouTubeQuotaUI(quota) {
+  if (!quota) return;
+
+  // 1. Settings tab widgets
+  const quotaText = document.getElementById('youtube-quota-text');
+  const quotaBar = document.getElementById('youtube-quota-bar');
+  const remainingCalls = document.getElementById('youtube-remaining-calls');
+
+  if (quotaText) {
+    quotaText.innerText = `${quota.usedQuota.toLocaleString()} / ${quota.maxQuota.toLocaleString()} units (${quota.percentUsed}%)`;
+    if (quota.percentUsed >= 80) quotaText.style.color = '#ef4444';
+    else if (quota.percentUsed >= 50) quotaText.style.color = '#f59e0b';
+    else quotaText.style.color = '#38bdf8';
+  }
+
+  if (quotaBar) {
+    quotaBar.style.width = `${Math.min(100, Math.max(1, quota.percentUsed))}%`;
+    if (quota.percentUsed >= 80) quotaBar.style.background = '#ef4444';
+    else if (quota.percentUsed >= 50) quotaBar.style.background = '#f59e0b';
+    else quotaBar.style.background = 'linear-gradient(90deg, #38bdf8, #ef4444)';
+  }
+
+  if (remainingCalls) {
+    remainingCalls.innerText = `오늘 남은 직캠 검색 가능 횟수: 약 ${quota.remainingCalls}회 (사용: ${quota.searchCalls}회)`;
+  }
+
+  // 2. Visual Media Tab Top Header Badge
+  const visualStatusBadge = document.getElementById('visual-youtube-status-badge');
+  if (visualStatusBadge) {
+    const keyInput = document.getElementById('youtube-key-input');
+    const hasKey = keyInput && keyInput.value.trim().length > 5;
+
+    if (!hasKey) {
+      visualStatusBadge.innerText = '🎬 YouTube 키 미설정';
+      visualStatusBadge.style.background = 'rgba(148,163,184,0.15)';
+      visualStatusBadge.style.color = '#94a3b8';
+      visualStatusBadge.style.borderColor = 'rgba(148,163,184,0.3)';
+    } else if (quota.remainingQuota <= 0) {
+      visualStatusBadge.innerText = '🚨 YouTube 일일 쿼터 소진';
+      visualStatusBadge.style.background = 'rgba(239,68,68,0.25)';
+      visualStatusBadge.style.color = '#ef4444';
+      visualStatusBadge.style.borderColor = 'rgba(239,68,68,0.5)';
+    } else {
+      visualStatusBadge.innerText = `🎬 YouTube 24h 직캠 활성 (오늘 쿼터: ${quota.usedQuota}/${quota.maxQuota})`;
+      visualStatusBadge.style.background = 'rgba(239,68,68,0.2)';
+      visualStatusBadge.style.color = '#ef4444';
+      visualStatusBadge.style.borderColor = 'rgba(239,68,68,0.4)';
+    }
+  }
+}
+
 
 async function saveXBearerToken() {
   const tokenInput = document.getElementById('x-bearer-token-input');
@@ -2446,6 +2608,9 @@ async function loadVisualMedia(keyword = '코스프레 화보') {
     if (data.success && data.media) {
       currentVisualMediaList = data.media;
       renderVisualMediaGrid(data.media);
+      if (data.quota) {
+        updateYouTubeQuotaUI(data.quota);
+      }
       if (data.media.length > 0 && !selectedVisualMedia) {
         selectVisualMediaItem(data.media[0]);
       }
@@ -2455,6 +2620,24 @@ async function loadVisualMedia(keyword = '코스프레 화보') {
   } catch (err) {
     if (gridEl) gridEl.innerHTML = `<p class="placeholder-text" style="grid-column:1/-1; color:#f87171;">⚠️ ${err.message}</p>`;
   }
+}
+
+function getSourceBadgeHtml(source = '') {
+  const s = (source || '').toLowerCase();
+  if (s.includes('youtube')) {
+    return `<span class="source-badge" style="background:#ef4444; color:#fff; font-weight:800; font-size:10px; padding:2px 6px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.4); display:inline-flex; align-items:center; gap:2px;">▶ YouTube</span>`;
+  } else if (s.includes('더쿠') || s.includes('theqoo')) {
+    return `<span class="source-badge" style="background:#8b5cf6; color:#fff; font-weight:800; font-size:10px; padding:2px 6px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.4); display:inline-flex; align-items:center; gap:2px;">💬 더쿠 핫게</span>`;
+  } else if (s.includes('dcinside') || s.includes('dc')) {
+    return `<span class="source-badge" style="background:#3b82f6; color:#fff; font-weight:800; font-size:10px; padding:2px 6px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.4); display:inline-flex; align-items:center; gap:2px;">갤 DC 갤러리</span>`;
+  } else if (s.includes('tenor')) {
+    return `<span class="source-badge" style="background:#10b981; color:#fff; font-weight:800; font-size:10px; padding:2px 6px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.4); display:inline-flex; align-items:center; gap:2px;">💃 Tenor GIF</span>`;
+  } else if (s.includes('naver')) {
+    return `<span class="source-badge" style="background:#16a34a; color:#fff; font-weight:700; font-size:10px; padding:2px 6px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.4);">🟢 Naver HD</span>`;
+  } else if (s.includes('direct')) {
+    return `<span class="source-badge" style="background:#6366f1; color:#fff; font-weight:700; font-size:10px; padding:2px 6px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.4);">🔗 직접 링크</span>`;
+  }
+  return `<span class="source-badge" style="background:rgba(100,116,139,0.85); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.4);">🔍 Bing HD</span>`;
 }
 
 function renderVisualMediaGrid(list) {
@@ -2470,21 +2653,27 @@ function renderVisualMediaGrid(list) {
     const isSelected = selectedVisualMedia && selectedVisualMedia.url === item.url;
     const isVideo = item.mediaType === 'video' || item.url.toLowerCase().includes('.mp4');
     const isGif = item.mediaType === 'gif' || item.url.toLowerCase().includes('.gif');
+    const isYouTube = item.mediaType === 'youtube' || (item.source || '').toLowerCase().includes('youtube');
     const proxyThumb = `/api/proxy-image?url=${encodeURIComponent(item.thumbnail || item.url)}`;
 
     let badgeHtml = '📷 HD';
-    if (isVideo) badgeHtml = '🎬 동영상';
+    if (isYouTube) badgeHtml = '🎬 유튜브 직캠';
+    else if (isVideo) badgeHtml = '🎬 동영상';
     else if (isGif) badgeHtml = '✨ 움짤';
 
     const displayDate = item.date || '연도미상';
     const isUnknown = displayDate === '연도미상';
     const dateBadge = `<span style="position:absolute; top:6px; left:6px; z-index:3; background:rgba(0,0,0,0.85); color:${isUnknown ? '#94a3b8' : '#38bdf8'}; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800; border:1px solid ${isUnknown ? 'rgba(148,163,184,0.3)' : 'rgba(56,189,248,0.4)'}; box-shadow:0 2px 4px rgba(0,0,0,0.5);">📅 ${displayDate}</span>`;
+    
+    // 출처 뱃지
+    const sourceBadge = `<span style="position:absolute; bottom:26px; left:6px; z-index:3;">${getSourceBadgeHtml(item.source)}</span>`;
 
     return `
       <div class="visual-media-card ${isSelected ? 'selected' : ''}" onclick="selectVisualMediaByIndex('${item.id}')">
-        <img src="${proxyThumb}" loading="lazy" alt="${item.title}" onerror="this.onerror=null; this.src='${item.url}';" />
+        <img src="${proxyThumb}" loading="lazy" alt="${item.title}" onerror="this.onerror=null; this.src='${item.thumbnail || item.url}';" />
         ${dateBadge}
-        <span class="visual-media-badge" style="${isVideo ? 'background:#ef4444; color:#fff;' : (isGif ? 'background:#ec4899; color:#fff;' : '')}">${badgeHtml}</span>
+        ${sourceBadge}
+        <span class="visual-media-badge" style="${isYouTube || isVideo ? 'background:#ef4444; color:#fff;' : (isGif ? 'background:#ec4899; color:#fff;' : '')}">${badgeHtml}</span>
         <div class="visual-media-overlay">${item.title}</div>
       </div>
     `;
@@ -2513,24 +2702,52 @@ function selectVisualMediaItem(media) {
     previewBox.style.display = 'block';
     const isVideo = media.mediaType === 'video' || media.url.toLowerCase().includes('.mp4');
     const isGif = media.mediaType === 'gif' || media.url.toLowerCase().includes('.gif');
-    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(media.url)}`;
+    const isYouTube = media.mediaType === 'youtube' || (media.source || '').toLowerCase().includes('youtube');
+    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(media.thumbnail || media.url)}`;
     const mediaDate = media.date || '연도미상';
+    const ytUrl = media.videoUrl || (media.youtubeId ? `https://www.youtube.com/watch?v=${media.youtubeId}` : '');
 
-    if (isVideo && (media.url.endsWith('.mp4') || media.url.endsWith('.webm'))) {
+    let sourceInfoHtml = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:6px 10px; background:rgba(0,0,0,0.4); border-radius:6px; font-size:11px; border:1px solid rgba(255,255,255,0.06);">
+        <span style="display:flex; align-items:center; gap:6px;">
+          <strong style="color:var(--text-muted);">출처:</strong>
+          ${getSourceBadgeHtml(media.source)}
+          ${media.channelTitle ? `<span style="color:#94a3b8;">(${media.channelTitle})</span>` : ''}
+        </span>
+        ${isYouTube && ytUrl ? `
+          <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" style="color:#ef4444; text-decoration:none; font-weight:800; display:inline-flex; align-items:center; gap:3px; background:rgba(239,68,68,0.1); padding:2px 8px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">
+            ▶ 유튜브 원본 보기 ↗
+          </a>
+        ` : ''}
+      </div>
+    `;
+
+    if (isYouTube) {
       previewBox.innerHTML = `
         <div style="position:relative; display:inline-block; max-width:100%;">
-          <video src="${media.url}" controls autoplay muted loop playsinline style="max-height:280px; max-width:100%; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.6);"></video>
+          <img src="${proxyUrl}" onerror="this.onerror=null; this.src='${media.thumbnail || media.url}';" alt="${media.title}" style="max-height:260px; max-width:100%; border-radius:8px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,0.6);" />
+          <span style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.85); color:#38bdf8; font-size:11px; padding:3px 8px; border-radius:5px; font-weight:800; border:1px solid rgba(56,189,248,0.4);">📅 ${mediaDate}</span>
+          <span style="position:absolute; bottom:8px; right:8px; background:#ef4444; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; font-weight:800; box-shadow:0 2px 6px rgba(0,0,0,0.6);">🎬 YouTube 직캠</span>
+        </div>
+        ${sourceInfoHtml}
+      `;
+    } else if (isVideo && (media.url.endsWith('.mp4') || media.url.endsWith('.webm'))) {
+      previewBox.innerHTML = `
+        <div style="position:relative; display:inline-block; max-width:100%;">
+          <video src="${media.url}" controls autoplay muted loop playsinline style="max-height:260px; max-width:100%; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.6);"></video>
           <span style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.85); color:#38bdf8; font-size:11px; padding:3px 8px; border-radius:5px; font-weight:800; border:1px solid rgba(56,189,248,0.4);">📅 ${mediaDate}</span>
           <span style="position:absolute; bottom:8px; right:8px; background:rgba(239,68,68,0.85); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800;">🎬 MP4 동영상</span>
         </div>
+        ${sourceInfoHtml}
       `;
     } else {
       previewBox.innerHTML = `
         <div style="position:relative; display:inline-block; max-width:100%;">
-          <img src="${proxyUrl}" onerror="this.onerror=null; this.src='${media.url}';" alt="${media.title}" style="max-height:280px; max-width:100%; border-radius:8px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,0.6);" />
+          <img src="${proxyUrl}" onerror="this.onerror=null; this.src='${media.url}';" alt="${media.title}" style="max-height:260px; max-width:100%; border-radius:8px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,0.6);" />
           <span style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.85); color:#38bdf8; font-size:11px; padding:3px 8px; border-radius:5px; font-weight:800; border:1px solid rgba(56,189,248,0.4);">📅 ${mediaDate}</span>
-          <span style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">${isVideo ? '🎬 동영상 미디어' : (isGif ? '✨ 모션 움짤' : '📷 고화질 사진')}</span>
+          <span style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">${isGif ? '✨ 모션 움짤' : '📷 고화질 사진'}</span>
         </div>
+        ${sourceInfoHtml}
       `;
     }
   }
@@ -2542,6 +2759,7 @@ function selectVisualMediaItem(media) {
   // Auto generate viral tweet copy for selected media
   generateVisualAiTweet();
 }
+
 
 function selectVisualPreset(query, btnEl) {
   document.querySelectorAll('#visual-preset-pills .preset-pill').forEach(b => b.classList.remove('active'));

@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { getConfig } = require('./config');
 const { addLog } = require('./history');
+const { recordYouTubeUsage } = require('./quotaTracker');
 
 // Preset Visual Keyword Categories (3 Essential Basic Presets)
 const VISUAL_PRESETS = [
@@ -122,23 +123,27 @@ async function fetchYouTubeVideos(keyword, apiKey) {
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQ)}&type=video&order=date&publishedAfter=${encodeURIComponent(since)}&maxResults=15&key=${apiKey}`;
     const res = await axios.get(url, { timeout: 6000 });
 
+    // 쿼터 기록 (search.list 호출 1회 = 100 units)
+    recordYouTubeUsage(100);
+
     for (const item of (res.data.items || [])) {
       const videoId = item.id?.videoId;
       if (!videoId) continue;
       const snippet = item.snippet || {};
-      const thumb = snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || '';
+      const thumb = snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || '';
       const title = snippet.title || ytKeyword;
       const publishedAt = snippet.publishedAt || '';
       let dateStr = '최신';
       if (publishedAt) {
         const d = new Date(publishedAt);
-        dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+        dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
       }
       results.push({
         id: 'yt_' + videoId,
         title: `[YouTube] ${title.substring(0, 60)}`,
         url: thumb,
         videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        sourceUrl: `https://www.youtube.com/watch?v=${videoId}`,
         mediaType: 'youtube',
         thumbnail: thumb,
         date: dateStr,
@@ -147,11 +152,79 @@ async function fetchYouTubeVideos(keyword, apiKey) {
         channelTitle: snippet.channelTitle || ''
       });
     }
+
+    if (results.length > 0) {
+      addLog('SUCCESS', `🎬 [YouTube API] "${searchQ}" 24시간 이내 직캠 ${results.length}건 수집 성공 (100 쿼터 차감)`);
+    }
   } catch (e) {
-    // YouTube API 실패 시 조용히 스킵
+    const errorMsg = e.response?.data?.error?.message || e.message;
+    const isQuotaExceeded = errorMsg.includes('quota') || e.response?.status === 403;
+    if (isQuotaExceeded) {
+      addLog('ERROR', `🚨 [YouTube API] 일일 쿼터(10,000)가 모두 소진되었거나 권한이 없습니다: ${errorMsg}`);
+    } else {
+      addLog('WARN', `⚠️ [YouTube API] 수집 중 오류 (${errorMsg}) -> 다음 파이프라인으로 진행`);
+    }
   }
   return results;
 }
+
+/**
+ * YouTube API v3 키 유효성 및 연결 테스트
+ * @param {string} apiKey 
+ * @returns {Promise<{success: boolean, message: string, details?: any}>}
+ */
+async function testYouTubeApiConnection(apiKey) {
+  if (!apiKey || !apiKey.trim()) {
+    return {
+      success: false,
+      message: 'YouTube API 키가 입력되지 않았습니다.'
+    };
+  }
+
+  try {
+    const testUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=kpop&type=video&maxResults=1&key=${apiKey.trim()}`;
+    const res = await axios.get(testUrl, { timeout: 6000 });
+
+    // 테스트 성공 시 쿼터 100 기록
+    recordYouTubeUsage(100);
+
+    const firstItem = res.data?.items?.[0];
+    const videoTitle = firstItem?.snippet?.title || '성공';
+
+    addLog('SUCCESS', `✅ [YouTube API 테스트] 정상 연결 확인 완료: API 키 유효 (테스트 영상: "${videoTitle.substring(0, 30)}...")`);
+
+    return {
+      success: true,
+      message: `인증 성공! YouTube Data API v3가 정상 작동 중입니다. (테스트 검색 응답 정상)`,
+      details: {
+        totalResults: res.data?.pageInfo?.totalResults || 1,
+        sampleTitle: videoTitle
+      }
+    };
+  } catch (err) {
+    const errorData = err.response?.data?.error;
+    const errorMsg = errorData?.message || err.message || '알 수 없는 오류';
+    const reason = errorData?.errors?.[0]?.reason || '';
+
+    let friendlyMessage = `연결 실패: ${errorMsg}`;
+    if (reason === 'quotaExceeded' || errorMsg.includes('quota')) {
+      friendlyMessage = '❌ 일일 할당량(10,000 쿼터)이 초과되었습니다. 내일 자정(KST)에 자동 리셋됩니다.';
+    } else if (reason === 'keyInvalid' || errorMsg.includes('API key not valid')) {
+      friendlyMessage = '❌ YouTube API 키가 올바르지 않습니다. Google Cloud Console에서 키를 다시 확인해 주세요.';
+    } else if (reason === 'accessNotConfigured' || errorMsg.includes('has not been used')) {
+      friendlyMessage = '❌ Google Cloud Console에서 "YouTube Data API v3" 서비스가 활성화(Enable)되지 않았습니다.';
+    }
+
+    addLog('ERROR', `❌ [YouTube API 테스트 실패] ${friendlyMessage}`);
+
+    return {
+      success: false,
+      message: friendlyMessage,
+      rawError: errorMsg
+    };
+  }
+}
+
 
 /**
  * [파이프라인 B] 더쿠(Theqoo) 핫게시판 크롤링 시도 → 실패 시 DCInside 아이돌 갤러리 폴백
@@ -916,6 +989,8 @@ module.exports = {
   searchVisualMedia,
   generateVisualTweet,
   fetchYouTubeVideos,
-  fetchCommunityMedia
+  fetchCommunityMedia,
+  testYouTubeApiConnection
 };
+
 

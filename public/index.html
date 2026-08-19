@@ -544,7 +544,10 @@
                   <span style="font-size:20px;">📸</span>
                   <h3 style="margin:0; font-size:16px; font-weight:800; background:linear-gradient(135deg, #f472b6, #c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">웹 직캠·화보 & 핫클립 탐색기</h3>
                 </div>
-                <span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; border:1px solid rgba(236,72,153,0.4); font-size:11px;">실시간 웹 수집</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span id="visual-youtube-status-badge" class="badge" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4); font-size:11px; cursor:pointer;" onclick="switchTab('settings')" title="클릭 시 설정 탭으로 이동하여 쿼터 상세 확인">🎬 YouTube API: 확인 중</span>
+                  <span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; border:1px solid rgba(236,72,153,0.4); font-size:11px;">실시간 웹 수집</span>
+                </div>
               </div>
               <div class="card-body">
                 <!-- Preset Category Pills (3 Essential Presets) -->
@@ -690,10 +693,11 @@
           </div>
         </div>
 
-        <!-- YouTube Data API v3 키 설정 -->
+        <!-- YouTube Data API v3 키 설정 및 쿼터 모니터링 -->
         <div class="card" style="max-width:600px; margin-top:20px;">
-          <div class="card-header">
-            <h3>🎬 YouTube Data API v3 키 설정</h3>
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>🎬 YouTube Data API v3 키 설정 &amp; 일일 쿼터 현황</h3>
+            <span id="youtube-status-badge" class="badge" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); font-size:11px;">미연결</span>
           </div>
           <div class="card-body">
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
@@ -703,10 +707,40 @@
               <label for="youtube-key-input">YouTube Data API v3 Key:</label>
               <input type="password" id="youtube-key-input" placeholder="AIzaSy..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
             </div>
-            <button id="btn-save-youtube-key" class="btn btn-primary" style="margin-top:10px; background:linear-gradient(135deg, #ef4444, #dc2626);">
-              💾 YouTube API 키 저장
-            </button>
+            
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+              <button id="btn-save-youtube-key" class="btn btn-primary" style="background:linear-gradient(135deg, #ef4444, #dc2626);">
+                💾 API 키 저장
+              </button>
+              <button id="btn-test-youtube-key" class="btn btn-secondary" style="border-color:#ef4444; color:#fff;">
+                ⚡ 연결 테스트 &amp; 정상 작동 확인
+              </button>
+            </div>
+            
             <p id="youtube-key-status" style="font-size:12px; color:#4ade80; margin-top:8px; display:none;">✅ YouTube API 키가 저장되었습니다.</p>
+            <div id="youtube-test-feedback" style="display:none; margin-top:10px; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.5;"></div>
+
+            <!-- 📊 실시간 YouTube 일일 쿼터(Quota) 모니터링 위젯 -->
+            <div style="margin-top:18px; padding:14px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:12px; font-weight:800; color:#fff; display:flex; align-items:center; gap:5px;">
+                  📊 오늘 YouTube API 쿼터 사용량
+                </span>
+                <span id="youtube-quota-text" style="font-size:12px; font-weight:800; color:#38bdf8;">0 / 10,000 units (0%)</span>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div style="width:100%; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; margin-bottom:8px;">
+                <div id="youtube-quota-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #38bdf8, #ef4444); transition:width 0.3s ease;"></div>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-dim);">
+                <span id="youtube-remaining-calls">남은 직캠 검색 가능 횟수: 약 100회 (1회 검색 = 100 units)</span>
+                <a href="https://console.cloud.google.com/apis/api/youtube.googleapis.com/quotas" target="_blank" rel="noopener noreferrer" style="color:#ef4444; text-decoration:none; font-weight:700; display:flex; align-items:center; gap:3px;">
+                  Google 콘솔 실시간 확인 ↗
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 

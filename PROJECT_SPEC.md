@@ -596,7 +596,26 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.7.1 (2026-08-19) - YouTube API 연결 검증 & 실시간 일일 쿼터(Quota) 트래커 및 출처 뱃지 시스템 도입
+- **[YouTube API 상태 검증 & 연결 테스트]**:
+  - 설정 탭에 `[⚡ 연결 테스트 & 정상 작동 확인]` 버튼 신설 (`/api/test-youtube` 엔드포인트)
+  - API 키 유효성, 일일 할당량(Quota) 초과 여부, Google Cloud API 활성화 상태를 실시간 진단 및 한국어 피드백 제공
+- **[일일 10,000 쿼터(Quota) 실시간 모니터링 시스템]** (`quotaTracker.js`):
+  - KST 자정 기준 자동 리셋되는 YouTube Data API v3 일일 쿼터 추적 엔진 도입 (`data/youtube_quota.json`)
+  - search.list 호출 시 1회당 100 units 차감 누적 기록
+  - 설정 탭에 실시간 쿼터 프로그레스 바 (`오늘 사용량: X / 10,000 units (X%)`, `남은 검색 횟수: 약 Y회`) 및 Google Cloud 공식 콘솔 바로가기 링크 제공
+  - 직캠 갤러리 탭 헤더에 콤팩트 실시간 쿼터 위젯 뱃지 추가
+- **[미디어 출처(Source) 명확화 시스템]** (`public/app.js`):
+  - 갤러리 카드에 직관적인 컬러 뱃지 시스템 도입:
+    - 🎬 **YouTube**: `▶ YouTube` (레드 뱃지, 클릭 시 원본 유튜브 영상 새창 바로가기 링크 제공)
+    - 💬 **더쿠**: `💬 더쿠 핫게` (보라색 뱃지)
+    - 갤 **DCInside**: `갤 DC 갤러리` (블루 뱃지)
+    - 💃 **Tenor**: `💃 Tenor GIF` (에메랄드 뱃지)
+    - 🟢 **Naver / 🔍 Bing**: `Naver HD` / `Bing HD`
+  - 우측 프리뷰 스튜디오 하단에 미디어 출처명 및 채널명, 원본 링크 바로가기(`[▶ 유튜브 원본 보기 ↗]`) 버튼 배치
+
 ### v3.7.0 (2026-08-19) - 대규모 리팩토링: 수집 다각화 & 프롬프트 고도화
+
 - **[파트 1] 실시간 미디어 수집 다각화** (`visualMediaService.js`):
   - YouTube Data API v3 파이프라인 추가: 최근 24시간 이내 아이돌 직캠/영상 실시간 수집 (아이돌/영상 카테고리 한정)
   - 더쿠(Theqoo) 핫게시판 크롤링 시도 → 실패 시 DCInside 아이돌 갤러리 자동 폴백 파이프라인 구축

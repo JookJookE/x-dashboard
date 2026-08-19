@@ -8,7 +8,8 @@ const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, get
 const { fetchLatestArticles } = require('./scraper');
 const { generateSummary, generateThoughtTweet } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
-const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet } = require('./visualMediaService');
+const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet, testYouTubeApiConnection } = require('./visualMediaService');
+const { getYouTubeQuotaStatus } = require('./quotaTracker');
 const { getGitInfo, pullAndApplyUpdates, initGitAutoSync } = require('./gitAutoSync');
 const { initScheduler, generateDailyDraftsJob, getDailyDrafts } = require('./scheduler');
 const { sendTelegramMessage, sendEmailMessage, notifyNewTunnelUrl } = require('./notifier');
@@ -749,11 +750,38 @@ app.get('/api/visual-media', async (req, res) => {
     const keyword = req.query.keyword || '코스프레 화보';
     const page = parseInt(req.query.page || '1', 10);
     const mediaList = await searchVisualMedia(keyword, page);
-    res.json({ success: true, keyword, media: mediaList });
+    const quotaInfo = getYouTubeQuotaStatus();
+    res.json({ success: true, keyword, media: mediaList, quota: quotaInfo });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// YouTube API 쿼터 조회
+app.get('/api/youtube-quota', (req, res) => {
+  try {
+    const quota = getYouTubeQuotaStatus();
+    res.json({ success: true, quota });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// YouTube API 키 연결 테스트
+app.post('/api/test-youtube', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    const config = getConfig();
+    const targetKey = apiKey || config.youtubeApiKey;
+
+    const result = await testYouTubeApiConnection(targetKey);
+    const quota = getYouTubeQuotaStatus();
+    res.json({ ...result, quota });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 app.post('/api/generate-visual-tweet', async (req, res) => {
   try {
