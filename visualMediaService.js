@@ -766,8 +766,9 @@ module.exports = {
   VISUAL_PRESETS,
   searchVisualMedia,
   generateVisualTweet,
-  fetchCommunityMedia
+  fetchTheqooMedia
 };
+
 
 
 

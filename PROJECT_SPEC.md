@@ -596,7 +596,12 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.4 (2026-08-19) - visualMediaService.js의 export 식별자(fetchTheqooMedia) 불일치 긴급 수정
+- **[ReferenceError 핫픽스]** (`visualMediaService.js`):
+  - `module.exports`에 남아있던 구버전 미정의 식별자 `fetchCommunityMedia`를 `fetchTheqooMedia`로 정상 수정하여 런타임 크래시 완전 해결
+
 ### v3.8.3 (2026-08-19) - Cloudflare 터널 기동 시 기존 인스턴스 자동 정리 및 무중단 링크 전송 안정화
+
 - **[터널 기동 안정화]** (`server.js`):
   - `startCloudflareTunnel()` 실행 전 남아있던 구버전 `cloudflared.exe` 프로세스를 자동 정리하여 충돌 방지
   - 서버 프로세스 종료 시 `process.on('exit')`로 터널 프로세스 안전 해제
