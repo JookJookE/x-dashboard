@@ -596,7 +596,12 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.10 (2026-08-19) - server.js의 라우트 닫는 괄호 SyntaxError 핫픽스
+- **[구문 오류 완전 해결]** (`server.js`):
+  - `app.post('/api/git-sync')`의 누락된 닫는 괄호 `});`를 복구하여 기동 오류 완전 해결
+
 ### v3.8.9 (2026-08-19) - app.listen 직전 포트 점유 유령 프로세스 OS 레벨 즉시 강제 킬(Kill) 안전장치 탑재
+
 - **[포트 3000 점유 100% 원천 차단]** (`server.js`):
   - `app.listen()` 호출 직전에 PowerShell `Get-NetTCPConnection`을 통해 자기 자신(myPid)을 제외한 모든 점유 프로세스를 OS 레벨에서 강제 종료하여 EADDRINUSE 원천 방지
 

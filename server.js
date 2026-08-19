@@ -857,6 +857,8 @@ app.get('/api/git-info', async (req, res) => {
 app.post('/api/git-sync', async (req, res) => {
   const result = await pullAndApplyUpdates();
   res.json(result);
+});
+
 // Ensure Port 3000 is 100% available by killing any ghost processes holding port 3000
 if (process.platform === 'win32') {
   try {
@@ -867,6 +869,7 @@ if (process.platform === 'win32') {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
+
 
   console.log(`=======================================================`);
   console.log(`🚀 X 트윗 생성기 대시보드 실행 중`);
