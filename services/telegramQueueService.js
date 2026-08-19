@@ -359,9 +359,17 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       addLog('SUCCESS', `🎉 [텔레그램 승인] X 포스팅 완료 (${newTodayCount}/50): ${postResult.tweetUrl}`);
     } catch (postErr) {
       console.error('Failed to post tweet after telegram approval:', postErr);
-      const failCaption = `❌ <b>X 포스팅 실패</b>\n사유: ${postErr.message}\n\n${pending.text}`;
-      await editTelegramCaption(chatId, messageId, failCaption, []);
+      const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pending.text)}`;
+      const failCaption = `⚠️ <b>X API 자동 포스팅 실패</b> (사유: ${postErr.message})\n\n아래 버튼을 눌러 <b>웹 브라우저/X 앱에서 바로 올리실 수 있습니다:</b>\n\n${pending.text}`;
+      
+      const fallbackKeyboard = [
+        [
+          { text: '🌐 𝕏 웹/앱에서 직접 올리기 ↗', url: tweetIntentUrl }
+        ]
+      ];
+      await editTelegramCaption(chatId, messageId, failCaption, fallbackKeyboard);
     }
+
 
   } else if (data.startsWith('skip_x:')) {
     const articleId = data.replace('skip_x:', '');
