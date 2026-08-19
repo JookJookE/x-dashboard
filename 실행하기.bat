@@ -35,7 +35,7 @@ taskkill /f /im node.exe >nul 2>&1
 taskkill /f /im cloudflared.exe >nul 2>&1
 node "%~dp0server.js"
 if %errorlevel% neq 0 (
-    echo 🚨 [에러 감지] 서버가 비정상 종료되었습니다! 에러 메시지를 확인해주세요!
+    echo [ERROR] Server crashed unexpectedly! Check the logs above.
     pause
 )
 timeout /t 3 /nobreak >nul
@@ -49,7 +49,7 @@ taskkill /f /im node.exe >nul 2>&1
 taskkill /f /im cloudflared.exe >nul 2>&1
 "C:\Program Files\nodejs\node.exe" "%~dp0server.js"
 if %errorlevel% neq 0 (
-    echo 🚨 [에러 감지] 서버가 비정상 종료되었습니다! 에러 메시지를 확인해주세요!
+    echo [ERROR] Server crashed unexpectedly! Check the logs above.
     pause
 )
 timeout /t 3 /nobreak >nul
@@ -63,7 +63,7 @@ taskkill /f /im node.exe >nul 2>&1
 taskkill /f /im cloudflared.exe >nul 2>&1
 "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VisualStudio\NodeJs\node.exe" "%~dp0server.js"
 if %errorlevel% neq 0 (
-    echo 🚨 [에러 감지] 서버가 비정상 종료되었습니다! 에러 메시지를 확인해주세요!
+    echo [ERROR] Server crashed unexpectedly! Check the logs above.
     pause
 )
 timeout /t 3 /nobreak >nul
