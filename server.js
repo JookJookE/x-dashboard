@@ -882,7 +882,7 @@ app.post('/api/git-sync', async (req, res) => {
   res.json(result);
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
   console.log(`🚀 X 트윗 생성기 대시보드 실행 중`);
   console.log(`💻 PC 접속 주소: http://localhost:${PORT}`);
@@ -907,18 +907,4 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   }, 2000);
 });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.log(`\n[포트 자동 정리] 3000번 포트가 사용 중입니다. 기존 프로세스를 종료하고 2초 후 자동 재연결합니다...`);
-    try {
-      const { execSync } = require('child_process');
-      execSync('powershell -Command "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"', { stdio: 'ignore' });
-      execSync('taskkill /f /im cloudflared.exe', { stdio: 'ignore' });
-    } catch (e) {}
-    setTimeout(() => {
-      server.close();
-      server.listen(PORT, '0.0.0.0');
-    }, 2000);
-  }
-});
 
