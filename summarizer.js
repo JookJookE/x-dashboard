@@ -2,6 +2,17 @@ const axios = require('axios');
 const { getConfig } = require('./config');
 const { addLog } = require('./history');
 
+// ✅ 공통 금지어 Negative Prompt Block - 모든 트윗 생성 시 주입
+const NEGATIVE_PROMPT_BLOCK = `
+
+🚫 [절대 사용 금지 - 위반 시 즉시 재생성]:
+- 금지 단어/표현: "요약하자면", "결론적으로", "놀랍게도", "과연", "안녕하세요", "정리하자면", "살펴보겠습니다", "알아보겠습니다"
+- 기사 제목 단순 복붙 금지 (반드시 내 말로 재해석)
+- 기계적인 봇 말투 금지 (~합니다, ~로 보입니다, ~예정입니다 등 뉴스 앵커 어투)
+- 이모지를 모든 문장 끝에 강제로 붙이지 말 것 (자연스럽게 0~2개, 또는 아예 없어도 됨)
+- 외부 링크(URL) 본문 삽입 절대 금지
+`;
+
 async function generateSummary(article, mode = 'block') {
   const config = getConfig();
   const apiKey = config.geminiApiKey;
@@ -108,23 +119,66 @@ async function generateSummary(article, mode = 'block') {
 4. 오직 완성된 1줄 트윗만 출력하세요.
 `;
     } else {
-      promptText = `
-당신은 X(트위터)에서 뉴스 속보와 핵심 분석으로 가장 높은 인게이지먼트를 자랑하는 탑티어 계정입니다.
-아래 기사를 바탕으로, 스크롤을 내리던 유저가 무조건 멈춰서 저장(북마크)하게 만드는 '바이럴 3단 팩트체크 트윗'을 작성하세요.
+      // ✅ 랜덤 스타일 배열: 4종 문체를 매번 랜덤으로 뽑아 인게이지먼트 다양성 확보
+      const techStyleVariants = [
+        // [A] 시니컬한 팩트체크 - 냉소적 팩폭 스타일
+        `당신은 X(트위터)에서 냉소적 팩트 폭행으로 팔로워들을 사로잡는 시니컬한 시장 분석가입니다.
+아래 기사를 읽고, 대중이 겉만 보는 동안 구조적 본질을 꿰뚫어 보는 '시니컬 팩트체크 트윗'을 작성하세요.
 
 [뉴스 제목]: ${article.title}
-[본문 내용]: ${article.contentSnippet || article.excerpt}
+[본문]: ${article.contentSnippet || article.excerpt}
 
-⚠️ [바이럴 3단 팩트체크 작성 지침]:
-1. [첫 줄 - 강력한 호기심 훅 1줄]: 대중의 시선을 확 끄는 도발적/핵심적인 제목 1줄 (예: "지금 다들 [단기 이슈]에만 정신 팔려 있는데, 진짜 무서운 변화는 뒤에 있음 🚨")
-2. [빈 줄 한 칸]
-3. 1️⃣ 겉보기 팩트: [기사의 핵심 사건 1줄 요약]
-4. 2️⃣ 뒤에서 벌어지는 현실: [대중이 모르는 자본/기술의 숨겨진 본질 1줄]
-5. 3️⃣ 향후 터질 결론: [앞으로 시장에 미칠 파급력과 단호한 결론 1줄]
-6. [마지막 줄]: "📌 나중에 확인하려고 타래 북마크"
+📌 작성 방식:
+- 첫 줄: 다들 [표면적 이슈]에 열광하고 있는데, 진짜 문제는 뒤에 있음
+- 본문 2~3줄: 대중이 모르는 구조적 팩트를 시니컬하게 밀어붙이기
+- 마지막: 단호한 결론 or 북마크 유도 ("성지순례 오세요" 스타일)
+- 외부 링크 절대 삽입 금지. 완성된 트윗 본문만 출력.`,
 
-오직 완성된 트윗 문구만 출력하세요.
-`;
+        // [B] 호들갑 리액션 - 충격/감탄 즉각 반응
+        `당신은 X(트위터)에서 날것의 충격 리액션으로 알고리즘 폭발을 일으키는 헤비유저입니다.
+아래 기사를 보고 방금 눈이 튀어나온 것처럼 '진짜 사람 냄새 나는 호들갑 리액션 트윗'을 1~3줄로 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문]: ${article.contentSnippet || article.excerpt}
+
+📌 작성 방식:
+- 충격/놀람/헛웃음이 묻어나는 즉각적 1줄 훅
+- 핵심 팩트 1줄 + 개인 리액션 1줄
+- 뻔한 시작("와", "대박") 대신 다양한 어법 사용
+- 이모지는 자연스러울 때만 1~2개, 강제 삽입 금지
+- 완성된 트윗 본문만 출력.`,
+
+        // [C] 어그로 질문형 - 토론 댓글 54배 유도
+        `당신은 X(트위터)에서 날카로운 질문 하나로 수백 개의 댓글을 터뜨리는 토론 유발자입니다.
+아래 기사를 보고 팔로워들이 자기 의견을 쏟아낼 수밖에 없는 '어그로 질문형 트윗'을 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문]: ${article.contentSnippet || article.excerpt}
+
+📌 작성 방식:
+- 핵심 이슈를 강렬하게 한 줄로 압축 (훅)
+- 사람들이 분열될 수밖에 없는 날카로운 질문 1줄
+- "다들 어떻게 생각함?" 같은 뻔한 문구 금지, 더 구체적인 질문으로
+- 이모지 선택적, 완성된 트윗 본문만 출력.`,
+
+        // [D] 차분한 분석형 - 전문가 큐레이터 인사이트
+        `당신은 X(트위터)에서 깊이 있는 통찰로 투자자/직장인들의 북마크를 독점하는 1인 미디어 큐레이터입니다.
+아래 기사를 바탕으로 '전문가 시점의 차분한 3줄 인사이트 트윗'을 작성하세요.
+
+[뉴스 제목]: ${article.title}
+[본문]: ${article.contentSnippet || article.excerpt}
+
+📌 작성 방식:
+- 훅 1줄: 이 기사가 왜 중요한지 한 문장으로 (도발적이되 차분하게)
+- 핵심 요약 3줄: 번호 없이 간결한 문장으로 (기자 말투 금지, 내 말로)
+- 인사이트 1줄: 내 시각에서 이게 의미하는 바 ("제 생각엔", "제가 보기엔" 스타일)
+- 기업명 옆에 캐시태그($NVDA, $BTC 등) 자동 추가
+- 완성된 트윗 본문만 출력.`
+      ];
+
+      // 매 생성마다 랜덤으로 스타일 선택
+      const randomStylePrompt = techStyleVariants[Math.floor(Math.random() * techStyleVariants.length)];
+      promptText = randomStylePrompt;
     }
 
     const modelsToTry = [
@@ -147,8 +201,8 @@ async function generateSummary(article, mode = 'block') {
         const response = await axios.post(
           url,
           {
-            contents: [{ parts: [{ text: promptText }] }],
-            generationConfig: { temperature: 0.7 }
+            contents: [{ parts: [{ text: promptText + NEGATIVE_PROMPT_BLOCK }] }],
+            generationConfig: { temperature: 0.75 + Math.random() * 0.1 } // 0.75~0.85 랜덤 (다양성 강제)
           },
           { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
         );

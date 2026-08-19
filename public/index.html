@@ -690,7 +690,48 @@
           </div>
         </div>
 
+        <!-- YouTube Data API v3 키 설정 -->
+        <div class="card" style="max-width:600px; margin-top:20px;">
+          <div class="card-header">
+            <h3>🎬 YouTube Data API v3 키 설정</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+              YouTube Data API v3 키를 입력하면 <strong>최근 24시간 이내 아이돌 직캠 영상</strong>을 실시간으로 수집합니다. (Google Cloud Console에서 무료 발급, 하루 10,000 쿼터 기본 제공)
+            </p>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label for="youtube-key-input">YouTube Data API v3 Key:</label>
+              <input type="password" id="youtube-key-input" placeholder="AIzaSy..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <button id="btn-save-youtube-key" class="btn btn-primary" style="margin-top:10px; background:linear-gradient(135deg, #ef4444, #dc2626);">
+              💾 YouTube API 키 저장
+            </button>
+            <p id="youtube-key-status" style="font-size:12px; color:#4ade80; margin-top:8px; display:none;">✅ YouTube API 키가 저장되었습니다.</p>
+          </div>
+        </div>
+
+        <!-- X Bearer Token 설정 (검색 API용) -->
+        <div class="card" style="max-width:600px; margin-top:20px;">
+          <div class="card-header">
+            <h3>🐦 X (Twitter) Bearer Token 설정</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+              X Bearer Token을 입력하면 <strong>X recent_search API</strong>로 실시간 트위터 미디어를 탐색할 수 있습니다. (X Developer Portal 발급, 읽기 전용 - 기존 포스팅 키와 별개)
+            </p>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label for="x-bearer-token-input">X Bearer Token:</label>
+              <input type="password" id="x-bearer-token-input" placeholder="AAAA..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
+            </div>
+            <button id="btn-save-x-bearer" class="btn btn-primary" style="margin-top:10px; background:linear-gradient(135deg, #1d9bf0, #1a8ed1);">
+              💾 Bearer Token 저장
+            </button>
+            <p id="x-bearer-status" style="font-size:12px; color:#4ade80; margin-top:8px; display:none;">✅ X Bearer Token이 저장되었습니다.</p>
+          </div>
+        </div>
+
         <!-- Telegram Notification Settings -->
+
         <div class="card" style="max-width:600px; margin-top:20px;">
           <div class="card-header">
             <h3>📲 텔레그램 봇 자동 알림 설정</h3>

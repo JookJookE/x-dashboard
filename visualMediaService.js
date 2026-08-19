@@ -91,13 +91,191 @@ async function parseDirectSnsUrl(url) {
 }
 
 /**
+ * [파이프라인 A] YouTube Data API v3: 최근 24시간 이내 아이돌 직캠/영상 수집
+ * @param {string} keyword 검색 키워드 (한국어)
+ * @param {string} apiKey YouTube Data API v3 key
+ * @returns {Array} 미디어 아이템 배열
+ */
+async function fetchYouTubeVideos(keyword, apiKey) {
+  if (!apiKey) return [];
+  const results = [];
+  try {
+    // 24시간 전 ISO 문자열 생성
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // 키워드 → 영어 매핑 (YouTube 검색 정밀도 향상)
+    const koToEnMap = {
+      '에스파': 'aespa', '카리나': 'karina aespa', '윈터': 'winter aespa',
+      '아이브': 'IVE', '장원영': 'wonyoung ive', '안유진': 'yujin ive',
+      '뉴진스': 'newjeans', '르세라핌': 'le sserafim', '블랙핑크': 'blackpink',
+      '트와이스': 'TWICE', '아이유': 'IU', '지수': 'jisoo', '리사': 'LISA',
+      '레드벨벳': 'red velvet', '여자아이들': '(G)I-DLE', '스트레이키즈': 'stray kids'
+    };
+    let ytKeyword = keyword;
+    for (const [ko, en] of Object.entries(koToEnMap)) {
+      if (keyword.includes(ko)) { ytKeyword = en; break; }
+    }
+    // 직캠/영상 카테고리면 fancam 접미사 추가
+    const isVideoKw = keyword.includes('직캠') || keyword.includes('MP4') || keyword.includes('영상');
+    const searchQ = isVideoKw ? `${ytKeyword} fancam` : `${ytKeyword} kpop`;
+
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQ)}&type=video&order=date&publishedAfter=${encodeURIComponent(since)}&maxResults=15&key=${apiKey}`;
+    const res = await axios.get(url, { timeout: 6000 });
+
+    for (const item of (res.data.items || [])) {
+      const videoId = item.id?.videoId;
+      if (!videoId) continue;
+      const snippet = item.snippet || {};
+      const thumb = snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || '';
+      const title = snippet.title || ytKeyword;
+      const publishedAt = snippet.publishedAt || '';
+      let dateStr = '최신';
+      if (publishedAt) {
+        const d = new Date(publishedAt);
+        dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }
+      results.push({
+        id: 'yt_' + videoId,
+        title: `[YouTube] ${title.substring(0, 60)}`,
+        url: thumb,
+        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        mediaType: 'youtube',
+        thumbnail: thumb,
+        date: dateStr,
+        source: 'YouTube',
+        youtubeId: videoId,
+        channelTitle: snippet.channelTitle || ''
+      });
+    }
+  } catch (e) {
+    // YouTube API 실패 시 조용히 스킵
+  }
+  return results;
+}
+
+/**
+ * [파이프라인 B] 더쿠(Theqoo) 핫게시판 크롤링 시도 → 실패 시 DCInside 아이돌 갤러리 폴백
+ * 실시간 아이돌 커뮤니티 GIF/이미지 원본 미디어 링크 파싱
+ * @param {string} keyword 검색 키워드
+ * @returns {Array} 미디어 아이템 배열
+ */
+async function fetchCommunityMedia(keyword) {
+  const results = [];
+  const seen = new Set();
+
+  // --- 더쿠 시도 ---
+  const theqooAttempted = await (async () => {
+    try {
+      const searchEncoded = encodeURIComponent(keyword.replace('MP4','').replace('직캠','').trim());
+      // 더쿠 연예 핫게시판 - 검색 파라미터 포함
+      const theqooUrl = `https://theqoo.net/hot?filter_mode=hot&page=1`;
+      const res = await axios.get(theqooUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Referer': 'https://theqoo.net/',
+          'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124"',
+          'sec-fetch-site': 'same-origin',
+          'sec-fetch-mode': 'navigate',
+          'Cache-Control': 'no-cache'
+        },
+        timeout: 5000,
+        maxRedirects: 3
+      });
+
+      const html = String(res.data);
+      // CloudFlare 챌린지 감지 → 폴백
+      if (html.includes('cf-browser-verification') || html.includes('Just a moment') || html.includes('cf_chl_opt')) {
+        return false;
+      }
+
+      // 이미지 추출
+      const imgMatches = [...html.matchAll(/src=["'](https?:\/\/[^"']+(?:\.jpg|\.jpeg|\.png|\.gif|\.webp))[^"']*/gi)];
+      for (const m of imgMatches) {
+        const imgUrl = m[1].replace(/&amp;/g, '&');
+        if (!seen.has(imgUrl) && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar')) {
+          seen.add(imgUrl);
+          results.push({
+            id: 'theqoo_' + Math.random().toString(36).substring(2, 9),
+            title: `[더쿠 핫게시판] ${keyword}`,
+            url: imgUrl,
+            mediaType: imgUrl.toLowerCase().includes('.gif') ? 'gif' : 'image',
+            thumbnail: imgUrl,
+            date: '최신',
+            source: '더쿠'
+          });
+          if (results.length >= 10) break;
+        }
+      }
+      return results.length > 0;
+    } catch (e) {
+      return false; // 연결 실패 → DCInside 폴백
+    }
+  })();
+
+  // --- DCInside 아이돌 갤러리 폴백 ---
+  if (!theqooAttempted && results.length === 0) {
+    try {
+      // DCInside 마이너 갤러리: 아이돌 관련 갤러리 ID 매핑
+      const gallMap = {
+        '에스파': 'aespa', '카리나': 'aespa', '아이브': 'ive2', '장원영': 'ive2',
+        '뉴진스': 'newjeans', '블랙핑크': 'blackpink', '트와이스': 'twice',
+        '르세라핌': 'lesserafim', '여자아이들': 'gidle', '아이유': 'iu'
+      };
+      let gallId = 'idol'; // 기본: 아이돌 통합 갤러리
+      for (const [ko, id] of Object.entries(gallMap)) {
+        if (keyword.includes(ko)) { gallId = id; break; }
+      }
+
+      const dcUrl = `https://gall.dcinside.com/mgallery/board/lists/?id=${gallId}&page=1&list_num=30`;
+      const res = await axios.get(dcUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Referer': 'https://gall.dcinside.com/',
+          'Accept-Language': 'ko-KR,ko;q=0.9'
+        },
+        timeout: 5000
+      });
+      const html = String(res.data);
+
+      // 썸네일 이미지 URL 추출
+      const thumbMatches = [...html.matchAll(/data-original=["'](https?:\/\/[^"']+)['"]/gi),
+                           ...html.matchAll(/src=["'](https?:\/\/[^"']*(?:\.jpg|\.jpeg|\.png|\.gif|\.webp)[^"']*)['"]/gi)];
+      for (const m of thumbMatches) {
+        const imgUrl = m[1].replace(/&amp;/g, '&');
+        if (!seen.has(imgUrl) && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('profile_img') && !imgUrl.includes('static')) {
+          seen.add(imgUrl);
+          results.push({
+            id: 'dc_' + Math.random().toString(36).substring(2, 9),
+            title: `[DCInside] ${keyword}`,
+            url: imgUrl,
+            mediaType: imgUrl.toLowerCase().includes('.gif') ? 'gif' : 'image',
+            thumbnail: imgUrl,
+            date: '최신',
+            source: 'DCInside'
+          });
+          if (results.length >= 10) break;
+        }
+      }
+    } catch (e) {
+      // DCInside도 실패하면 그냥 스킵
+    }
+  }
+
+  return results;
+}
+
+/**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
  * Multi-Tier Pipeline:
  *  0. Direct SNS URL Parser (X/Twitter, YouTube, Direct Links)
- *  1. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos & moving gifs)
- *  2. Bing Image & GIF HD Search (Primary, 0% IP block, direct original high-res murl)
- *  3. Naver Image Search (Secondary HD with anti-block headers)
- *  4. Daum Image Search (Tertiary fallback)
+ *  1. [NEW] YouTube Data API v3 (최근 24시간 직캠/영상 - 영상 카테고리 한정)
+ *  2. [NEW] 더쿠 핫게시판 크롤링 시도 → DCInside 갤러리 폴백 (아이돌 커뮤니티 실시간 GIF/이미지)
+ *  3. Tenor MP4 Direct Video Archive (Dedicated for pure .mp4 videos & moving gifs)
+ *  4. Bing Image & GIF HD Search (Primary, 0% IP block, direct original high-res murl)
+ *  5. Naver Image Search (Secondary HD with anti-block headers)
+ *  6. Daum Image Search (Tertiary fallback)
  */
 async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   const mediaList = [];
@@ -114,8 +292,36 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
 
   const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('직캠') || cleanKeyword.includes('영상') || cleanKeyword.includes('음방') || cleanKeyword.includes('현장') || cleanKeyword.includes('핫클립') || cleanKeyword.includes('M2') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('video') || cleanKeyword.includes('움짤');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
+  const isIdolCategory = cleanKeyword.includes('직캠') || cleanKeyword.includes('여돌') || cleanKeyword.includes('아이돌') || cleanKeyword.includes('움짤') || cleanKeyword.includes('에스파') || cleanKeyword.includes('아이브') || cleanKeyword.includes('뉴진스') || cleanKeyword.includes('블랙핑크') || cleanKeyword.includes('트와이스') || cleanKeyword.includes('르세라핌') || cleanKeyword.includes('카리나') || cleanKeyword.includes('장원영');
 
-  // 1. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion moving GIFs)
+  // 1. [NEW] YouTube Data API v3 - 최근 24시간 영상 (영상 카테고리 & 아이돌 카테고리에서만 실행)
+  if ((isVideoCategory || isIdolCategory) && !isForeign && page === 1) {
+    const { getConfig } = require('./config');
+    const ytApiKey = getConfig().youtubeApiKey;
+    if (ytApiKey) {
+      const ytResults = await fetchYouTubeVideos(cleanKeyword, ytApiKey);
+      for (const item of ytResults) {
+        if (!seen.has(item.url)) {
+          seen.add(item.url);
+          mediaList.push(item);
+        }
+      }
+    }
+  }
+
+  // 2. [NEW] 더쿠 핫게시판 크롤링 → DCInside 폴백 (아이돌 카테고리 & page 1 한정)
+  if (isIdolCategory && !isForeign && page === 1) {
+    const communityResults = await fetchCommunityMedia(cleanKeyword);
+    for (const item of communityResults) {
+      if (!seen.has(item.url)) {
+        seen.add(item.url);
+        mediaList.push(item);
+      }
+    }
+  }
+
+
+  // 3. Tenor Direct Video/GIF Archive (For pure MP4 videos and high-motion moving GIFs)
   if (isVideoCategory || isForeign) {
     try {
       let searchTarget = cleanKeyword.replace('MP4', '').replace('영상', '').replace('직캠', '').replace('4k', '').replace('4K', '').trim();
@@ -642,36 +848,74 @@ ${styleInstruction}
 function getSuggestedTags(topic = '', isPast = false, year = null) {
   const baseTags = [];
   const t = topic.toLowerCase();
+  const today = new Date();
+  const yymmdd = `${String(today.getFullYear()).slice(2)}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
 
-  if (t.includes('코스프레')) {
-    baseTags.push('#코스프레', '#코스어', '#cosplay', '#화보');
-  } else if (t.includes('직캠') || t.includes('여돌') || t.includes('움짤')) {
-    baseTags.push('#여돌', '#직캠', '#움짤', '#비주얼', '#아이돌');
-  } else if (t.includes('수영복') || t.includes('비키니')) {
-    baseTags.push('#수영복', '#비키니', '#비주얼', '#몸매', '#화보');
-  } else if (t.includes('레이싱') || t.includes('치어리더')) {
-    baseTags.push('#레이싱모델', '#치어리더', '#직캠', '#핫클립');
-  } else if (t.includes('그라비아') || t.includes('룩북') || t.includes('일본')) {
-    baseTags.push('#룩북', '#그라비아', '#화보', '#스타일');
-  } else if (t.includes('서양') || t.includes('외국') || t.includes('photoshoot')) {
-    baseTags.push('#외국모델', '#서양모델', '#photoshoot', '#비주얼', '#화보');
-  } else if (t.includes('할리우드') || t.includes('셀럽') || t.includes('여배우')) {
-    baseTags.push('#할리우드', '#해외셀럽', '#레드카펫', '#비주얼', '#여배우');
-  } else {
-    baseTags.push('#비주얼', '#화보', '#모델', '#인플루언서');
+  // ✅ 구체적 아이돌명/그룹명 태그 우선 (포괄적 태그 최소화)
+  const idolTagMap = [
+    { keys: ['에스파', 'aespa'], tags: ['#에스파', '#aespa', '#직캠'] },
+    { keys: ['카리나'], tags: ['#카리나', '#에스파', '#직캠'] },
+    { keys: ['윈터'], tags: ['#윈터', '#에스파', '#직캠'] },
+    { keys: ['아이브', 'ive'], tags: ['#아이브', '#IVE', '#직캠'] },
+    { keys: ['장원영'], tags: ['#장원영', '#아이브', '#직캠'] },
+    { keys: ['안유진'], tags: ['#안유진', '#아이브', '#직캠'] },
+    { keys: ['뉴진스', 'newjeans'], tags: ['#뉴진스', '#NewJeans', '#직캠'] },
+    { keys: ['블랙핑크', 'blackpink'], tags: ['#블랙핑크', '#BLACKPINK', '#직캠'] },
+    { keys: ['지수'], tags: ['#지수', '#블랙핑크', '#직캠'] },
+    { keys: ['리사'], tags: ['#LISA', '#블랙핑크', '#직캠'] },
+    { keys: ['트와이스', 'twice'], tags: ['#트와이스', '#TWICE', '#직캠'] },
+    { keys: ['르세라핌', 'lesserafim'], tags: ['#르세라핌', '#LESSERAFIM', '#직캠'] },
+    { keys: ['여자아이들', 'gidle'], tags: ['#여자아이들', '#GIDLE', '#직캠'] },
+    { keys: ['레드벨벳'], tags: ['#레드벨벳', '#RedVelvet', '#직캠'] },
+    { keys: ['아이유', 'iu'], tags: ['#아이유', '#IU', '#직캠'] },
+  ];
+
+  let idolMatched = false;
+  for (const { keys, tags } of idolTagMap) {
+    if (keys.some(k => t.includes(k))) {
+      baseTags.push(...tags);
+      idolMatched = true;
+      break;
+    }
   }
 
+  if (!idolMatched) {
+    if (t.includes('코스프레')) {
+      baseTags.push('#코스프레', '#cosplay');
+    } else if (t.includes('직캠') || t.includes('여돌') || t.includes('움짤')) {
+      // 포괄적이지만 아이돌 이름이 없을 때만 사용
+      baseTags.push('#여돌직캠', '#kpop직캠');
+    } else if (t.includes('수영복') || t.includes('비키니')) {
+      baseTags.push('#수영복화보', '#비키니');
+    } else if (t.includes('레이싱') || t.includes('치어리더')) {
+      baseTags.push('#레이싱모델', '#치어리더');
+    } else if (t.includes('그라비아') || t.includes('룩북')) {
+      baseTags.push('#룩북', '#그라비아');
+    } else if (t.includes('서양') || t.includes('외국') || t.includes('photoshoot')) {
+      baseTags.push('#서양모델', '#photoshoot');
+    } else if (t.includes('할리우드') || t.includes('셀럽')) {
+      baseTags.push('#할리우드', '#해외셀럽');
+    } else {
+      baseTags.push('#비주얼', '#모델');
+    }
+  }
+
+  // 날짜/레전드 태그
   if (isPast && year) {
-    baseTags.push(`#${year}년`, '#레전드', '#추억');
+    baseTags.push(`#${year}년레전드`, '#추억소환');
   } else {
-    baseTags.push('#핫클립', '#트렌드', '#레전드');
+    // ✅ YYMMDD 형태 날짜 태그 (팬덤 트위터 형식)
+    baseTags.push(`#${yymmdd}_직캠`, '#핫클립');
   }
 
-  return [...new Set(baseTags)].slice(0, 6);
+  return [...new Set(baseTags)].slice(0, 5);
 }
 
 module.exports = {
   VISUAL_PRESETS,
   searchVisualMedia,
-  generateVisualTweet
+  generateVisualTweet,
+  fetchYouTubeVideos,
+  fetchCommunityMedia
 };
+

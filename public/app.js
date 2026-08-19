@@ -80,6 +80,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTestEmail = document.getElementById('btn-test-email');
   if (btnTestEmail) btnTestEmail.addEventListener('click', testEmailNotification);
 
+  const btnSaveYoutubeKey = document.getElementById('btn-save-youtube-key');
+  if (btnSaveYoutubeKey) btnSaveYoutubeKey.addEventListener('click', saveYoutubeApiKey);
+
+  const btnSaveXBearer = document.getElementById('btn-save-x-bearer');
+  if (btnSaveXBearer) btnSaveXBearer.addEventListener('click', saveXBearerToken);
+
   loadConfig();
 
   const textInput = document.getElementById('tweet-text-input');
@@ -1772,6 +1778,16 @@ async function loadConfig() {
       if (emTo && data.config.emailTo) {
         emTo.value = data.config.emailTo;
       }
+      // YouTube API 키 로드
+      const ytKeyInput = document.getElementById('youtube-key-input');
+      if (ytKeyInput && data.config.youtubeApiKey) {
+        ytKeyInput.value = data.config.youtubeApiKey;
+      }
+      // X Bearer Token 로드
+      const xBearerInput = document.getElementById('x-bearer-token-input');
+      if (xBearerInput && data.config.xBearerToken) {
+        xBearerInput.value = data.config.xBearerToken;
+      }
     }
   } catch (e) {}
 }
@@ -1814,6 +1830,50 @@ async function saveGeminiApiKey() {
     const data = await res.json();
     if (data.success) {
       showToast('🔑 Gemini API 키가 성공적으로 저장되었습니다!');
+    } else {
+      showToast('저장 실패: ' + data.message);
+    }
+  } catch (err) {
+    showToast('저장 실패: ' + err.message);
+  }
+}
+
+async function saveYoutubeApiKey() {
+  const keyInput = document.getElementById('youtube-key-input');
+  const apiKey = keyInput ? keyInput.value.trim() : '';
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ youtubeApiKey: apiKey })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('🎬 YouTube API 키가 저장되었습니다! 직캠 탭에서 실시간 수집이 활성화됩니다.');
+      const statusEl = document.getElementById('youtube-key-status');
+      if (statusEl) { statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 3000); }
+    } else {
+      showToast('저장 실패: ' + data.message);
+    }
+  } catch (err) {
+    showToast('저장 실패: ' + err.message);
+  }
+}
+
+async function saveXBearerToken() {
+  const tokenInput = document.getElementById('x-bearer-token-input');
+  const token = tokenInput ? tokenInput.value.trim() : '';
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xBearerToken: token })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('🐦 X Bearer Token이 저장되었습니다!');
+      const statusEl = document.getElementById('x-bearer-status');
+      if (statusEl) { statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 3000); }
     } else {
       showToast('저장 실패: ' + data.message);
     }
