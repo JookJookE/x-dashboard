@@ -8,11 +8,12 @@ echo =======================================================
 echo.
 
 echo [INFO] Stopping any existing server instances...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 "') do taskkill /f /pid %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr "0.0.0.0:3000"') do taskkill /f /pid %%a >nul 2>&1
 taskkill /f /im node.exe >nul 2>&1
 taskkill /f /im cloudflared.exe >nul 2>&1
-powershell -Command "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }" >nul 2>&1
-powershell -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*hide_window.ps1*' } | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
 ping 127.0.0.1 -n 2 >nul
+
 
 echo [INFO] Pulling latest code from GitHub...
 git pull origin main --no-rebase
