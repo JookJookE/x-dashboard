@@ -282,8 +282,8 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       return;
     }
 
-    // Direct X Web Intent URL
-    const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pending.text)}${pending.link ? `&url=${encodeURIComponent(pending.link)}` : ''}`;
+    // Direct X Web Intent URL (Pure Tweet Text Only - No Article Link)
+    const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pending.text)}`;
 
     // Mark as Posted with checkmark in caption
     const postedCaption = `✅ <b>[𝕏에 올림 완료]</b>\n\n${pending.text}`;
@@ -296,6 +296,7 @@ async function handleTelegramCallbackQuery(callbackQuery) {
         { text: '📰 기사 원문 보기 ↗', url: pending.link || 'https://x.com' }
       ]
     ];
+
 
     await editTelegramCaption(chatId, messageId, postedCaption, newKeyboard);
     await answerTelegramCallback(callbackQueryId, '✅ [𝕏에 올림] 처리되었습니다! 작성창 버튼을 눌러 바로 발행하세요.');
