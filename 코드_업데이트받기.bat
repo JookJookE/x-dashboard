@@ -11,7 +11,12 @@ echo.
 git pull origin main --no-rebase
 
 echo.
+echo [INFO] 신규 패키지 의존성(npm)을 설치/점검합니다...
+call npm.cmd install --no-audit
+
+echo.
 echo =======================================================
-echo  업데이트가 완료되었습니다! 창을 닫으셔도 됩니다.
+echo  최신 코드 및 패키지 업데이트가 완료되었습니다!
 echo =======================================================
+
 pause

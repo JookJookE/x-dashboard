@@ -1,9 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const sharp = require('sharp');
+
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('⚠️ [주의] sharp 모듈이 설치되지 않아 SVG 직접 모드로 동작합니다. (npm install sharp 필요)');
+}
 
 const THUMBNAIL_DIR = path.join(__dirname, '..', 'public', 'thumbnails');
+
 if (!fs.existsSync(THUMBNAIL_DIR)) {
   fs.mkdirSync(THUMBNAIL_DIR, { recursive: true });
 }
@@ -199,22 +206,38 @@ async function generateCardNewsImage(article) {
 </svg>`;
   }
 
-  // Convert SVG to High Quality PNG using Sharp
-  const svgBuffer = Buffer.from(svgContent, 'utf8');
-  await sharp(svgBuffer)
-    .png({ quality: 95 })
-    .toFile(outputPath);
+  if (sharp) {
+    // Convert SVG to High Quality PNG using Sharp
+    const svgBuffer = Buffer.from(svgContent, 'utf8');
+    await sharp(svgBuffer)
+      .png({ quality: 95 })
+      .toFile(outputPath);
 
-  return {
-    mode,
-    hasPhoto,
-    filename,
-    filepath: outputPath,
-    url: `/thumbnails/${filename}`
-  };
+    return {
+      mode,
+      hasPhoto,
+      filename,
+      filepath: outputPath,
+      url: `/thumbnails/${filename}`
+    };
+  } else {
+    // Fallback: Save directly as SVG if sharp is missing
+    const svgFilename = `card-${mode}-${timestamp}.svg`;
+    const svgPath = path.join(THUMBNAIL_DIR, svgFilename);
+    fs.writeFileSync(svgPath, svgContent, 'utf8');
+
+    return {
+      mode,
+      hasPhoto,
+      filename: svgFilename,
+      filepath: svgPath,
+      url: `/thumbnails/${svgFilename}`
+    };
+  }
 }
 
 module.exports = {
   generateCardNewsImage,
   fetchImageAsBase64
 };
+

@@ -18,9 +18,13 @@ ping 127.0.0.1 -n 2 >nul
 echo [INFO] Pulling latest code from GitHub...
 git pull origin main --no-rebase
 
+echo [INFO] Checking and installing dependencies if needed...
+call npm.cmd install --no-audit --prefer-offline >nul 2>&1
+
 echo.
 echo [INFO] Server starting... Window will auto-hide to background in 10 seconds.
 echo.
+
 
 
 start "" powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0hide_window.ps1" "%time%"
