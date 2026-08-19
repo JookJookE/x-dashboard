@@ -61,7 +61,13 @@
 
 ## 📅 6. 버전 변경 이력 (Changelog)
 
+### v3.8.34 (2026-08-20) - 🪟 도스창 10초 후 자동 숨김(hide_window.ps1) Windows 10/11 전 환경 100% 호환성 강화
+- 🛠️ **3중 다중 콘솔 핸들 감지 엔진 (`hide_window.ps1`)**:
+  - `FindWindow` 창 제목 검색, `Get-Process` 메인 윈도우 핸들 일괄 탐색, `kernel32 GetConsoleWindow` 직통 호출의 3단계 복합 파이프라인 적용.
+  - Windows Terminal, 기본 cmd, powershell 호스트 등 모든 OS 환경에서 10초 후 100% 깔끔하게 백그라운드로 자동 숨김 보장.
+
 ### v3.8.33 (2026-08-20) - 🛡️ sharp 모듈 미설치 환경 크래시 방어 핫픽스 & 배치 파일 자동 npm install 탑재
+
 - 🛠️ **`sharp` 모듈 로드 예외 안전 방어막 (`services/cardNewsServerService.js`)**:
   - 서버 PC에 `sharp` 라이브러리가 아직 설치되지 않았더라도 서버 기동이 중단(Crash)되지 않도록 `try-catch` 안전 fallback 로직 적용.
 - 📦 **배치 파일 자동 패키지 설치 파이프라인 (`실행하기.bat`, `코드_업데이트받기.bat`)**:
