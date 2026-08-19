@@ -596,7 +596,12 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.5 (2026-08-19) - 포트 3000 EADDRINUSE 자기 치유(Self-Healing) 및 자동 복구 시스템 탑재
+- **[포트 충돌 원천 방지 & 자기 치유]** (`server.js`):
+  - `server.on('error')`에서 `EADDRINUSE` 감지 시 포트 3000을 점유하는 구버전 프로세스 및 터널을 강제 자동 정리 후 2초 만에 자체 재연결 수행
+
 ### v3.8.4 (2026-08-19) - visualMediaService.js의 export 식별자(fetchTheqooMedia) 불일치 긴급 수정
+
 - **[ReferenceError 핫픽스]** (`visualMediaService.js`):
   - `module.exports`에 남아있던 구버전 미정의 식별자 `fetchCommunityMedia`를 `fetchTheqooMedia`로 정상 수정하여 런타임 크래시 완전 해결
 
