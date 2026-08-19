@@ -596,7 +596,13 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.3 (2026-08-19) - Cloudflare 터널 기동 시 기존 인스턴스 자동 정리 및 무중단 링크 전송 안정화
+- **[터널 기동 안정화]** (`server.js`):
+  - `startCloudflareTunnel()` 실행 전 남아있던 구버전 `cloudflared.exe` 프로세스를 자동 정리하여 충돌 방지
+  - 서버 프로세스 종료 시 `process.on('exit')`로 터널 프로세스 안전 해제
+
 ### v3.8.2 (2026-08-19) - '💬 더쿠 핫게 픽' 전용 버튼 및 Cloudflare 우회 전용 파이프라인(fetchTheqooMedia) 추가
+
 - **['💬 더쿠 핫게 픽' 전용 프리셋 버튼 신설]** (`public/index.html`, `visualMediaService.js`):
   - 직캠·화보 스튜디오 상단에 `💬 더쿠 핫게 픽` 전용 프리셋 버튼을 추가
 - **[더쿠 Cloudflare 0% 차단 스마트 우회 엔진]** (`visualMediaService.js`):

@@ -421,12 +421,19 @@ app.delete('/api/user-drafts/:id', (req, res) => {
 // Initialize background 07:00 AM scheduler
 initScheduler();
 
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
+
+let activeTunnelProc = null;
 
 function startCloudflareTunnel() {
   const cloudflaredPath = path.join(__dirname, 'cloudflared.exe');
   if (fs.existsSync(cloudflaredPath)) {
-    const tunnelProc = spawn(cloudflaredPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
+    try {
+      // 기존에 남아있던 cloudflared 프로세스 정리
+      execSync('taskkill /f /im cloudflared.exe', { stdio: 'ignore' });
+    } catch (e) {}
+
+    activeTunnelProc = spawn(cloudflaredPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
     let tunnelUrlFound = false;
     let fullOutput = '';
 
@@ -446,14 +453,22 @@ function startCloudflareTunnel() {
       }
     }
 
-    if (tunnelProc.stdout) tunnelProc.stdout.on('data', handleData);
-    if (tunnelProc.stderr) tunnelProc.stderr.on('data', handleData);
+    if (activeTunnelProc.stdout) activeTunnelProc.stdout.on('data', handleData);
+    if (activeTunnelProc.stderr) activeTunnelProc.stderr.on('data', handleData);
 
-    tunnelProc.on('error', (err) => {
+    activeTunnelProc.on('error', (err) => {
       console.log(`[터널 안내] cloudflared 터널 시작 중: ${err.message}`);
     });
   }
 }
+
+// Clean up child process on exit
+process.on('exit', () => {
+  if (activeTunnelProc) {
+    try { activeTunnelProc.kill(); } catch (e) {}
+  }
+});
+
 
 // Notification Test APIs
 
