@@ -860,32 +860,49 @@ app.post('/api/git-sync', async (req, res) => {
   res.json(result);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const startServer = (port, retries = 5) => {
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`=======================================================`);
+    console.log(`🚀 X 트윗 생성기 대시보드 실행 중`);
+    console.log(`💻 PC 접속 주소: http://localhost:${port}`);
+    console.log(`📱 스마트폰(내부 와이파이) 접속 주소: http://${LOCAL_WIFI_IP}:${port}`);
+    console.log(`=======================================================`);
+    addLog('INFO', `서버가 포트 ${port}에서 성공적으로 시작되었습니다.`);
+    startCloudflareTunnel();
 
+    // Start GitHub Auto-Sync (checks every 30s)
+    initGitAutoSync(30);
 
+    // Trigger initial article fetch asynchronously on server startup
+    setTimeout(async () => {
+      try {
+        addLog('INFO', '🚀 [서버 시작] 최신 뉴스 초기 수집을 시작합니다...');
+        const freshArticles = await fetchLatestArticles(35);
+        articlesCache = freshArticles;
+        addLog('SUCCESS', `🚀 [서버 시작] 최신 뉴스 초기 수집 완료 (${freshArticles.length}건)`);
+      } catch (e) {
+        addLog('WARN', `서버 시작 뉴스 수집 지연: ${e.message}`);
+      }
+    }, 2000);
+  });
 
-  console.log(`=======================================================`);
-  console.log(`🚀 X 트윗 생성기 대시보드 실행 중`);
-  console.log(`💻 PC 접속 주소: http://localhost:${PORT}`);
-  console.log(`📱 스마트폰(내부 와이파이) 접속 주소: http://${LOCAL_WIFI_IP}:${PORT}`);
-  console.log(`=======================================================`);
-  addLog('INFO', `서버가 포트 ${PORT}에서 성공적으로 시작되었습니다.`);
-  startCloudflareTunnel();
-
-  // Start GitHub Auto-Sync (checks every 30s)
-  initGitAutoSync(30);
-
-  // Trigger initial article fetch asynchronously on server startup
-  setTimeout(async () => {
-    try {
-      addLog('INFO', '🚀 [서버 시작] 최신 뉴스 초기 수집을 시작합니다...');
-      const freshArticles = await fetchLatestArticles(35);
-      articlesCache = freshArticles;
-      addLog('SUCCESS', `🚀 [서버 시작] 최신 뉴스 초기 수집 완료 (${freshArticles.length}건)`);
-    } catch (e) {
-      addLog('WARN', `서버 시작 뉴스 수집 지연: ${e.message}`);
+  server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`🚨 포트 ${port} 충돌 감지 (EADDRINUSE)! 백그라운드 경합 중... 1.5초 후 재시도합니다 (남은 횟수: ${retries - 1})`);
+      if (retries === 0) {
+        console.error('❌ 포트 확보에 최종 실패했습니다. 루프 재시작을 위해 자폭합니다.');
+        process.exit(1);
+      }
+      setTimeout(() => {
+        server.close();
+        startServer(port, retries - 1);
+      }, 1500);
+    } else {
+      console.error('❌ 알 수 없는 서버 구동 에러:', e);
     }
-  }, 2000);
-});
+  });
+};
+
+startServer(PORT);
 
 
