@@ -6,22 +6,12 @@ const {
   getStoredArticles, 
   markAsTelegramSent, 
   getTelegramQueueMap, 
-  markPostingStatus,
-  addLog,
-  getTodayXPostCount,
-  incrementTodayXPostCount
+  addLog 
 } = require('../history');
 const { generateSummary } = require('../summarizer');
 const { generateCardNewsImage } = require('./cardNewsServerService');
-const { postTweetWithMedia } = require('./xPostService');
 
-let pollingInterval = null;
-let lastUpdateId = 0;
-let isPollingActive = false;
 let isWorkerRunning = false;
-
-// In-memory cache for pending telegram messages to post: { [articleId]: { text, imagePath, messageId, chatId } }
-const pendingPostsCache = new Map();
 
 function getTelegramConfig() {
   const config = getConfig();
@@ -34,7 +24,6 @@ function getTelegramConfig() {
   return { token: cleanToken, chatId };
 }
 
-
 /**
  * Check if current time is within quiet hours (00:00 ~ 06:59 KST)
  */
@@ -46,9 +35,10 @@ function isQuietHours() {
 }
 
 /**
- * Send photo with inline keyboard to Telegram
+ * Send photo with direct 1-Click X Web Intent Button to Telegram
+ * Unlimited posting with 0-cost & 0-ban risk
  */
-async function sendTelegramCardWithButtons(imagePath, caption, articleId) {
+async function sendTelegramCardWithButtons(imagePath, caption, article) {
   const { token, chatId } = getTelegramConfig();
   if (!token || !chatId) {
     throw new Error('텔레그램 봇 토큰과 Chat ID가 설정되지 않았습니다.');
@@ -58,11 +48,17 @@ async function sendTelegramCardWithButtons(imagePath, caption, articleId) {
   const imageBuffer = fs.readFileSync(imagePath);
   const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2)}`;
 
+  // Direct 1-Click X Web Intent URL
+  const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(caption)}`;
+  const articleUrl = article.link || article.url || 'https://x.com';
+
   const inlineKeyboard = {
     inline_keyboard: [
       [
-        { text: '🚀 X에 올리기', callback_data: `post_x:${articleId}` },
-        { text: '❌ 건너뛰기', callback_data: `skip_x:${articleId}` }
+        { text: '🚀 𝕏에 바로 올리기 (원클릭) ↗', url: tweetIntentUrl }
+      ],
+      [
+        { text: '📰 기사 원문 보기 ↗', url: articleUrl }
       ]
     ]
   };
@@ -93,48 +89,6 @@ async function sendTelegramCardWithButtons(imagePath, caption, articleId) {
   });
 
   return response.data;
-}
-
-/**
- * Edit message caption and optionally supply new inline keyboard
- */
-async function editTelegramCaption(chatId, messageId, newCaption, inlineKeyboard = []) {
-  const { token } = getTelegramConfig();
-  if (!token) return;
-
-  const url = `https://api.telegram.org/bot${token}/editMessageCaption`;
-  try {
-    let safeCaption = newCaption;
-    if (safeCaption.length > 950) {
-      safeCaption = safeCaption.slice(0, 940) + '...';
-    }
-
-    await axios.post(url, {
-      chat_id: chatId,
-      message_id: messageId,
-      caption: safeCaption,
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: inlineKeyboard }
-    }, { timeout: 8000 });
-  } catch (err) {
-    console.error('Failed to edit telegram message caption:', err.message);
-  }
-}
-
-/**
- * Answer Telegram callback query (shows quick toast in Telegram UI)
- */
-async function answerTelegramCallback(callbackQueryId, text = '') {
-  const { token } = getTelegramConfig();
-  if (!token) return;
-  const url = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
-  try {
-    await axios.post(url, {
-      callback_query_id: callbackQueryId,
-      text: text,
-      show_alert: false
-    }, { timeout: 5000 });
-  } catch (e) {}
 }
 
 /**
@@ -226,21 +180,11 @@ async function processAndSendArticle(article) {
     throw new Error('카드뉴스 이미지 생성에 실패했습니다.');
   }
 
-  // 3. Send to Telegram with Buttons
-  const teleRes = await sendTelegramCardWithButtons(cardResult.filepath, tweetText, article.id);
+  // 3. Send to Telegram with Direct 1-Click X Intent Button
+  const teleRes = await sendTelegramCardWithButtons(cardResult.filepath, tweetText, article);
   const messageId = teleRes.result?.message_id;
 
-  // 4. Save to pending post cache
-  pendingPostsCache.set(String(article.id), {
-    articleId: article.id,
-    title: article.title,
-    text: tweetText,
-    imagePath: cardResult.filepath,
-    messageId,
-    timestamp: Date.now()
-  });
-
-  // 5. Mark as sent in DB history
+  // 4. Mark as sent in DB history
   markAsTelegramSent(article.id, {
     messageId,
     title: article.title,
@@ -293,145 +237,19 @@ async function triggerHourlyTelegramBriefing(force = false) {
 }
 
 /**
- * Handle Telegram button callback clicks (🚀 X에 올리기 / ❌ 건너뛰기)
- */
-async function handleTelegramCallbackQuery(callbackQuery) {
-  const data = callbackQuery.data || '';
-  const messageId = callbackQuery.message?.message_id;
-  const chatId = callbackQuery.message?.chat?.id;
-  const callbackQueryId = callbackQuery.id;
-
-  if (data.startsWith('post_x:')) {
-    const articleId = data.replace('post_x:', '');
-
-    let pending = pendingPostsCache.get(String(articleId));
-    if (!pending) {
-      const queueMap = getTelegramQueueMap();
-      const stored = queueMap[articleId];
-      if (stored) {
-        pending = {
-          articleId,
-          text: stored.text,
-          imagePath: stored.imagePath
-        };
-      }
-    }
-
-    if (!pending || !pending.text) {
-      await answerTelegramCallback(callbackQueryId, '⚠️ 포스팅 데이터를 찾을 수 없습니다.');
-      await editTelegramCaption(chatId, messageId, `⚠️ 포스팅 데이터를 찾을 수 없습니다. (ID: ${articleId})`);
-      return;
-    }
-
-    // 🛡️ Daily Quota Protection (Max 50 posts per day)
-    const todayCount = getTodayXPostCount();
-    if (todayCount >= 50) {
-      await answerTelegramCallback(callbackQueryId, '⚠️ 일일 X API 한도(50개) 도달! 웹 링크로 연결합니다.');
-      
-      const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pending.text)}`;
-      const limitCaption = `⚠️ <b>오늘 X API 무료 할당량(50개)을 모두 사용했습니다!</b>\n(오늘 발행: ${todayCount}/50개)\n\n아래 버튼을 눌러 <b>웹 브라우저에서 직접 바로 올리실 수 있습니다:</b>\n\n${pending.text}`;
-      
-      const webKeyboard = [
-        [
-          { text: '🌐 𝕏 웹에서 직접 올리기 ↗', url: tweetIntentUrl }
-        ]
-      ];
-
-      await editTelegramCaption(chatId, messageId, limitCaption, webKeyboard);
-      addLog('WARN', `⚠️ [X API 한도 도달] 오늘 50개 포스팅 완료되어 웹 인텐트 링크로 전환되었습니다. (기사 ID: ${articleId})`);
-      return;
-    }
-
-    await answerTelegramCallback(callbackQueryId, '🚀 X(트위터)에 포스팅 중입니다...');
-
-    try {
-      addLog('INFO', `🚀 [텔레그램 승인] 사용자 요청으로 X 포스팅 실행: ${articleId} (오늘 ${todayCount + 1}/50개)`);
-      const postResult = await postTweetWithMedia({
-        text: pending.text,
-        imagePath: pending.imagePath
-      });
-
-      const newTodayCount = incrementTodayXPostCount();
-      markPostingStatus(articleId, true);
-
-      const successCaption = `✅ <b>X(트위터) 포스팅 완료!</b> (오늘 ${newTodayCount}/50개)\n\n${pending.text}\n\n🔗 <a href="${postResult.tweetUrl}">트윗 보러가기</a>`;
-      await editTelegramCaption(chatId, messageId, successCaption, []);
-      addLog('SUCCESS', `🎉 [텔레그램 승인] X 포스팅 완료 (${newTodayCount}/50): ${postResult.tweetUrl}`);
-    } catch (postErr) {
-      console.error('Failed to post tweet after telegram approval:', postErr);
-      const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pending.text)}`;
-      const failCaption = `⚠️ <b>X API 자동 포스팅 실패</b> (사유: ${postErr.message})\n\n아래 버튼을 눌러 <b>웹 브라우저/X 앱에서 바로 올리실 수 있습니다:</b>\n\n${pending.text}`;
-      
-      const fallbackKeyboard = [
-        [
-          { text: '🌐 𝕏 웹/앱에서 직접 올리기 ↗', url: tweetIntentUrl }
-        ]
-      ];
-      await editTelegramCaption(chatId, messageId, failCaption, fallbackKeyboard);
-    }
-
-
-  } else if (data.startsWith('skip_x:')) {
-    const articleId = data.replace('skip_x:', '');
-    await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료');
-    await editTelegramCaption(chatId, messageId, `🗑️ <b>[건너뜀]</b> 해당 기사는 포스팅하지 않고 스킵되었습니다.`, []);
-    addLog('INFO', `⏭️ [텔레그램 승인] 기사 스킵 처리됨: ${articleId}`);
-  }
-}
-
-/**
- * Start Telegram Long Polling to listen for button clicks
- */
-async function pollTelegramUpdates() {
-  if (!isPollingActive) return;
-  const { token } = getTelegramConfig();
-  if (!token) {
-    setTimeout(pollTelegramUpdates, 5000);
-    return;
-  }
-
-  try {
-    const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId + 1}&timeout=10`;
-    const response = await axios.get(url, { timeout: 15000 });
-    const updates = response.data?.result || [];
-
-    for (const update of updates) {
-      lastUpdateId = Math.max(lastUpdateId, update.update_id);
-      if (update.callback_query) {
-        await handleTelegramCallbackQuery(update.callback_query);
-      }
-    }
-  } catch (err) {
-    // Network or timeout errors in polling are normal
-  }
-
-  if (isPollingActive) {
-    setTimeout(pollTelegramUpdates, 1500);
-  }
-}
-
-/**
- * Initialize Telegram Bot Interaction Service
+ * Initialize Telegram Service Worker
  */
 function initTelegramQueueWorker() {
-  stopTelegramQueueWorker();
-
-  isPollingActive = true;
   isWorkerRunning = true;
-
-  // Start Long Polling for inline button callbacks
-  pollTelegramUpdates();
-
-  addLog('SUCCESS', '🚀 [텔레그램 봇 서비스] 실시간 버튼 상호작용 및 정각 브리핑 대기 중 (07:00~23:00 운영, 00:00~07:00 야간 정적 모드)');
+  addLog('SUCCESS', '🚀 [텔레그램 브리핑 서비스 가동] 정각 1시간 브리핑 대기 중 (07:00~23:00 운영, 무제한 원클릭 포스팅 지원)');
 }
 
 /**
- * Stop the Telegram Service
+ * Stop Telegram Service Worker
  */
 function stopTelegramQueueWorker() {
-  isPollingActive = false;
   isWorkerRunning = false;
-  addLog('INFO', '⏸️ [텔레그램 봇 서비스] 워커가 중지되었습니다.');
+  addLog('INFO', '⏸️ [텔레그램 브리핑 서비스] 일시 중지되었습니다.');
 }
 
 function isQueueActive() {
