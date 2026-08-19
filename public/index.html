@@ -139,6 +139,22 @@
             <p id="page-subtitle">하이젠버그, IT, 코인, 주식, 경제 최신 뉴스 AI 트윗 생성기</p>
           </div>
         </div>
+        <div class="header-center-wrapper">
+          <div class="live-clock-card" id="live-clock-widget" title="실시간 한국 표준시 (KST)">
+            <div class="clock-icon-badge">
+              <span class="live-status-dot"></span>
+              <span class="clock-icon">🕒</span>
+            </div>
+            <div class="clock-details">
+              <div class="clock-date" id="header-live-date">--년 --월 --일 (-)</div>
+              <div class="clock-time" id="header-live-time">
+                <span class="time-num">--:--:--</span>
+                <span class="time-ampm">--</span>
+                <span class="time-tz">KST</span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="header-actions">
           <button id="btn-git-sync" class="btn btn-secondary" onclick="syncLatestGithubCode()" title="깃허브의 최신 코드를 즉시 가져와 서버에 반영합니다" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">
             <span class="icon">🔄</span> 깃허브 동기화

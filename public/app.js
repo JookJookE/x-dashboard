@@ -43,6 +43,7 @@ function saveLocalAllRead(ids) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initLiveClock();
   initMobileMenu();
   initTabs();
   initCategoryFilters();
@@ -2900,3 +2901,44 @@ function toggleVisualStudioMenu() {
 function toggleJookLifeMenu() {
   toggleVisualStudioMenu();
 }
+
+/**
+ * 실시간 상단 라이브 시계 및 날짜 업데이트 (초 단위 갱신)
+ */
+function initLiveClock() {
+  const dateEl = document.getElementById('header-live-date');
+  const timeEl = document.getElementById('header-live-time');
+  if (!dateEl && !timeEl) return;
+
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+
+  function updateClock() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const date = String(now.getDate()).padStart(2, '0');
+    const dayIndex = now.getDay();
+    const dayOfWeek = days[dayIndex];
+
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const formattedHours24 = String(hours).padStart(2, '0');
+
+    // Day color accent: Sunday=red/coral, Saturday=sky blue, Weekdays=cyan
+    const dayColor = dayIndex === 0 ? '#f87171' : (dayIndex === 6 ? '#60a5fa' : '#38bdf8');
+
+    if (dateEl) {
+      dateEl.innerHTML = `<span style="color:#38bdf8; font-size:12px;">📅</span> ${year}년 ${month}월 ${date}일 <span style="color:${dayColor}; font-weight:800;">(${dayOfWeek})</span>`;
+    }
+    if (timeEl) {
+      timeEl.innerHTML = `<span class="time-num">${formattedHours24}:${minutes}:${seconds}</span><span class="time-ampm">${ampm}</span><span class="time-tz">KST</span>`;
+    }
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
