@@ -432,7 +432,9 @@ function startCloudflareTunnel() {
     let fullOutput = '';
 
     function handleData(data) {
-      fullOutput += data.toString();
+      const text = data.toString();
+      fullOutput += text;
+      console.log(`[Cloudflared 원시 로그] ${text.trim()}`); // 디버깅용 강제 출력
       const match = fullOutput.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
       if (match && !tunnelUrlFound) {
         tunnelUrlFound = true;
