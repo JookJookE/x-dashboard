@@ -3035,7 +3035,7 @@ async function loadQueueAndXStatus() {
       if (badge) {
         if (data.enabled) {
           badge.style.background = '#10b981';
-          badge.innerText = '3분 큐 가동 중';
+          badge.innerText = '브리핑 가동 중';
         } else {
           badge.style.background = '#64748b';
           badge.innerText = '일시 중지됨';
@@ -3050,6 +3050,8 @@ async function saveXApiSettings() {
   const appSecret = document.getElementById('x-app-secret-input')?.value?.trim();
   const accessToken = document.getElementById('x-access-token-input')?.value?.trim();
   const accessSecret = document.getElementById('x-access-secret-input')?.value?.trim();
+  const briefingToken = document.getElementById('tele-briefing-token-input')?.value?.trim();
+  const briefingChatId = document.getElementById('tele-briefing-chatid-input')?.value?.trim();
   const queueEnabled = document.getElementById('telegram-queue-toggle')?.checked;
 
   const payload = {
@@ -3059,6 +3061,8 @@ async function saveXApiSettings() {
   if (appSecret) payload.xAppSecret = appSecret;
   if (accessToken) payload.xAccessToken = accessToken;
   if (accessSecret) payload.xAccessSecret = accessSecret;
+  if (briefingToken) payload.telegramBriefingBotToken = briefingToken;
+  if (briefingChatId) payload.telegramBriefingChatId = briefingChatId;
 
   try {
     const res = await fetch('/api/config', {
@@ -3068,7 +3072,7 @@ async function saveXApiSettings() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('✅ X API 키 및 텔레그램 큐 설정이 저장되었습니다!');
+      showToast('✅ X API 키 및 텔레그램 브리핑 설정이 저장되었습니다!');
       loadQueueAndXStatus();
     } else {
       showToast('⚠️ 저장 실패: ' + data.message);
@@ -3077,6 +3081,7 @@ async function saveXApiSettings() {
     showToast('저장 중 오류 발생: ' + err.message);
   }
 }
+
 
 async function testXAuthentication() {
   const statusEl = document.getElementById('x-auth-status-msg');

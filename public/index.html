@@ -712,6 +712,22 @@
               <input type="password" id="x-access-secret-input" placeholder="Access Token Secret 입력..." style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff;">
             </div>
 
+            <!-- Dedicated Briefing Telegram Bot (Optional separation) -->
+            <div style="margin-bottom:15px; padding:12px; background:rgba(56, 189, 248, 0.05); border:1px dashed rgba(56, 189, 248, 0.3); border-radius:8px;">
+              <div style="font-size:12px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px;">
+                🤖 기사 승인 브리핑 전용 텔레그램 봇 (서버 알림과 분리 시 입력):
+              </div>
+              <div class="form-group" style="margin-bottom:8px;">
+                <label for="tele-briefing-token-input" style="font-size:11px;">브리핑 전용 봇 토큰 (미입력 시 기본 알림 봇 사용):</label>
+                <input type="password" id="tele-briefing-token-input" placeholder="기사 전용 봇 토큰 입력 (선택)..." style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff; font-size:12px;">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="tele-briefing-chatid-input" style="font-size:11px;">브리핑 전용 Chat ID:</label>
+                <input type="text" id="tele-briefing-chatid-input" placeholder="기사 전용 Chat ID (선택)..." style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff; font-size:12px;">
+              </div>
+            </div>
+
+
             <div style="display:flex; flex-wrap:wrap; gap:8px;">
               <button id="btn-save-x-keys" class="btn btn-primary" onclick="saveXApiSettings()">💾 X 키 &amp; 브리핑 설정 저장</button>
               <button id="btn-test-x-auth" class="btn btn-secondary" onclick="testXAuthentication()">🔑 X 계정 연결 확인</button>

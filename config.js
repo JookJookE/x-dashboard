@@ -26,6 +26,8 @@ const defaultConfig = {
   telegramEnabled: false,
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
+  telegramBriefingBotToken: process.env.TELEGRAM_BRIEFING_BOT_TOKEN || '',
+  telegramBriefingChatId: process.env.TELEGRAM_BRIEFING_CHAT_ID || '',
   emailEnabled: false,
   emailHost: 'smtp.gmail.com',
   emailPort: 587,
@@ -59,6 +61,8 @@ function getConfig() {
   if (process.env.TWITTER_ACCESS_SECRET) config.xAccessSecret = process.env.TWITTER_ACCESS_SECRET;
   if (process.env.TELEGRAM_BOT_TOKEN) config.telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
   if (process.env.TELEGRAM_CHAT_ID) config.telegramChatId = process.env.TELEGRAM_CHAT_ID;
+  if (process.env.TELEGRAM_BRIEFING_BOT_TOKEN) config.telegramBriefingBotToken = process.env.TELEGRAM_BRIEFING_BOT_TOKEN;
+  if (process.env.TELEGRAM_BRIEFING_CHAT_ID) config.telegramBriefingChatId = process.env.TELEGRAM_BRIEFING_CHAT_ID;
   if (process.env.GEMINI_API_KEY) config.geminiApiKey = process.env.GEMINI_API_KEY;
 
   return config;

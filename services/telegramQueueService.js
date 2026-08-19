@@ -25,13 +25,15 @@ const pendingPostsCache = new Map();
 
 function getTelegramConfig() {
   const config = getConfig();
-  const rawToken = process.env.TELEGRAM_BOT_TOKEN || config.telegramBotToken;
-  const rawChatId = process.env.TELEGRAM_CHAT_ID || config.telegramChatId;
+  // Use dedicated briefing bot if set, otherwise fallback to general bot
+  const rawToken = process.env.TELEGRAM_BRIEFING_BOT_TOKEN || config.telegramBriefingBotToken || process.env.TELEGRAM_BOT_TOKEN || config.telegramBotToken;
+  const rawChatId = process.env.TELEGRAM_BRIEFING_CHAT_ID || config.telegramBriefingChatId || process.env.TELEGRAM_CHAT_ID || config.telegramChatId;
   const token = (rawToken || '').toString().trim();
   const chatId = (rawChatId || '').toString().trim();
   const cleanToken = token.startsWith('bot') ? token.slice(3) : token;
   return { token: cleanToken, chatId };
 }
+
 
 /**
  * Check if current time is within quiet hours (00:00 ~ 06:59 KST)
