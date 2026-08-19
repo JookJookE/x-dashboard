@@ -204,9 +204,9 @@ async function generateCardNewsImage(article) {
   }
 
   const hasPhoto = Boolean(imgData);
-  const mode = hasPhoto ? 'photo' : 'title';
+  const mode = 'photo'; // Always generate [Photo + Title] capture card format
   const timestamp = Date.now();
-  const filename = `news-capture-${mode}-${timestamp}.png`;
+  const filename = `news-capture-photo-${timestamp}.png`;
   const outputPath = path.join(THUMBNAIL_DIR, filename);
 
   const canvasWidth = 1000;
@@ -219,15 +219,13 @@ async function generateCardNewsImage(article) {
   currentY += 22; // Divider gap
   currentY += 30; // Padding before photo
 
-  let canvasHeight = 200 + (lineCount * 46);
-  let photoHeight = 480;
-
+  let photoHeight = 460;
   if (hasPhoto && imgData) {
     photoHeight = Math.round((imgData.height / imgData.width) * 880);
     if (photoHeight > 2500) photoHeight = 2500;
-    if (photoHeight < 300) photoHeight = 300;
-    canvasHeight = currentY + photoHeight + 40;
+    if (photoHeight < 320) photoHeight = 320;
   }
+  const canvasHeight = currentY + photoHeight + 40;
 
   // 2. Build SVG Lines matching app.js generateArticleCaptureCard
   const titleSvg = titleLines.map((line, idx) => {
@@ -250,7 +248,31 @@ async function generateCardNewsImage(article) {
   <image href="${imgData.dataUrl}" x="60" y="${photoY}" width="880" height="${photoHeight}" preserveAspectRatio="xMidYMid slice" clip-path="url(#photoClip)"/>
   <rect x="60" y="${photoY}" width="880" height="${photoHeight}" rx="10" ry="10" fill="none" stroke="#cbd5e1" stroke-width="1"/>
     `;
+  } else {
+    // Default Clean Premium Graphic Placeholder when article has no photo
+    photoSvg = `
+  <defs>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <clipPath id="photoClip">
+      <rect x="60" y="${photoY}" width="880" height="${photoHeight}" rx="10" ry="10"/>
+    </clipPath>
+  </defs>
+  <rect x="60" y="${photoY}" width="880" height="${photoHeight}" rx="10" ry="10" fill="url(#cardGrad)"/>
+  <circle cx="850" cy="${photoY + 80}" r="120" fill="rgba(56,189,248,0.1)"/>
+  <circle cx="150" cy="${photoY + photoHeight - 60}" r="90" fill="rgba(14,165,233,0.15)"/>
+  
+  <!-- Icon & Badge in Center -->
+  <text x="500" y="${photoY + (photoHeight / 2) - 25}" font-family="'Pretendard', 'Malgun Gothic', sans-serif" font-size="52" text-anchor="middle" fill="#38bdf8">⚡</text>
+  <text x="500" y="${photoY + (photoHeight / 2) + 30}" font-family="'Pretendard', 'Malgun Gothic', sans-serif" font-size="28" font-weight="bold" text-anchor="middle" fill="#ffffff">${escapeXml(source)} SPECIAL REPORT</text>
+  <text x="500" y="${photoY + (photoHeight / 2) + 70}" font-family="'Pretendard', 'Malgun Gothic', sans-serif" font-size="18" text-anchor="middle" fill="#94a3b8">실시간 핵심 뉴스 &amp; 트렌드 브리핑</text>
+  <rect x="60" y="${photoY}" width="880" height="${photoHeight}" rx="10" ry="10" fill="none" stroke="#334155" stroke-width="1.5"/>
+    `;
   }
+
 
   const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" width="${canvasWidth}" height="${canvasHeight}">
