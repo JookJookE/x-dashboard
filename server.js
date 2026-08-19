@@ -8,7 +8,7 @@ const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, get
 const { fetchLatestArticles } = require('./scraper');
 const { generateSummary, generateThoughtTweet } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
-const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet, testYouTubeApiConnection } = require('./visualMediaService');
+const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet, testYouTubeApiConnection, getLatestYouTubeStatus } = require('./visualMediaService');
 const { getYouTubeQuotaStatus } = require('./quotaTracker');
 const { getGitInfo, pullAndApplyUpdates, initGitAutoSync } = require('./gitAutoSync');
 const { initScheduler, generateDailyDraftsJob, getDailyDrafts } = require('./scheduler');
@@ -751,11 +751,13 @@ app.get('/api/visual-media', async (req, res) => {
     const page = parseInt(req.query.page || '1', 10);
     const mediaList = await searchVisualMedia(keyword, page);
     const quotaInfo = getYouTubeQuotaStatus();
-    res.json({ success: true, keyword, media: mediaList, quota: quotaInfo });
+    const ytStatus = getLatestYouTubeStatus();
+    res.json({ success: true, keyword, media: mediaList, quota: quotaInfo, youtubeStatus: ytStatus });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 
 // YouTube API 쿼터 조회
 app.get('/api/youtube-quota', (req, res) => {

@@ -2611,12 +2611,23 @@ async function loadVisualMedia(keyword = '코스프레 화보') {
       if (data.quota) {
         updateYouTubeQuotaUI(data.quota);
       }
+      
+      // 🚨 YouTube 제외 상태 감지 및 사용자 알림
+      if (data.youtubeStatus) {
+        if (data.youtubeStatus.status === 'quota_exceeded') {
+          showToast('⚠️ YouTube 일일 쿼터 소진으로 YouTube가 제외되고, 커뮤니티(더쿠/DC/Tenor/Bing)로 대체 수집되었습니다.');
+        } else if (data.youtubeStatus.status === 'error') {
+          showToast(`⚠️ YouTube API 오류로 YouTube가 제외되었습니다. (커뮤니티 미디어로 정상 수집)`);
+        }
+      }
+
       if (data.media.length > 0 && !selectedVisualMedia) {
         selectVisualMediaItem(data.media[0]);
       }
     } else {
       if (gridEl) gridEl.innerHTML = '<p class="placeholder-text" style="grid-column:1/-1;">미디어를 불러오지 못했습니다.</p>';
     }
+
   } catch (err) {
     if (gridEl) gridEl.innerHTML = `<p class="placeholder-text" style="grid-column:1/-1; color:#f87171;">⚠️ ${err.message}</p>`;
   }

@@ -1,7 +1,14 @@
 const axios = require('axios');
 const { getConfig } = require('./config');
 const { addLog } = require('./history');
-const { recordYouTubeUsage } = require('./quotaTracker');
+const { recordYouTubeUsage, getYouTubeQuotaStatus } = require('./quotaTracker');
+
+// Last YouTube Operation Status
+let lastYouTubeStatus = { status: 'idle', message: '', timestamp: Date.now() };
+
+function getLatestYouTubeStatus() {
+  return lastYouTubeStatus;
+}
 
 // Preset Visual Keyword Categories (3 Essential Basic Presets)
 const VISUAL_PRESETS = [
@@ -102,15 +109,28 @@ const YOUTUBE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  * @returns {Array} 미디어 아이템 배열
  */
 async function fetchYouTubeVideos(keyword, apiKey) {
-  if (!apiKey) return [];
+  if (!apiKey || !apiKey.trim()) {
+    lastYouTubeStatus = { status: 'not_configured', message: 'YouTube API 키 미설정', timestamp: Date.now() };
+    return [];
+  }
+
+  // 1. 사전 쿼터 확인 (이미 10,000 units를 다 썼으면 API 호출을 건너뛰고 자동 제외)
+  const quota = getYouTubeQuotaStatus();
+  if (quota.remainingQuota <= 0) {
+    const msg = 'YouTube 일일 쿼터(10,000)를 모두 사용하여 YouTube 수집을 자동 제외하고 커뮤니티 미디어로 대체 수집합니다.';
+    addLog('WARN', `🚨 [YouTube 제외] ${msg}`);
+    lastYouTubeStatus = { status: 'quota_exceeded', message: msg, timestamp: Date.now() };
+    return [];
+  }
   
   const cacheKey = (keyword || '').trim().toLowerCase();
   const cached = youtubeSearchCache.get(cacheKey);
   const now = Date.now();
 
-  // ⚡ 5분 이내 동일 키워드 검색 시 쿼터 소모 없이 캐시 즉시 반환 (중복 쿼터 소모 0%)
+  // 2. 5분 이내 동일 키워드 검색 시 쿼터 소모 없이 캐시 즉시 반환 (중복 쿼터 소모 0%)
   if (cached && (now - cached.timestamp < YOUTUBE_CACHE_TTL_MS)) {
     addLog('INFO', `⚡ [YouTube 캐시 로드] "${keyword}" 캐시 재사용 (쿼터 소모: 0 units)`);
+    lastYouTubeStatus = { status: 'cached', message: '5분 내 캐시된 YouTube 직캠 로드 완료', timestamp: now };
     return cached.results;
   }
 
@@ -172,18 +192,24 @@ async function fetchYouTubeVideos(keyword, apiKey) {
       addLog('SUCCESS', `🎬 [YouTube API] "${searchQ}" 24시간 이내 직캠 ${results.length}건 수집 성공 (100 쿼터 차감)`);
       // 5분 캐시 저장
       youtubeSearchCache.set(cacheKey, { timestamp: now, results });
+      lastYouTubeStatus = { status: 'success', message: `YouTube 24h 직캠 ${results.length}건 정상 수집 완료`, timestamp: now };
     }
   } catch (e) {
     const errorMsg = e.response?.data?.error?.message || e.message;
     const isQuotaExceeded = errorMsg.includes('quota') || e.response?.status === 403;
     if (isQuotaExceeded) {
-      addLog('ERROR', `🚨 [YouTube API] 일일 쿼터(10,000)가 모두 소진되었거나 권한이 없습니다: ${errorMsg}`);
+      const msg = 'YouTube 일일 쿼터(10,000)가 소진되어 YouTube가 제외되었습니다. (자정 자동 리셋)';
+      addLog('ERROR', `🚨 [YouTube 쿼터 소진 차단] ${msg} (${errorMsg})`);
+      lastYouTubeStatus = { status: 'quota_exceeded', message: msg, timestamp: Date.now() };
     } else {
-      addLog('WARN', `⚠️ [YouTube API] 수집 중 오류 (${errorMsg}) -> 다음 파이프라인으로 진행`);
+      const msg = `YouTube API 키 오류 또는 권한 문제로 YouTube가 제외되었습니다. (${errorMsg})`;
+      addLog('WARN', `⚠️ [YouTube API 제외] ${msg} -> 커뮤니티/포털 미디어로 대체 수집`);
+      lastYouTubeStatus = { status: 'error', message: msg, timestamp: Date.now() };
     }
   }
   return results;
 }
+
 
 
 /**
@@ -1009,7 +1035,9 @@ module.exports = {
   generateVisualTweet,
   fetchYouTubeVideos,
   fetchCommunityMedia,
-  testYouTubeApiConnection
+  testYouTubeApiConnection,
+  getLatestYouTubeStatus
 };
+
 
 
