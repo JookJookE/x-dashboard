@@ -19,11 +19,11 @@ echo [INFO] Pulling latest code from GitHub...
 git pull origin main --no-rebase
 
 echo.
-echo [INFO] Server starting... (Window auto-hide is temporarily disabled)
+echo [INFO] Server starting... Window will auto-hide to background in 10 seconds.
 echo.
 
 
-rem start "" powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0hide_window.ps1" "%time%"
+start "" powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0hide_window.ps1" "%time%"
 
 if exist "C:\Program Files\nodejs\node.exe" goto RUN_PROGRAM_FILES
 if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VisualStudio\NodeJs\node.exe" goto RUN_VS
