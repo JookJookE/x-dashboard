@@ -424,19 +424,28 @@ initScheduler();
 const { spawn } = require('child_process');
 
 function startCloudflareTunnel() {
-
   const cloudflaredPath = path.join(__dirname, 'cloudflared.exe');
   if (fs.existsSync(cloudflaredPath)) {
-    const tunnelProc = spawn(cloudflaredPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
+    const tunnelProc = require('child_process').spawn(cloudflaredPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
     let tunnelUrlFound = false;
     let fullOutput = '';
+    let fallbackTriggered = false;
 
     function handleData(data) {
       const text = data.toString();
       fullOutput += text;
-      console.log(`[Cloudflared 원시 로그] ${text.trim()}`); // 디버깅용 강제 출력
+      
+      // 🚨 Cloudflare 429 차단 감지 시 백업 터널(Localtunnel)로 우회
+      if ((text.includes('429 Too Many Requests') || text.includes('failed to unmarshal')) && !fallbackTriggered) {
+         fallbackTriggered = true;
+         console.log(`\n🚨 [터널 경고] Cloudflare 임시 차단(429) 감지. 백업 터널(Localtunnel)로 우회 가동합니다...`);
+         try { tunnelProc.kill(); } catch (e) {}
+         startLocaltunnelFallback();
+         return;
+      }
+
       const match = fullOutput.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
-      if (match && !tunnelUrlFound) {
+      if (match && !tunnelUrlFound && !fallbackTriggered) {
         tunnelUrlFound = true;
         const tunnelUrl = match[0];
         console.log(`\n=======================================================`);
@@ -451,11 +460,36 @@ function startCloudflareTunnel() {
 
     if (tunnelProc.stdout) tunnelProc.stdout.on('data', handleData);
     if (tunnelProc.stderr) tunnelProc.stderr.on('data', handleData);
-
-    tunnelProc.on('error', (err) => {
-      console.log(`[터널 안내] cloudflared 터널 시작 중: ${err.message}`);
-    });
   }
+}
+
+function startLocaltunnelFallback() {
+  const os = require('os');
+  const { spawn } = require('child_process');
+  const npxCmd = os.platform() === 'win32' ? 'npx.cmd' : 'npx';
+  const ltProc = spawn(npxCmd, ['localtunnel', '--port', PORT.toString()]);
+  let urlFound = false;
+  let fullText = '';
+
+  function handleLtData(data) {
+    const text = data.toString();
+    fullText += text;
+    const match = fullText.match(/https:\/\/[a-zA-Z0-9-]+\.loca\.lt/);
+    if (match && !urlFound) {
+      urlFound = true;
+      const tunnelUrl = match[0];
+      console.log(`\n=======================================================`);
+      console.log(`🌐 백업 터널(LTE/스마트폰) 접속 주소 [Localtunnel]:`);
+      console.log(`👉 ${tunnelUrl}`);
+      console.log(`⚠️ 참고: 처음 접속 시 'Click to Continue' 버튼을 눌러주세요.`);
+      console.log(`=======================================================\n`);
+      addLog('SUCCESS', `🌐 백업 터널(Localtunnel) 활성화 완료: ${tunnelUrl}`);
+      notifyNewTunnelUrl(tunnelUrl);
+    }
+  }
+
+  if (ltProc.stdout) ltProc.stdout.on('data', handleLtData);
+  if (ltProc.stderr) ltProc.stderr.on('data', handleLtData);
 }
 
 
