@@ -14,8 +14,13 @@ powershell -Command "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyC
 powershell -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*hide_window.ps1*' } | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
 ping 127.0.0.1 -n 2 >nul
 
+echo [INFO] Pulling latest code from GitHub...
+git pull origin main --no-rebase
+
+echo.
 echo [INFO] Server starting... Window will auto-hide to background in 10 seconds.
 echo.
+
 
 start "" powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0hide_window.ps1" "%time%"
 
