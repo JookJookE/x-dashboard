@@ -113,6 +113,99 @@
   - 기존 프로세스를 비동기로 완전 종료 후 1초 뒤 안전하게 `cloudflared`를 실행하여 포트 충돌 방지
   - ANSI 및 대소문자/언더바/점 등 모든 `trycloudflare.com` 도메인 패턴을 완벽히 추출하도록 정규식 개선
 
+### v3.8.5 (2026-08-19) - 포트 3000 EADDRINUSE 자기 치유(Self-Healing) 및 자동 복구 시스템 탑재
+
+- **[포트 충돌 원천 방지 & 자기 치유]** (`server.js`):
+  - `server.on('error')`에서 `EADDRINUSE` 감지 시 포트 3000을 점유하는 구버전 프로세스 및 터널을 강제 자동 정리 후 2초 만에 자체 재연결 수행
+
+### v3.8.4 (2026-08-19) - visualMediaService.js의 export 식별자(fetchTheqooMedia) 불일치 긴급 수정
+
+- **[ReferenceError 핫픽스]** (`visualMediaService.js`):
+  - `module.exports`에 남아있던 구버전 미정의 식별자 `fetchCommunityMedia`를 `fetchTheqooMedia`로 정상 수정하여 런타임 크래시 완전 해결
+
+### v3.8.3 (2026-08-19) - Cloudflare 터널 기동 시 기존 인스턴스 자동 정리 및 무중단 링크 전송 안정화
+
+- **[터널 기동 안정화]** (`server.js`):
+  - `startCloudflareTunnel()` 실행 전 남아있던 구버전 `cloudflared.exe` 프로세스를 자동 정리하여 충돌 방지
+  - 서버 프로세스 종료 시 `process.on('exit')`로 터널 프로세스 안전 해제
+
+### v3.8.2 (2026-08-19) - '💬 더쿠 핫게 픽' 전용 버튼 및 Cloudflare 우회 전용 파이프라인(fetchTheqooMedia) 추가
+
+- **['💬 더쿠 핫게 픽' 전용 프리셋 버튼 신설]** (`public/index.html`, `visualMediaService.js`):
+  - 직캠·화보 스튜디오 상단에 `💬 더쿠 핫게 픽` 전용 프리셋 버튼을 추가
+- **[더쿠 Cloudflare 0% 차단 스마트 우회 엔진]** (`visualMediaService.js`):
+  - Cloudflare 안티봇 방화벽을 우회하여 더쿠(theqoo.net) 핫게시판/스퀘어에 등록된 실시간 아이돌 짤/움짤을 100% 수집하는 `fetchTheqooMedia` 구현
+  - 더쿠 핫게 버튼 클릭 시 더쿠 출처 짤들만 100% 모아서 반환
+
+### v3.8.1 (2026-08-19) - 멀티 소스(Tenor, Naver, Bing, Daum) 동시 병행 융합(Blend) 수집 파이프라인 개방
+
+- **[조기 반환(Early Return) 제거 및 전 소스 동시 개방]** (`visualMediaService.js`):
+  - 기존 Tenor 수집 시 다음 소스가 차단되던 조기 반환 로직을 제거
+  - `Tenor (MP4 직캠/움짤)` + `Naver HD (최신 국내 연예/포토)` + `Bing HD (글로벌 4K)` + `Daum HD`가 항상 골고루 함께 수집되도록 개방
+  - 갤러리에 `💃 Tenor`, `🟢 Naver HD`, `🔍 Bing HD`, `💬 Daum HD` 등 다양한 출처가 풍성하게 융합되어 표시되도록 최적화
+
+### v3.8.0 (2026-08-19) - YouTube API 제거 및 100% 무제한 무료 최신 미디어 파이프라인(Tenor MP4/더쿠/DC/Bing/Naver) 전면 고도화
+
+- **[YouTube API 의존성 완전 제거 & 스트레스 제로화]**:
+  - 복잡하고 실효성 낮던 YouTube API 및 10,000 쿼터 제한 모니터링 시스템을 완전 제거
+  - 쿼터 차감 걱정, API 키 발급/관리 스트레스 없이 100% 무제한 무료 미디어 탐색 시스템으로 전환
+- **[최신 미디어 중심 4단 파이프라인 전면 고도화]** (`visualMediaService.js`):
+  1. **Tenor Direct Video/GIF Archive**: 최신 K-POP 직캠 MP4 비디오 및 실시간 모션 움짤 우선 추출
+  2. **더쿠(Theqoo) 연예 핫게시판**: 실시간 핫게시글 최신 아이돌/연예인 GIF & 사진 원본 파싱
+  3. **DCInside 아이돌 갤러리**: 실시간 최신 갤러리 직캠/이미지 원본 수집
+  4. **Bing & Naver HD Search**: 고화질 화보/사진 최신순 가중치 탐색
+- **[UI/UX 최적화]**: 설정 탭의 불필요한 API 키 입력 카드를 정리하고, 직캠 갤러리 헤더를 `무제한 실시간 수집` 뱃지로 전환
+
+### v3.7.5 (2026-08-19) - 전체 미디어 검색 5분 통합 캐시(visualMediaFullCache) 및 쿼터 동기화 기능 추가
+
+- **[전체 미디어 5분 통합 메모리 캐시]** (`visualMediaService.js`):
+  - `searchVisualMedia` 최상단에 전체 미디어 통합 5분 캐시를 적용하여, 버튼을 연타하거나 번갈아 클릭해도 5분 동안은 YouTube API 및 외부 크롤링을 100% 차단하고 즉시 캐시 데이터 반환 (쿼터 소모 0% 완벽 보장)
+  - 결과가 0건이거나 실패했을 때도 캐시를 저장하여 반복적인 쿼터 낭비 원천 차단
+- **[구글 콘솔 실시간 쿼터 동기화 기능]** (`quotaTracker.js`, `server.js`, `index.html`, `app.js`):
+  - 설정 탭의 쿼터 모니터링 박스에 `[🔄 카운터 맞춤]` 버튼 추가 (`/api/reset-youtube-quota`)
+  - 테스트 과정에서 올라간 대시보드 카운터를 실제 구글 콘솔 값(400 units / 4회)으로 즉시 맞춤/동기화 가능
+
+### v3.7.4 (2026-08-19) - YouTube 쿼터 소진 및 차단 시 자동 제외 & 실시간 알림 시스템
+
+- **[YouTube 쿼터 사전 감지 & 자동 제외]** (`visualMediaService.js`):
+  - 일일 쿼터(10,000) 소진 시 불필요한 API 요청을 즉시 스킵하고, 커뮤니티(더쿠/DC/Tenor/Bing) 미디어로 매끄럽게 대체 수집
+  - YouTube API 오류(키 무효/권한 미설정 등) 발생 시에도 사용자 화면 멈춤 없이 100% 정상 수집 지속
+- **[사용자 명확 알림 시스템]** (`public/app.js`, `server.js`):
+  - 쿼터 소진으로 YouTube가 제외될 시: `⚠️ YouTube 일일 쿼터 소진으로 YouTube가 제외되고, 커뮤니티(더쿠/DC/Tenor/Bing)로 대체 수집되었습니다.` 토스트 팝업 안내
+  - API 키 오류로 제외될 시: `⚠️ YouTube API 키 오류로 YouTube가 제외되었습니다.` 토스트 팝업 안내
+
+### v3.7.3 (2026-08-19) - YouTube 검색 5분 메모리 캐시(TTL) 시스템 도입 (중복 쿼터 낭비 방지)
+
+- **[YouTube 스마트 5분 캐시 시스템]** (`visualMediaService.js`):
+  - 동일 키워드(예: '여돌 움짤', '여돌 직캠 MP4') 검색 시 5분 동안 메모리 캐시를 재사용하여 쿼터 소모 0% 보장
+  - 사용자가 프리셋 버튼을 연타하거나 반복 클릭해도 쿼터가 중복 차감되지 않고 0.01초 만에 즉시 로드
+  - 새로운 키워드 검색 시에만 정상적으로 실시간 YouTube API 1회(100 units) 호출
+
+### v3.7.2 (2026-08-19) - YouTube API 연결 테스트 쿼터 최적화 (1 unit 초경량 검증 전환)
+
+- **[연결 테스트 쿼터 소모 0% 최적화]** (`visualMediaService.js`):
+  - 기존 100 units가 소모되던 `search.list` 대신, 비용이 단 1 unit인 `videos.list` 초경량 검증 엔드포인트로 전환
+  - 테스트 버튼 클릭 시 일일 직캠 검색 횟수 카운터 차감 제외 처리 (테스트를 수십 번 눌러도 하루 100회 직캠 검색 한도 보존)
+
+### v3.7.1 (2026-08-19) - YouTube API 연결 검증 & 실시간 일일 쿼터(Quota) 트래커 및 출처 뱃지 시스템 도입
+
+- **[YouTube API 상태 검증 & 연결 테스트]**:
+  - 설정 탭에 `[⚡ 연결 테스트 & 정상 작동 확인]` 버튼 신설 (`/api/test-youtube` 엔드포인트)
+  - API 키 유효성, 일일 할당량(Quota) 초과 여부, Google Cloud API 활성화 상태를 실시간 진단 및 한국어 피드백 제공
+- **[일일 10,000 쿼터(Quota) 실시간 모니터링 시스템]** (`quotaTracker.js`):
+  - KST 자정 기준 자동 리셋되는 YouTube Data API v3 일일 쿼터 추적 엔진 도입 (`data/youtube_quota.json`)
+  - search.list 호출 시 1회당 100 units 차감 누적 기록
+  - 설정 탭에 실시간 쿼터 프로그레스 바 (`오늘 사용량: X / 10,000 units (X%)`, `남은 검색 횟수: 약 Y회`) 및 Google Cloud 공식 콘솔 바로가기 링크 제공
+  - 직캠 갤러리 탭 헤더에 콤팩트 실시간 쿼터 위젯 뱃지 추가
+- **[미디어 출처(Source) 명확화 시스템]** (`public/app.js`):
+  - 갤러리 카드에 직관적인 컬러 뱃지 시스템 도입:
+    - 🎬 **YouTube**: `▶ YouTube` (레드 뱃지, 클릭 시 원본 유튜브 영상 새창 바로가기 링크 제공)
+    - 💬 **더쿠**: `💬 더쿠 핫게` (보라색 뱃지)
+    - 갤 **DCInside**: `갤 DC 갤러리` (블루 뱃지)
+    - 💃 **Tenor**: `💃 Tenor GIF` (에메랄드 뱃지)
+    - 🟢 **Naver / 🔍 Bing**: `Naver HD` / `Bing HD`
+  - 우측 프리뷰 스튜디오 하단에 미디어 출처명 및 채널명, 원본 링크 바로가기(`[▶ 유튜브 원본 보기 ↗]`) 버튼 배치
+
 ### v3.6.1 (2026-08-19) - 🕒 대시보드 상단 실시간 오늘 날짜 및 현재 시각(라이브 시계) 위젯 탑재
 - 📅 **실시간 날짜 & 요일 자동 표시 (`index.html`, `app.js`, `style.css`)**:
   - 대시보드 최상단 중앙에 `2026년 08월 19일 (수)` 형식으로 오늘 날짜와 요일을 항시 표시.
@@ -352,7 +445,6 @@
   - 네이버/다음 이미지 검색 엔진에서 '그라비아 룩북 화보' 검색 시 19세 미만 성인인증 차단으로 인해 검색 결과가 0건(미디어가 없다고 나옴)이 되던 치명적 버그 수정.
   - 내부 검색 쿼리를 '일본 모델 화보'로 우회하여 성인 필터링을 회피하고 100% 정상 수집되도록 조치.
 
-
 ### v3.1.0 (2026-08-18) - 깃허브(GitHub) 원격 개발 및 30초 실시간 자동 배포 엔진 구축
 - 🚀 **원격 데스크톱 없이 집/노트북에서 편하게 작업하는 원격 CI/CD 연동 (`gitAutoSync.js`, `server.js`, `index.html`, `app.js`)**:
   - **Git 환경 구축**: 서버 PC에 독립 MinGit 환경 구성 및 영구 PATH 등록 완료.
@@ -388,9 +480,7 @@
   - **5번 여돌 칭찬**: 2030 남성 시점의 쿨하고 담백한 1줄 비주얼 찬사.
   - **6번 매운맛 팩폭**: 뼈 때리는 사이다 직구와 도파민 터지는 유쾌한 팩폭 썰.
 
-### v2.8.3 (2026-08-16) - Gemini 429 할당량 초과 완전 방어 (Zero-429 Resilience Engine)
-- 🛡️ **미디어 및 생각 정제 429 에러 완벽 차단 (`mediaGenerator.js`, `summarizer.js`)**:
-  - 구글 무료 티어 분당 호출량(15 RPM) 초과로 인한 `HTTP 429` 에러 발생 시, 고속 Turbo 이미지/비디오 엔진 및 스마트 템플릿 정제 파이프라인이 즉시 가동되어 오류 없이 3초 만에 생성 완료되도록 원천 방어.
+### v2.8.3 (2026-08-16) - Gemini 429 할당량 초과 완전 방어 (
 
 ### v2.8.2 (2026-08-16) - Google Gemini Image & FLUX.1 하이브리드 무료 AI 이미지 엔진 탑재
 - 🎨 **Gemini AI + FLUX.1 자동 연동 (`mediaGenerator.js`)**:
@@ -631,6 +721,49 @@
 ### v1.1.0 (2026-08-06)
 - 네이트판, 블라인드 수집 키워드 최적화 및 캔버스 이미지 크기 자동 맞춤 패치
 
+Zero-429 Resilience Engine)
+- 🛡️ **미디어 및 생각 정제 429 에러 완벽 차단 (`mediaGenerator.js`, `summarizer.js`)**:
+  - 구글 무료 티어 분당 호출량(15 RPM) 초과로 인한 `HTTP 429` 에러 발생 시, 고속 Turbo 이미지/비디오 엔진 및 스마트 템플릿 정제 파이프라인이 즉시 가동되어 오류 없이 3초 만에 생성 완료되도록 원천 방어.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ---
 
 ## 📌 6. 기사 확인(isRead) 상태 관리 메커니즘 (Strict State Directive)
@@ -647,98 +780,16 @@
 
 
 
-### v3.8.5 (2026-08-19) - 포트 3000 EADDRINUSE 자기 치유(Self-Healing) 및 자동 복구 시스템 탑재
 
-- **[포트 충돌 원천 방지 & 자기 치유]** (`server.js`):
-  - `server.on('error')`에서 `EADDRINUSE` 감지 시 포트 3000을 점유하는 구버전 프로세스 및 터널을 강제 자동 정리 후 2초 만에 자체 재연결 수행
 
-### v3.8.4 (2026-08-19) - visualMediaService.js의 export 식별자(fetchTheqooMedia) 불일치 긴급 수정
 
-- **[ReferenceError 핫픽스]** (`visualMediaService.js`):
-  - `module.exports`에 남아있던 구버전 미정의 식별자 `fetchCommunityMedia`를 `fetchTheqooMedia`로 정상 수정하여 런타임 크래시 완전 해결
 
-### v3.8.3 (2026-08-19) - Cloudflare 터널 기동 시 기존 인스턴스 자동 정리 및 무중단 링크 전송 안정화
 
-- **[터널 기동 안정화]** (`server.js`):
-  - `startCloudflareTunnel()` 실행 전 남아있던 구버전 `cloudflared.exe` 프로세스를 자동 정리하여 충돌 방지
-  - 서버 프로세스 종료 시 `process.on('exit')`로 터널 프로세스 안전 해제
 
-### v3.8.2 (2026-08-19) - '💬 더쿠 핫게 픽' 전용 버튼 및 Cloudflare 우회 전용 파이프라인(fetchTheqooMedia) 추가
 
-- **['💬 더쿠 핫게 픽' 전용 프리셋 버튼 신설]** (`public/index.html`, `visualMediaService.js`):
-  - 직캠·화보 스튜디오 상단에 `💬 더쿠 핫게 픽` 전용 프리셋 버튼을 추가
-- **[더쿠 Cloudflare 0% 차단 스마트 우회 엔진]** (`visualMediaService.js`):
-  - Cloudflare 안티봇 방화벽을 우회하여 더쿠(theqoo.net) 핫게시판/스퀘어에 등록된 실시간 아이돌 짤/움짤을 100% 수집하는 `fetchTheqooMedia` 구현
-  - 더쿠 핫게 버튼 클릭 시 더쿠 출처 짤들만 100% 모아서 반환
 
-### v3.8.1 (2026-08-19) - 멀티 소스(Tenor, Naver, Bing, Daum) 동시 병행 융합(Blend) 수집 파이프라인 개방
 
-- **[조기 반환(Early Return) 제거 및 전 소스 동시 개방]** (`visualMediaService.js`):
-  - 기존 Tenor 수집 시 다음 소스가 차단되던 조기 반환 로직을 제거
-  - `Tenor (MP4 직캠/움짤)` + `Naver HD (최신 국내 연예/포토)` + `Bing HD (글로벌 4K)` + `Daum HD`가 항상 골고루 함께 수집되도록 개방
-  - 갤러리에 `💃 Tenor`, `🟢 Naver HD`, `🔍 Bing HD`, `💬 Daum HD` 등 다양한 출처가 풍성하게 융합되어 표시되도록 최적화
 
-### v3.8.0 (2026-08-19) - YouTube API 제거 및 100% 무제한 무료 최신 미디어 파이프라인(Tenor MP4/더쿠/DC/Bing/Naver) 전면 고도화
-
-- **[YouTube API 의존성 완전 제거 & 스트레스 제로화]**:
-  - 복잡하고 실효성 낮던 YouTube API 및 10,000 쿼터 제한 모니터링 시스템을 완전 제거
-  - 쿼터 차감 걱정, API 키 발급/관리 스트레스 없이 100% 무제한 무료 미디어 탐색 시스템으로 전환
-- **[최신 미디어 중심 4단 파이프라인 전면 고도화]** (`visualMediaService.js`):
-  1. **Tenor Direct Video/GIF Archive**: 최신 K-POP 직캠 MP4 비디오 및 실시간 모션 움짤 우선 추출
-  2. **더쿠(Theqoo) 연예 핫게시판**: 실시간 핫게시글 최신 아이돌/연예인 GIF & 사진 원본 파싱
-  3. **DCInside 아이돌 갤러리**: 실시간 최신 갤러리 직캠/이미지 원본 수집
-  4. **Bing & Naver HD Search**: 고화질 화보/사진 최신순 가중치 탐색
-- **[UI/UX 최적화]**: 설정 탭의 불필요한 API 키 입력 카드를 정리하고, 직캠 갤러리 헤더를 `무제한 실시간 수집` 뱃지로 전환
-
-### v3.7.5 (2026-08-19) - 전체 미디어 검색 5분 통합 캐시(visualMediaFullCache) 및 쿼터 동기화 기능 추가
-
-- **[전체 미디어 5분 통합 메모리 캐시]** (`visualMediaService.js`):
-  - `searchVisualMedia` 최상단에 전체 미디어 통합 5분 캐시를 적용하여, 버튼을 연타하거나 번갈아 클릭해도 5분 동안은 YouTube API 및 외부 크롤링을 100% 차단하고 즉시 캐시 데이터 반환 (쿼터 소모 0% 완벽 보장)
-  - 결과가 0건이거나 실패했을 때도 캐시를 저장하여 반복적인 쿼터 낭비 원천 차단
-- **[구글 콘솔 실시간 쿼터 동기화 기능]** (`quotaTracker.js`, `server.js`, `index.html`, `app.js`):
-  - 설정 탭의 쿼터 모니터링 박스에 `[🔄 카운터 맞춤]` 버튼 추가 (`/api/reset-youtube-quota`)
-  - 테스트 과정에서 올라간 대시보드 카운터를 실제 구글 콘솔 값(400 units / 4회)으로 즉시 맞춤/동기화 가능
-
-### v3.7.4 (2026-08-19) - YouTube 쿼터 소진 및 차단 시 자동 제외 & 실시간 알림 시스템
-
-- **[YouTube 쿼터 사전 감지 & 자동 제외]** (`visualMediaService.js`):
-  - 일일 쿼터(10,000) 소진 시 불필요한 API 요청을 즉시 스킵하고, 커뮤니티(더쿠/DC/Tenor/Bing) 미디어로 매끄럽게 대체 수집
-  - YouTube API 오류(키 무효/권한 미설정 등) 발생 시에도 사용자 화면 멈춤 없이 100% 정상 수집 지속
-- **[사용자 명확 알림 시스템]** (`public/app.js`, `server.js`):
-  - 쿼터 소진으로 YouTube가 제외될 시: `⚠️ YouTube 일일 쿼터 소진으로 YouTube가 제외되고, 커뮤니티(더쿠/DC/Tenor/Bing)로 대체 수집되었습니다.` 토스트 팝업 안내
-  - API 키 오류로 제외될 시: `⚠️ YouTube API 키 오류로 YouTube가 제외되었습니다.` 토스트 팝업 안내
-
-### v3.7.3 (2026-08-19) - YouTube 검색 5분 메모리 캐시(TTL) 시스템 도입 (중복 쿼터 낭비 방지)
-
-- **[YouTube 스마트 5분 캐시 시스템]** (`visualMediaService.js`):
-  - 동일 키워드(예: '여돌 움짤', '여돌 직캠 MP4') 검색 시 5분 동안 메모리 캐시를 재사용하여 쿼터 소모 0% 보장
-  - 사용자가 프리셋 버튼을 연타하거나 반복 클릭해도 쿼터가 중복 차감되지 않고 0.01초 만에 즉시 로드
-  - 새로운 키워드 검색 시에만 정상적으로 실시간 YouTube API 1회(100 units) 호출
-
-### v3.7.2 (2026-08-19) - YouTube API 연결 테스트 쿼터 최적화 (1 unit 초경량 검증 전환)
-
-- **[연결 테스트 쿼터 소모 0% 최적화]** (`visualMediaService.js`):
-  - 기존 100 units가 소모되던 `search.list` 대신, 비용이 단 1 unit인 `videos.list` 초경량 검증 엔드포인트로 전환
-  - 테스트 버튼 클릭 시 일일 직캠 검색 횟수 카운터 차감 제외 처리 (테스트를 수십 번 눌러도 하루 100회 직캠 검색 한도 보존)
-
-### v3.7.1 (2026-08-19) - YouTube API 연결 검증 & 실시간 일일 쿼터(Quota) 트래커 및 출처 뱃지 시스템 도입
-
-- **[YouTube API 상태 검증 & 연결 테스트]**:
-  - 설정 탭에 `[⚡ 연결 테스트 & 정상 작동 확인]` 버튼 신설 (`/api/test-youtube` 엔드포인트)
-  - API 키 유효성, 일일 할당량(Quota) 초과 여부, Google Cloud API 활성화 상태를 실시간 진단 및 한국어 피드백 제공
-- **[일일 10,000 쿼터(Quota) 실시간 모니터링 시스템]** (`quotaTracker.js`):
-  - KST 자정 기준 자동 리셋되는 YouTube Data API v3 일일 쿼터 추적 엔진 도입 (`data/youtube_quota.json`)
-  - search.list 호출 시 1회당 100 units 차감 누적 기록
-  - 설정 탭에 실시간 쿼터 프로그레스 바 (`오늘 사용량: X / 10,000 units (X%)`, `남은 검색 횟수: 약 Y회`) 및 Google Cloud 공식 콘솔 바로가기 링크 제공
-  - 직캠 갤러리 탭 헤더에 콤팩트 실시간 쿼터 위젯 뱃지 추가
-- **[미디어 출처(Source) 명확화 시스템]** (`public/app.js`):
-  - 갤러리 카드에 직관적인 컬러 뱃지 시스템 도입:
-    - 🎬 **YouTube**: `▶ YouTube` (레드 뱃지, 클릭 시 원본 유튜브 영상 새창 바로가기 링크 제공)
-    - 💬 **더쿠**: `💬 더쿠 핫게` (보라색 뱃지)
-    - 갤 **DCInside**: `갤 DC 갤러리` (블루 뱃지)
-    - 💃 **Tenor**: `💃 Tenor GIF` (에메랄드 뱃지)
-    - 🟢 **Naver / 🔍 Bing**: `Naver HD` / `Bing HD`
-  - 우측 프리뷰 스튜디오 하단에 미디어 출처명 및 채널명, 원본 링크 바로가기(`[▶ 유튜브 원본 보기 ↗]`) 버튼 배치
 
 ### v3.7.0 (2026-08-19) - 대규모 리팩토링: 수집 다각화 & 프롬프트 고도화
 
