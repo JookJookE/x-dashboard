@@ -596,7 +596,12 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.9 (2026-08-19) - app.listen 직전 포트 점유 유령 프로세스 OS 레벨 즉시 강제 킬(Kill) 안전장치 탑재
+- **[포트 3000 점유 100% 원천 차단]** (`server.js`):
+  - `app.listen()` 호출 직전에 PowerShell `Get-NetTCPConnection`을 통해 자기 자신(myPid)을 제외한 모든 점유 프로세스를 OS 레벨에서 강제 종료하여 EADDRINUSE 원천 방지
+
 ### v3.8.8 (2026-08-19) - startCloudflareTunnel 터널 생성 엔진을 어제의 검증된 100% 정상 작동 원본으로 완전 원복
+
 - **[터널 기동 원본 복구 & 알림 메일 즉시 발송]** (`server.js`):
   - 비동기 exec 래퍼로 인해 터널 프로세스가 실행되지 않던 문제를 해결하고, 어제 100% 정상 작동하던 원본 `spawn(cloudflaredPath, ...)` 구조로 완전 복구
 
