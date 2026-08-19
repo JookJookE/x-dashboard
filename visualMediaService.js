@@ -136,13 +136,15 @@ async function fetchTheqooMedia(keyword = '아이돌') {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
           const finalTitle = titleText && titleText.length > 2 ? titleText : `[더쿠 핫게] ${cleanKw}`;
+          const now = new Date();
+          const timeStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
           results.push({
             id: 'theqoo_' + Math.random().toString(36).substring(2, 9),
             title: `[더쿠 핫게] ${finalTitle.substring(0, 45)}`,
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
-            date: '최신',
+            date: timeStr,
             source: '더쿠'
           });
           if (results.length >= 25) break;
@@ -314,7 +316,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
           seen.add(url);
           const isGif = url.toLowerCase().includes('.gif');
 
-          let dateStr = '최신';
+          let dateStr = '모름';
           const match1 = url.match(/\b(201\d|202\d)[\/\.\-_](\d{1,2})\b/);
           const match2 = url.match(/\b(201\d|202\d)(\d{2})(\d{2})\b/);
           const match3 = url.match(/\b(201[5-9]|202[0-6])\b/);
@@ -365,7 +367,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
         const url = data.murl ? data.murl.replace(/\\/g, '') : '';
         const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
 
-        let dateStr = '최신';
+        let dateStr = '모름';
         const textToSearch = `${url} ${data.purl || ''} ${data.desc || ''} ${data.t || ''}`;
         const match1 = textToSearch.match(/\b(201\d|202\d)[\/\.\-_](\d{1,2})\b/);
         const match2 = textToSearch.match(/\b(201\d|202\d)(\d{2})(\d{2})\b/);
@@ -432,7 +434,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
             url: url,
             mediaType: isGif ? 'gif' : 'image',
             thumbnail: url,
-            date: '최신',
+            date: '모름',
             source: 'Daum'
           });
           if (mediaList.filter(x => x.source === 'Daum').length >= 8) break;
@@ -444,7 +446,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   // Sort results by date descending (Newest/Latest items FIRST)
   mediaList.sort((a, b) => {
     const parseDateWeight = (dateStr) => {
-      if (!dateStr || dateStr === '연도미상') return 0;
+      if (!dateStr || dateStr === '연도미상' || dateStr === '모름') return 0;
       if (dateStr.includes('시간 전') || dateStr.includes('분 전') || dateStr.includes('방금') || dateStr === '최신') return 999999;
       if (dateStr.includes('일 전')) {
         const days = parseInt(dateStr, 10) || 1;
