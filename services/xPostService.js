@@ -50,8 +50,14 @@ async function postTweetWithMedia({ text, imagePath }) {
   }
 
   try {
+    // Trim text to safe X tweet length (X max 280 weight characters)
+    let safeText = text.trim();
+    if (safeText.length > 250) {
+      safeText = safeText.slice(0, 245) + '...';
+    }
+
     const tweetPayload = {
-      text: text.trim()
+      text: safeText
     };
 
     if (mediaId) {
@@ -74,15 +80,22 @@ async function postTweetWithMedia({ text, imagePath }) {
   } catch (err) {
     console.error('X tweet post error:', err);
     let detailedMsg = err.message;
-    if (err.data?.errors?.[0]?.message) {
-      detailedMsg = `${err.data.title || 'Error'}: ${err.data.errors[0].message}`;
-    } else if (err.data?.detail) {
+    if (err.data?.detail) {
       detailedMsg = err.data.detail;
+    } else if (err.data?.errors?.[0]?.message) {
+      detailedMsg = `${err.data.title || 'Error'}: ${err.data.errors[0].message}`;
     }
+    
+    // Check for common permission error (Read-only app)
+    if (err.code === 403 || (detailedMsg && detailedMsg.toLowerCase().includes('permission'))) {
+      detailedMsg += ' (💡 X Developer Portal에서 App Permissions가 "Read and write"로 설정되어 있고 Access Token이 재발급되었는지 확인해 주세요.)';
+    }
+
     addLog('ERROR', `❌ X 트윗 게시 실패: ${detailedMsg}`);
     throw new Error(`X 포스팅 실패: ${detailedMsg}`);
   }
 }
+
 
 /**
  * Verify Twitter credentials

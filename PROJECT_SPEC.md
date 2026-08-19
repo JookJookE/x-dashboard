@@ -61,7 +61,14 @@
 
 ## 📅 6. 버전 변경 이력 (Changelog)
 
+### v3.8.39 (2026-08-20) - 🛡️ X 트윗 포스팅 글자수 안전 슬라이스 및 권한(Read and Write) 진단 에러 핸들러 강화
+- 📝 **트윗 길이 자동 안전 규격화 (`services/xPostService.js`)**:
+  - X API의 280 글자수 가중치 한도 초과로 인한 게시 실패를 방지하기 위해 245자 자동 안전 슬라이스 및 말줄임표 처리.
+- 🔐 **X App 쓰기 권한(Read and Write) 안내 진단 로깅**:
+  - 403 Forbidden 권한 에러 발생 시 X Developer Portal의 App Permissions 변경 및 Access Token 재발급 필요성을 명확히 진단 안내.
+
 ### v3.8.38 (2026-08-20) - 📸 기사 원문 실시간 이미지 능동 추출 엔진(`resolveArticleImageUrl`) 탑재 & [제목+사진] 카드뉴스 100% 보장
+
 - 🔍 **지능형 실시간 이미지 크롤러 내장 (`services/cardNewsServerService.js`)**:
   - 기사 DB에 `imageUrl`이 비어 있더라도, 구글 뉴스 리다이렉트 원문 추적 및 네이버/네이트판/블라인드/더쿠/언론사 본문의 `og:image`, `twitter:image`, `<img>` 태그를 실시간 능동 크롤링하여 고화질 사진을 정확히 탐색.
   - 사진이 있는 기사는 누락 없이 100% **`📸 [기사 캡처 (제목+사진)]`** 모드로 완벽 렌더링.
