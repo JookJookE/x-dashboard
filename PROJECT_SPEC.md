@@ -121,6 +121,9 @@
 ### v3.8.4 (2026-08-19) - visualMediaService.js의 export 식별자(fetchTheqooMedia) 불일치 긴급 수정
 
 - **[ReferenceError 핫픽스]** (`visualMediaService.js`):
+### v3.8.4 (2026-08-19) - visualMediaService.js의 export 식별자(fetchTheqooMedia) 불일치 긴급 수정
+
+- **[ReferenceError 핫픽스]** (`visualMediaService.js`):
   - `module.exports`에 남아있던 구버전 미정의 식별자 `fetchCommunityMedia`를 `fetchTheqooMedia`로 정상 수정하여 런타임 크래시 완전 해결
 
 ### v3.8.3 (2026-08-19) - Cloudflare 터널 기동 시 기존 인스턴스 자동 정리 및 무중단 링크 전송 안정화
@@ -143,8 +146,6 @@
   - 기존 Tenor 수집 시 다음 소스가 차단되던 조기 반환 로직을 제거
   - `Tenor (MP4 직캠/움짤)` + `Naver HD (최신 국내 연예/포토)` + `Bing HD (글로벌 4K)` + `Daum HD`가 항상 골고루 함께 수집되도록 개방
   - 갤러리에 `💃 Tenor`, `🟢 Naver HD`, `🔍 Bing HD`, `💬 Daum HD` 등 다양한 출처가 풍성하게 융합되어 표시되도록 최적화
-
-### v3.8.0 (2026-08-19) - YouTube API 제거 및 100% 무제한 무료 최신 미디어 파이프라인(Tenor MP4/더쿠/DC/Bing/Naver) 전면 고도화
 
 - **[YouTube API 의존성 완전 제거 & 스트레스 제로화]**:
   - 복잡하고 실효성 낮던 YouTube API 및 10,000 쿼터 제한 모니터링 시스템을 완전 제거
@@ -205,6 +206,24 @@
     - 💃 **Tenor**: `💃 Tenor GIF` (에메랄드 뱃지)
     - 🟢 **Naver / 🔍 Bing**: `Naver HD` / `Bing HD`
   - 우측 프리뷰 스튜디오 하단에 미디어 출처명 및 채널명, 원본 링크 바로가기(`[▶ 유튜브 원본 보기 ↗]`) 버튼 배치
+
+### v3.7.0 (2026-08-19) - 대규모 리팩토링: 수집 다각화 & 프롬프트 고도화
+
+- **[파트 1] 실 실시간 미디어 수집 다각화** (`visualMediaService.js`):
+  - YouTube Data API v3 파이프라인 추가: 최근 24시간 이내 아이돌 직캠/영상 실시간 수집 (아이돌/영상 카테고리 한정)
+  - 더쿠(Theqoo) 핫게시판 크롤링 시도 → 실패 시 DCInside 아이돌 갤러리 자동 폴백 파이프라인 구축
+  - 기존 Tenor/Bing/Naver 파이프라인은 3~6번 단계로 유지 (하위 호환)
+  - 직캠 태그 정밀화: `#여돌`, `#직캠` 등 포괄 태그 대신 `#카리나`, `#에스파`, `#장원영`, `#아이브` 등 구체적 아이돌명/그룹명 태그 + `YYMMDD_직캠` 날짜 태그 자동 생성
+- **[파트 2] 설정 UI 확장** (`index.html`, `app.js`, `config.js`):
+  - 설정 탭에 YouTube Data API v3 키 입력 카드 추가 (🎬)
+  - 설정 탭에 X Bearer Token 입력 카드 추가 (🐦, 읽기 전용 검색 API용)
+  - `config.js`에 `youtubeApiKey`, `xBearerToken` 필드 추가
+  - `app.js`에 `saveYoutubeApiKey()`, `saveXBearerToken()` 함수 및 이벤트 리스너 추가
+- **[파트 3] 프롬프트 고도화** (`summarizer.js`):
+  - 공통 금지어 Negative Prompt Block 도입: "요약하자면", "결론적으로", "놀랍게도", "과연", "안녕하세요" 등 봇 말투 절대 금지
+  - temperature 랜덤화: 고정 0.7 → 0.75~0.85 사이 랜덤 (다양성 강제)
+  - 테크/금융 block 모드에 4종 랜덤 스타일 배열 도입: [A] 시니컬 팩트체크 / [B] 호들갑 리액션 / [C] 어그로 질문형 / [D] 차분한 분석형
+- **[제외] 파트 4 Thread 자동 포스팅**: X API 무료 플랜 월 POST 1,500건 제한으로 인해 제외 (수동 타래 방식 유지)
 
 ### v3.6.1 (2026-08-19) - 🕒 대시보드 상단 실시간 오늘 날짜 및 현재 시각(라이브 시계) 위젯 탑재
 - 📅 **실시간 날짜 & 요일 자동 표시 (`index.html`, `app.js`, `style.css`)**:
