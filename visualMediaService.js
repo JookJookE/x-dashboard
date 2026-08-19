@@ -91,6 +91,10 @@ async function parseDirectSnsUrl(url) {
   return null;
 }
 
+// YouTube Search In-Memory Cache (5-minute TTL to prevent repeated quota waste)
+const youtubeSearchCache = new Map();
+const YOUTUBE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * [파이프라인 A] YouTube Data API v3: 최근 24시간 이내 아이돌 직캠/영상 수집
  * @param {string} keyword 검색 키워드 (한국어)
@@ -99,6 +103,17 @@ async function parseDirectSnsUrl(url) {
  */
 async function fetchYouTubeVideos(keyword, apiKey) {
   if (!apiKey) return [];
+  
+  const cacheKey = (keyword || '').trim().toLowerCase();
+  const cached = youtubeSearchCache.get(cacheKey);
+  const now = Date.now();
+
+  // ⚡ 5분 이내 동일 키워드 검색 시 쿼터 소모 없이 캐시 즉시 반환 (중복 쿼터 소모 0%)
+  if (cached && (now - cached.timestamp < YOUTUBE_CACHE_TTL_MS)) {
+    addLog('INFO', `⚡ [YouTube 캐시 로드] "${keyword}" 캐시 재사용 (쿼터 소모: 0 units)`);
+    return cached.results;
+  }
+
   const results = [];
   try {
     // 24시간 전 ISO 문자열 생성
@@ -155,6 +170,8 @@ async function fetchYouTubeVideos(keyword, apiKey) {
 
     if (results.length > 0) {
       addLog('SUCCESS', `🎬 [YouTube API] "${searchQ}" 24시간 이내 직캠 ${results.length}건 수집 성공 (100 쿼터 차감)`);
+      // 5분 캐시 저장
+      youtubeSearchCache.set(cacheKey, { timestamp: now, results });
     }
   } catch (e) {
     const errorMsg = e.response?.data?.error?.message || e.message;
@@ -167,6 +184,7 @@ async function fetchYouTubeVideos(keyword, apiKey) {
   }
   return results;
 }
+
 
 /**
  * YouTube API v3 키 유효성 및 연결 테스트
