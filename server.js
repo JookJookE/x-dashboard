@@ -467,7 +467,8 @@ function startLocaltunnelFallback() {
   const os = require('os');
   const { spawn } = require('child_process');
   const npxCmd = os.platform() === 'win32' ? 'npx.cmd' : 'npx';
-  const ltProc = spawn(npxCmd, ['localtunnel', '--port', PORT.toString()]);
+  // 윈도우에서 .cmd 파일 실행 시 shell: true 필수 (EINVAL 방지)
+  const ltProc = spawn(npxCmd, ['localtunnel', '--port', PORT.toString()], { shell: true });
   let urlFound = false;
   let fullText = '';
 
