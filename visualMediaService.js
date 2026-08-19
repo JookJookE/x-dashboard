@@ -190,10 +190,12 @@ async function fetchYouTubeVideos(keyword, apiKey) {
 
     if (results.length > 0) {
       addLog('SUCCESS', `🎬 [YouTube API] "${searchQ}" 24시간 이내 직캠 ${results.length}건 수집 성공 (100 쿼터 차감)`);
-      // 5분 캐시 저장
-      youtubeSearchCache.set(cacheKey, { timestamp: now, results });
-      lastYouTubeStatus = { status: 'success', message: `YouTube 24h 직캠 ${results.length}건 정상 수집 완료`, timestamp: now };
+    } else {
+      addLog('INFO', `ℹ️ [YouTube API] "${searchQ}" 24시간 이내 직캠 0건 (100 쿼터 차감) -> 캐시 저장`);
     }
+    // 5분 캐시 저장 (결과가 0건이어도 5분간 중복 호출 차단)
+    youtubeSearchCache.set(cacheKey, { timestamp: now, results });
+    lastYouTubeStatus = { status: 'success', message: `YouTube 24h 직캠 ${results.length}건 수집 완료`, timestamp: now };
   } catch (e) {
     const errorMsg = e.response?.data?.error?.message || e.message;
     const isQuotaExceeded = errorMsg.includes('quota') || e.response?.status === 403;
@@ -206,9 +208,12 @@ async function fetchYouTubeVideos(keyword, apiKey) {
       addLog('WARN', `⚠️ [YouTube API 제외] ${msg} -> 커뮤니티/포털 미디어로 대체 수집`);
       lastYouTubeStatus = { status: 'error', message: msg, timestamp: Date.now() };
     }
+    // 에러 발생 시에도 1분간 반복 호출 방지 캐시
+    youtubeSearchCache.set(cacheKey, { timestamp: now, results: [] });
   }
   return results;
 }
+
 
 
 
@@ -384,6 +389,9 @@ async function fetchCommunityMedia(keyword) {
   return results;
 }
 
+// Full Visual Media Search In-Memory Cache (5-minute TTL)
+const visualMediaFullCache = new Map();
+
 /**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
  * Multi-Tier Pipeline:
@@ -396,8 +404,6 @@ async function fetchCommunityMedia(keyword) {
  *  6. Daum Image Search (Tertiary fallback)
  */
 async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
-  const mediaList = [];
-  const seen = new Set();
   const cleanKeyword = keyword.trim();
 
   // 0. Direct URL Check
@@ -407,6 +413,17 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
       return [directResult];
     }
   }
+
+  // ⚡ 5분 전체 미디어 메모리 캐시 확인 (동일 키워드&페이지 중복 호출 시 0.001초 즉시 반환)
+  const fullCacheKey = `${cleanKeyword.toLowerCase()}_p${page}`;
+  const cachedFull = visualMediaFullCache.get(fullCacheKey);
+  const now = Date.now();
+  if (cachedFull && (now - cachedFull.timestamp < YOUTUBE_CACHE_TTL_MS)) {
+    return cachedFull.mediaList;
+  }
+
+  const mediaList = [];
+  const seen = new Set();
 
   const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('직캠') || cleanKeyword.includes('영상') || cleanKeyword.includes('음방') || cleanKeyword.includes('현장') || cleanKeyword.includes('핫클립') || cleanKeyword.includes('M2') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('video') || cleanKeyword.includes('움짤');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
@@ -426,6 +443,7 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
       }
     }
   }
+
 
   // 2. [NEW] 더쿠 핫게시판 크롤링 → DCInside 폴백 (아이돌 카테고리 & page 1 한정)
   if (isIdolCategory && !isForeign && page === 1) {
@@ -734,8 +752,12 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
     return parseDateWeight(b.date) - parseDateWeight(a.date);
   });
 
-  return mediaList.slice(0, 30);
+  const finalResult = mediaList.slice(0, 30);
+  // ⚡ 5분 전체 미디어 캐시 저장
+  visualMediaFullCache.set(fullCacheKey, { timestamp: now, mediaList: finalResult });
+  return finalResult;
 }
+
 
 /**
  * Generate Attention-Grabbing Viral X Tweets for Visual Photos & Videos

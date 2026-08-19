@@ -1970,6 +1970,23 @@ async function loadYouTubeQuota() {
   } catch (e) {}
 }
 
+async function syncYouTubeQuotaToConsole(targetUnits = 400) {
+  try {
+    const res = await fetch('/api/reset-youtube-quota', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUnits })
+    });
+    const data = await res.json();
+    if (data.success && data.quota) {
+      updateYouTubeQuotaUI(data.quota);
+      showToast(`🔄 쿼터 카운터가 구글 콘솔(${targetUnits} units / ${Math.floor(targetUnits/100)}회)로 동기화되었습니다!`);
+    }
+  } catch (e) {
+    showToast('동기화 실패: ' + e.message);
+  }
+}
+
 function updateYouTubeQuotaUI(quota) {
   if (!quota) return;
 

@@ -9,7 +9,7 @@ const { fetchLatestArticles } = require('./scraper');
 const { generateSummary, generateThoughtTweet } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
 const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet, testYouTubeApiConnection, getLatestYouTubeStatus } = require('./visualMediaService');
-const { getYouTubeQuotaStatus } = require('./quotaTracker');
+const { getYouTubeQuotaStatus, resetYouTubeQuota } = require('./quotaTracker');
 const { getGitInfo, pullAndApplyUpdates, initGitAutoSync } = require('./gitAutoSync');
 const { initScheduler, generateDailyDraftsJob, getDailyDrafts } = require('./scheduler');
 const { sendTelegramMessage, sendEmailMessage, notifyNewTunnelUrl } = require('./notifier');
@@ -768,6 +768,19 @@ app.get('/api/youtube-quota', (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// YouTube API 쿼터 카운터 수동 재설정/동기화
+app.post('/api/reset-youtube-quota', (req, res) => {
+  try {
+    const targetUnits = parseInt(req.body.targetUnits !== undefined ? req.body.targetUnits : '400', 10);
+    const updated = resetYouTubeQuota(targetUnits);
+    const quota = getYouTubeQuotaStatus();
+    res.json({ success: true, quota });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 // YouTube API 키 연결 테스트
 app.post('/api/test-youtube', async (req, res) => {

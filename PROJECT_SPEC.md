@@ -596,7 +596,16 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.7.5 (2026-08-19) - 전체 미디어 검색 5분 통합 캐시(visualMediaFullCache) 및 쿼터 동기화 기능 추가
+- **[전체 미디어 5분 통합 메모리 캐시]** (`visualMediaService.js`):
+  - `searchVisualMedia` 최상단에 전체 미디어 통합 5분 캐시를 적용하여, 버튼을 연타하거나 번갈아 클릭해도 5분 동안은 YouTube API 및 외부 크롤링을 100% 차단하고 즉시 캐시 데이터 반환 (쿼터 소모 0% 완벽 보장)
+  - 결과가 0건이거나 실패했을 때도 캐시를 저장하여 반복적인 쿼터 낭비 원천 차단
+- **[구글 콘솔 실시간 쿼터 동기화 기능]** (`quotaTracker.js`, `server.js`, `index.html`, `app.js`):
+  - 설정 탭의 쿼터 모니터링 박스에 `[🔄 카운터 맞춤]` 버튼 추가 (`/api/reset-youtube-quota`)
+  - 테스트 과정에서 올라간 대시보드 카운터를 실제 구글 콘솔 값(400 units / 4회)으로 즉시 맞춤/동기화 가능
+
 ### v3.7.4 (2026-08-19) - YouTube 쿼터 소진 및 차단 시 자동 제외 & 실시간 알림 시스템
+
 - **[YouTube 쿼터 사전 감지 & 자동 제외]** (`visualMediaService.js`):
   - 일일 쿼터(10,000) 소진 시 불필요한 API 요청을 즉시 스킵하고, 커뮤니티(더쿠/DC/Tenor/Bing) 미디어로 매끄럽게 대체 수집
   - YouTube API 오류(키 무효/권한 미설정 등) 발생 시에도 사용자 화면 멈춤 없이 100% 정상 수집 지속

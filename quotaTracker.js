@@ -88,9 +88,28 @@ function getYouTubeQuotaStatus() {
   };
 }
 
+function resetYouTubeQuota(targetUnits = 0) {
+  try {
+    const today = getTodayString();
+    const calls = Math.floor(targetUnits / COST_PER_SEARCH);
+    const updated = {
+      date: today,
+      usedQuota: targetUnits,
+      searchCalls: calls,
+      lastUpdated: new Date().toISOString()
+    };
+    fs.writeFileSync(QUOTA_FILE, JSON.stringify(updated, null, 2), 'utf8');
+    return updated;
+  } catch (e) {
+    console.error('Error resetting YouTube quota:', e);
+  }
+}
+
 module.exports = {
   recordYouTubeUsage,
   getYouTubeQuotaStatus,
+  resetYouTubeQuota,
   MAX_DAILY_QUOTA,
   COST_PER_SEARCH
 };
+
