@@ -325,61 +325,11 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
         }
       }
     } catch (tErr) {}
-  }
-ebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept-Language': isForeign ? 'en-US,en;q=0.9' : 'ko-KR,ko;q=0.9,en-US;q=0.8'
-        },
-        timeout: 5000
-      });
-
-      const html = String(res.data);
-      const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
-      for (const s of scripts) {
-        if (s[1].includes('"media_formats"')) {
-          try {
-            const data = JSON.parse(s[1]);
-            const searchObj = data.universal?.search || {};
-            const firstKey = Object.keys(searchObj)[0];
-            const items = searchObj[firstKey]?.results || [];
-
-            for (const item of items) {
-              const mp4Url = item.media_formats?.mp4?.url || item.media_formats?.tinymp4?.url;
-              const gifUrl = item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url;
-              const thumbUrl = item.media_formats?.nanomp4?.url || item.media_formats?.gif?.url || item.media_formats?.tinymp4?.url;
-              const titleText = item.content_description || item.title || searchTarget;
-              
-              const chosenUrl = isVideoCategory ? (mp4Url || gifUrl) : (gifUrl || mp4Url);
-
-              let dateStr = '최신';
-              if (item.created) {
-                const d = new Date(item.created * 1000);
-                if (!isNaN(d.getTime())) {
-                  dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
-                }
-              }
-
-              if (chosenUrl && !seen.has(chosenUrl)) {
-                seen.add(chosenUrl);
-                mediaList.push({
-                  id: 'media_v_' + Math.random().toString(36).substring(2, 9),
-                  title: isVideoCategory ? `[MP4 직캠] ${titleText.substring(0, 45)}` : `[움짤] ${titleText.substring(0, 45)}`,
-                  url: chosenUrl,
-                  mediaType: isVideoCategory ? 'video' : 'gif',
-                  thumbnail: thumbUrl || chosenUrl,
-                  date: dateStr,
-                  source: 'Tenor Video'
-                });
-              }
-            }
-          } catch (jsonErr) {}
-        }
-      }
-    } catch (tErr) {
-      // fallback to Bing
-    }
 
     if (mediaList.length > 0) {
       // Sort Tenor items by descending timestamp / date (newest first)
+
+
       mediaList.sort((a, b) => {
         const parseDateWeight = (dateStr) => {
           if (!dateStr || dateStr === '연도미상') return 0;
