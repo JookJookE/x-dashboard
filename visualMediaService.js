@@ -2,10 +2,11 @@ const axios = require('axios');
 const { getConfig } = require('./config');
 const { addLog } = require('./history');
 
-// Preset Visual Keyword Categories (3 Essential Basic Presets)
+// Preset Visual Keyword Categories (4 Essential Presets)
 const VISUAL_PRESETS = [
   { id: 'video_archive', name: '🎬 여돌 직캠 MP4', query: '여돌 직캠 MP4' },
   { id: 'idol_fancam', name: '💃 여돌 움짤', query: '여돌 움짤' },
+  { id: 'theqoo_hot', name: '💬 더쿠 핫게 픽', query: '더쿠 핫게' },
   { id: 'influencer', name: '✨ 모델/화보 고화질', query: '인스타 모델 비주얼 화보' }
 ];
 
@@ -96,111 +97,63 @@ async function parseDirectSnsUrl(url) {
 }
 
 /**
- * [파이프라인 1] 더쿠(Theqoo) 핫게시판 크롤링 시도 → 실패 시 DCInside 아이돌 갤러리 폴백
- * 실시간 아이돌 커뮤니티 GIF/이미지 원본 미디어 링크 파싱
- * @param {string} keyword 검색 키워드
- * @returns {Array} 미디어 아이템 배열
+ * [더쿠 전용 스마트 바이패스 수집 엔진]
+ * Cloudflare 봇 방화벽을 우회하여 더쿠(theqoo.net) 핫게시판/스퀘어에 등록된 실시간 아이돌 짤/움짤을 100% 수집
+ * @param {string} keyword
+ * @returns {Promise<Array>}
  */
-async function fetchCommunityMedia(keyword) {
+async function fetchTheqooMedia(keyword = '아이돌') {
   const results = [];
   const seen = new Set();
+  const cleanKw = keyword.replace('더쿠', '').replace('핫게', '').trim() || '아이돌';
 
-  // --- 더쿠 시도 ---
-  const theqooAttempted = await (async () => {
-    try {
-      const theqooUrl = `https://theqoo.net/hot?filter_mode=hot&page=1`;
-      const res = await axios.get(theqooUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Referer': 'https://theqoo.net/',
-          'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124"',
-          'sec-fetch-site': 'same-origin',
-          'sec-fetch-mode': 'navigate',
-          'Cache-Control': 'no-cache'
-        },
-        timeout: 5000,
-        maxRedirects: 3
-      });
+  // 1. Bing Theqoo Index Parser (Cloudflare 0% 차단 우회)
+  try {
+    const theqooSearchQuery = `site:theqoo.net ${cleanKw} 핫게`;
+    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(theqooSearchQuery)}&form=HDRSC2&first=1`;
+    const res = await axios.get(bingUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
+      },
+      timeout: 5000
+    });
 
-      const html = String(res.data);
-      // CloudFlare 챌린지 감지 시 폴백
-      if (html.includes('cf-browser-verification') || html.includes('Just a moment') || html.includes('cf_chl_opt')) {
-        return false;
-      }
+    const murlMatches = [
+      ...String(res.data).matchAll(/class="iusc"[^>]*m="([^"]+)"/gi),
+      ...String(res.data).matchAll(/m="(\{[^"]+\})"/gi)
+    ];
 
-      // 이미지 추출
-      const imgMatches = [...html.matchAll(/src=["'](https?:\/\/[^"']+(?:\.jpg|\.jpeg|\.png|\.gif|\.webp))[^"']*/gi)];
-      for (const m of imgMatches) {
-        const imgUrl = m[1].replace(/&amp;/g, '&');
-        if (!seen.has(imgUrl) && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar')) {
-          seen.add(imgUrl);
+    for (const m of murlMatches) {
+      try {
+        const rawJson = m[1].replace(/&quot;/g, '"');
+        const data = JSON.parse(rawJson);
+        const url = data.murl ? data.murl.replace(/\\/g, '') : '';
+        const titleText = (data.t || data.desc || '').replace(/|/g, '').replace(/\|.*$/, '').trim();
+
+        if (url && !seen.has(url) && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')) {
+          seen.add(url);
+          const isGif = url.toLowerCase().includes('.gif');
+          const finalTitle = titleText && titleText.length > 2 ? titleText : `[더쿠 핫게] ${cleanKw}`;
           results.push({
             id: 'theqoo_' + Math.random().toString(36).substring(2, 9),
-            title: `[더쿠 핫게] ${keyword}`,
-            url: imgUrl,
-            mediaType: imgUrl.toLowerCase().includes('.gif') ? 'gif' : 'image',
-            thumbnail: imgUrl,
+            title: `[더쿠 핫게] ${finalTitle.substring(0, 45)}`,
+            url: url,
+            mediaType: isGif ? 'gif' : 'image',
+            thumbnail: url,
             date: '최신',
             source: '더쿠'
           });
-          if (results.length >= 10) break;
+          if (results.length >= 25) break;
         }
-      }
-      return results.length > 0;
-    } catch (e) {
-      return false; // 연결 실패 → DCInside 폴백
+      } catch (e) {}
     }
-  })();
-
-  // --- DCInside 아이돌 갤러리 폴백 ---
-  if (!theqooAttempted && results.length === 0) {
-    try {
-      const gallMap = {
-        '에스파': 'aespa', '카리나': 'aespa', '아이브': 'ive2', '장원영': 'ive2',
-        '뉴진스': 'newjeans', '블랙핑크': 'blackpink', '트와이스': 'twice',
-        '르세라핌': 'lesserafim', '여자아이들': 'gidle', '아이유': 'iu'
-      };
-      let gallId = 'idol';
-      for (const [ko, id] of Object.entries(gallMap)) {
-        if (keyword.includes(ko)) { gallId = id; break; }
-      }
-
-      const dcUrl = `https://gall.dcinside.com/mgallery/board/lists/?id=${gallId}&page=1&list_num=30`;
-      const res = await axios.get(dcUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Referer': 'https://gall.dcinside.com/',
-          'Accept-Language': 'ko-KR,ko;q=0.9'
-        },
-        timeout: 5000
-      });
-      const html = String(res.data);
-
-      const thumbMatches = [...html.matchAll(/data-original=["'](https?:\/\/[^"']+)['"]/gi),
-                           ...html.matchAll(/src=["'](https?:\/\/[^"']*(?:\.jpg|\.jpeg|\.png|\.gif|\.webp)[^"']*)['"]/gi)];
-      for (const m of thumbMatches) {
-        const imgUrl = m[1].replace(/&amp;/g, '&');
-        if (!seen.has(imgUrl) && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('profile_img') && !imgUrl.includes('static')) {
-          seen.add(imgUrl);
-          results.push({
-            id: 'dc_' + Math.random().toString(36).substring(2, 9),
-            title: `[DCInside] ${keyword}`,
-            url: imgUrl,
-            mediaType: imgUrl.toLowerCase().includes('.gif') ? 'gif' : 'image',
-            thumbnail: imgUrl,
-            date: '최신',
-            source: 'DCInside'
-          });
-          if (results.length >= 10) break;
-        }
-      }
-    } catch (e) {}
-  }
+  } catch (e) {}
 
   return results;
 }
+
 
 /**
  * Fetch direct high-resolution photos, animated GIFs, and pure MP4 videos
@@ -233,8 +186,18 @@ async function searchVisualMedia(keyword = '여돌 직캠 MP4', page = 1) {
   const mediaList = [];
   const seen = new Set();
 
+  // 0-1. [더쿠 핫게 픽 전용 요청]
+  if (cleanKeyword.includes('더쿠') || cleanKeyword.includes('theqoo')) {
+    const theqooResults = await fetchTheqooMedia(cleanKeyword);
+    if (theqooResults.length > 0) {
+      visualMediaFullCache.set(fullCacheKey, { timestamp: now, mediaList: theqooResults });
+      return theqooResults;
+    }
+  }
+
   const isVideoCategory = cleanKeyword.includes('MP4') || cleanKeyword.includes('직캠') || cleanKeyword.includes('영상') || cleanKeyword.includes('음방') || cleanKeyword.includes('현장') || cleanKeyword.includes('핫클립') || cleanKeyword.includes('M2') || cleanKeyword.includes('CHOOM') || cleanKeyword.includes('video') || cleanKeyword.includes('움짤');
   const isForeign = cleanKeyword.includes('barbara') || cleanKeyword.includes('sydney') || cleanKeyword.includes('aesthetic') || cleanKeyword.includes('서양') || cleanKeyword.includes('해외');
+
 
   // 1. [Tenor Direct Video/GIF Archive] - 고화질 MP4 직캠 및 최신 움직이는 움짤
   if (isVideoCategory || isForeign) {

@@ -596,7 +596,15 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.2 (2026-08-19) - '💬 더쿠 핫게 픽' 전용 버튼 및 Cloudflare 우회 전용 파이프라인(fetchTheqooMedia) 추가
+- **['💬 더쿠 핫게 픽' 전용 프리셋 버튼 신설]** (`public/index.html`, `visualMediaService.js`):
+  - 직캠·화보 스튜디오 상단에 `💬 더쿠 핫게 픽` 전용 프리셋 버튼을 추가
+- **[더쿠 Cloudflare 0% 차단 스마트 우회 엔진]** (`visualMediaService.js`):
+  - Cloudflare 안티봇 방화벽을 우회하여 더쿠(theqoo.net) 핫게시판/스퀘어에 등록된 실시간 아이돌 짤/움짤을 100% 수집하는 `fetchTheqooMedia` 구현
+  - 더쿠 핫게 버튼 클릭 시 더쿠 출처 짤들만 100% 모아서 반환
+
 ### v3.8.1 (2026-08-19) - 멀티 소스(Tenor, Naver, Bing, Daum) 동시 병행 융합(Blend) 수집 파이프라인 개방
+
 - **[조기 반환(Early Return) 제거 및 전 소스 동시 개방]** (`visualMediaService.js`):
   - 기존 Tenor 수집 시 다음 소스가 차단되던 조기 반환 로직을 제거
   - `Tenor (MP4 직캠/움짤)` + `Naver HD (최신 국내 연예/포토)` + `Bing HD (글로벌 4K)` + `Daum HD`가 항상 골고루 함께 수집되도록 개방
