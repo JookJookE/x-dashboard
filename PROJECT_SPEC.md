@@ -596,7 +596,12 @@
 
 ## 📋 Section 5: Version History & Changelog
 
+### v3.8.11 (2026-08-19) - server.js 블로킹 요소 전면 제거 및 어제 원본 순수 코드로 100% 완전 동기화
+- **[서버 기동 블로킹 요소 완전 제거]** (`server.js`):
+  - `app.listen()` 이전의 모든 `execSync` 프로세스를 완전 제거하고, 어제 100% 안정적으로 구동되던 순수 원본 `server.js`로 완전 동기화
+
 ### v3.8.10 (2026-08-19) - server.js의 라우트 닫는 괄호 SyntaxError 핫픽스
+
 - **[구문 오류 완전 해결]** (`server.js`):
   - `app.post('/api/git-sync')`의 누락된 닫는 괄호 `});`를 복구하여 기동 오류 완전 해결
 

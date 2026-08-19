@@ -421,9 +421,10 @@ app.delete('/api/user-drafts/:id', (req, res) => {
 // Initialize background 07:00 AM scheduler
 initScheduler();
 
-const { spawn, execSync } = require('child_process');
+const { spawn } = require('child_process');
 
 function startCloudflareTunnel() {
+
   const cloudflaredPath = path.join(__dirname, 'cloudflared.exe');
   if (fs.existsSync(cloudflaredPath)) {
     const tunnelProc = spawn(cloudflaredPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
@@ -859,16 +860,8 @@ app.post('/api/git-sync', async (req, res) => {
   res.json(result);
 });
 
-// Ensure Port 3000 is 100% available by killing any ghost processes holding port 3000
-if (process.platform === 'win32') {
-  try {
-    const { execSync } = require('child_process');
-    const myPid = process.pid;
-    execSync(`powershell -Command "Get-NetTCPConnection -LocalPort ${PORT} -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -ne ${myPid} } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore' });
-  } catch (e) {}
-}
-
 app.listen(PORT, '0.0.0.0', () => {
+
 
 
   console.log(`=======================================================`);
