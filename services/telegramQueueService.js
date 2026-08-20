@@ -24,7 +24,7 @@ let lastUpdateId = 0;
 let isPollingActive = false;
 let isWorkerRunning = false;
 
-// In-memory cache for pending telegram messages: { [id]: { text, type, article, mediaMessageIds, textMessageId } }
+// In-memory cache for pending telegram messages: { [id]: { text, type, article, mediaMessageIds, textMessageId, pollInfo, threadInfo } }
 const pendingPostsCache = new Map();
 
 function getTelegramConfig() {
@@ -94,8 +94,7 @@ async function deleteTelegramMessage(chatId, messageId) {
 }
 
 /**
- * Send 3 Capture Cards as a Telegram Media Group Album (📸 제목+사진 / 📄 제목+본문 / 📝 제목만)
- * Returns array of created message_ids
+ * Send 3 Capture Cards as a Telegram Media Group Album
  */
 async function sendTelegramCaptureMediaGroup(imageCards, articleTitle) {
   const { token, chatId } = getTelegramConfig();
@@ -183,21 +182,25 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
     ]
   };
 
-  // Add Thread & Poll intent options if available
-  const subRow = [];
+  // 1. Thread Options (1편 올리기 + 2편 복사하기)
+  if (threadInfo?.tweet1) {
+    const threadIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(threadInfo.tweet1)}`;
+    inlineKeyboard.inline_keyboard.push([
+      { text: '🧵 스레드 1편 올리기 ↗', url: threadIntentUrl },
+      { text: '📋 스레드 2편 복사하기', callback_data: `copy_t2:${id}` }
+    ]);
+  }
+
+  // 2. Poll Option
   if (pollInfo?.tweetText) {
     const pollText = `${pollInfo.tweetText}\n\n[투표 항목]\n` + pollInfo.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
     const pollIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pollText)}`;
-    subRow.push({ text: '🗳️ 투표형으로 올리기 ↗', url: pollIntentUrl });
-  }
-  if (threadInfo?.tweet1) {
-    const threadIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(threadInfo.tweet1)}`;
-    subRow.push({ text: '🧵 스레드 1편 올리기 ↗', url: threadIntentUrl });
-  }
-  if (subRow.length > 0) {
-    inlineKeyboard.inline_keyboard.push(subRow);
+    inlineKeyboard.inline_keyboard.push([
+      { text: '🗳️ 투표형으로 올리기 ↗', url: pollIntentUrl }
+    ]);
   }
 
+  // 3. Mark Done & Skip Buttons
   inlineKeyboard.inline_keyboard.push([
     { text: '✅ 𝕏 올림 완료 (사진 정리)', callback_data: `post_x:${id}` },
     { text: '🗑️ 건너뛰기', callback_data: `skip_x:${id}` }
@@ -218,7 +221,12 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
   formattedMessage += `${titleHeader}\n\n`;
   formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n`;
   formattedMessage += `${tweetText}\n`;
-  formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+  if (threadInfo?.tweet2) {
+    formattedMessage += `🧵 <b>[스레드 2편 답글 멘트]</b>:\n`;
+    formattedMessage += `<code>${threadInfo.tweet2}</code>\n\n`;
+  }
 
   if (pollInfo?.options && pollInfo.options.length > 0) {
     formattedMessage += `🗳️ <b>[추천 X 투표 선택지]</b>:\n`;
@@ -284,15 +292,12 @@ async function answerTelegramCallback(callbackQueryId, text = '', showAlert = fa
 }
 
 /**
- * 🛡️ Select 1 best pending real-time issue article
- * - 100% Cross-Press Semantic Deduplication: Ignores articles with same event/content from other press within 24h
- * - Detects Breaking News if covered simultaneously by >= 3 press
+ * Select 1 best pending real-time issue article
  */
 function selectNextPendingArticle() {
   const articles = getStoredArticles();
   const queueMap = getTelegramQueueMap();
 
-  // 1. Gather all article titles sent within the last 24 hours
   const now = Date.now();
   const sentArticleTitles = [];
   Object.values(queueMap).forEach(q => {
@@ -301,15 +306,13 @@ function selectNextPendingArticle() {
     }
   });
 
-  // 2. Filter unsent articles with valid titles and NO cross-press content duplicate
   const unsent = articles.filter(a => {
     if (queueMap[a.id]) return false;
     if (!a.title || a.title.trim().length === 0) return false;
 
-    // Cross-press duplicate check against recently sent articles
     const isDuplicateContent = sentArticleTitles.some(sentTitle => isSimilarArticleTitle(sentTitle, a.title));
     if (isDuplicateContent) {
-      return false; // Skip duplicate topic from other media!
+      return false;
     }
 
     return true;
@@ -317,7 +320,6 @@ function selectNextPendingArticle() {
 
   if (unsent.length === 0) return null;
 
-  // 3. Priority topics (Gossip, Blind, Nate Pann, Crime/Accident, War, Entertainment, Tech)
   const priorityArticles = unsent.filter(a => {
     const text = `${a.title} ${a.category || ''} ${a.categoryTag || ''}`.toLowerCase();
     return text.includes('커뮤니티') || text.includes('네이트판') || text.includes('블라인드') ||
@@ -328,7 +330,6 @@ function selectNextPendingArticle() {
 
   const selected = priorityArticles.length > 0 ? priorityArticles[0] : unsent[0];
 
-  // 4. Check if it is a Breaking Mega Issue (Covered by >= 3 different press in stored DB)
   const similarCount = articles.filter(other => isSimilarArticleTitle(other.title, selected.title)).length;
   if (similarCount >= 3) {
     selected.isBreakingNews = true;
@@ -338,7 +339,7 @@ function selectNextPendingArticle() {
 }
 
 /**
- * Handle Telegram button callback clicks (✅ 𝕏 올림 완료 / 🗑️ 건너뛰기)
+ * Handle Telegram button callback clicks
  */
 async function handleTelegramCallbackQuery(callbackQuery) {
   const data = callbackQuery.data || '';
@@ -354,7 +355,6 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       pending = queueMap[id];
     }
 
-    // 1. Delete photo album: Try explicit mediaMessageIds FIRST + Preceding Fallback
     let mediaIdsToDelete = [];
     if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds) && pending.mediaMessageIds.length > 0) {
       mediaIdsToDelete = pending.mediaMessageIds;
@@ -382,11 +382,9 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       ]
     ];
 
-    // 2. Edit text message to concise completed state with reopen button
     await editTelegramMessageText(chatId, messageId, postedText, newKeyboard);
     await answerTelegramCallback(callbackQueryId, '✅ [𝕏 올림 완료]로 마킹되었습니다! (사진 정리됨)', false);
     
-    // 3. Update status in database & history
     markPostingStatus(id, 'tweet');
     addLog('SUCCESS', `🎉 [텔레그램 승인 & 사진 정리 완료] 𝕏 올림 마킹: ${id}`);
 
@@ -398,7 +396,6 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       pending = queueMap[id];
     }
 
-    // 1. Delete photos
     let mediaIdsToDelete = [];
     if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds) && pending.mediaMessageIds.length > 0) {
       mediaIdsToDelete = pending.mediaMessageIds;
@@ -416,10 +413,39 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       skippedText += `\n📌 <i>${originalTitle}</i>`;
     }
 
-    // 2. Edit text message to skipped state
     await editTelegramMessageText(chatId, messageId, skippedText, []);
     await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료', false);
     addLog('INFO', `⏭️ [텔레그램 스킵 & 사진 정리 완료] ${id}`);
+
+  } else if (data.startsWith('copy_t2:')) {
+    // 📋 Handle Copy Thread Part 2
+    const id = data.replace('copy_t2:', '');
+    let pending = pendingPostsCache.get(String(id));
+    if (!pending) {
+      const queueMap = getTelegramQueueMap();
+      pending = queueMap[id];
+    }
+
+    const threadTweet2 = pending?.threadInfo?.tweet2 || pending?.threadTweet2 || '';
+    
+    if (threadTweet2) {
+      // 1. Alert Popup
+      await answerTelegramCallback(callbackQueryId, `📋 스레드 2편 문구:\n\n${threadTweet2}`, true);
+
+      // 2. Send Standalone Monospace Message for 1-Tap Copy on Phone
+      const { token } = getTelegramConfig();
+      if (token && chatId) {
+        try {
+          await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+            chat_id: chatId,
+            text: `📋 <b>[스레드 2편 답글용 복사 텍스트]</b>\n(아래 텍스트를 탭하면 바로 복사됩니다)\n\n<code>${threadTweet2}</code>`,
+            parse_mode: 'HTML'
+          }, { timeout: 6000 });
+        } catch (e) {}
+      }
+    } else {
+      await answerTelegramCallback(callbackQueryId, '⚠️ 스레드 2편 문구가 생성되지 않았습니다.', true);
+    }
   }
 }
 
@@ -480,7 +506,7 @@ async function triggerTenMinuteBriefing(force = false) {
   let threadInfo = null;
 
   if (article) {
-    // 1. Generate 3 Capture Cards in parallel (📸 제목+사진 / 📄 제목+본문 / 📝 제목만)
+    // 1. Generate 3 Capture Cards in parallel
     try {
       addLog('INFO', `📸 [카드뉴스 3종 캡처 생성 중] "${article.title.slice(0, 25)}..."`);
       const imageCards = await generateAll3CaptureCards(article);
@@ -541,7 +567,9 @@ async function triggerTenMinuteBriefing(force = false) {
     articleTitle: originalTitle || '소통 스몰톡',
     type: article ? 'hot_issue' : 'small_talk',
     mediaMessageIds,
-    textMessageId
+    textMessageId,
+    pollInfo,
+    threadInfo
   });
 
   // Cache in memory
@@ -551,7 +579,9 @@ async function triggerTenMinuteBriefing(force = false) {
     title: originalTitle,
     articleTitle: originalTitle,
     mediaMessageIds,
-    textMessageId
+    textMessageId,
+    pollInfo,
+    threadInfo
   });
 
   addLog('SUCCESS', `📱 [10분 텔레그램 발송 완료] ${titleHeader.replace(/<[^>]*>/g, '')} - "${tweetText.slice(0, 25)}..."`);
@@ -574,7 +604,7 @@ function initTelegramQueueWorker() {
   isPollingActive = true;
   isWorkerRunning = true;
   pollTelegramUpdates();
-  addLog('SUCCESS', '🚀 [텔레그램 10분 실시간 브리핑 가동] 3종 캡처 카드 & 중복 필터링 엔진 대기 중 (07:00~23:59 운영)');
+  addLog('SUCCESS', '🚀 [텔레그램 10분 실시간 브리핑 가동] 3종 캡처 카드 & 스레드 2편 복사 지원 (07:00~23:59 운영)');
 }
 
 function stopTelegramQueueWorker() {
