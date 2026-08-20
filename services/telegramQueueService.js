@@ -182,6 +182,28 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
 }
 
 /**
+ * Edit message text and inline keyboard
+ */
+async function editTelegramMessageText(chatId, messageId, newText, inlineKeyboard = []) {
+  const { token } = getTelegramConfig();
+  if (!token) return;
+
+  const url = `https://api.telegram.org/bot${token}/editMessageText`;
+  try {
+    await axios.post(url, {
+      chat_id: chatId,
+      message_id: messageId,
+      text: newText,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: inlineKeyboard },
+      disable_web_page_preview: true
+    }, { timeout: 8000 });
+  } catch (err) {
+    console.error('Failed to edit telegram message text:', err.message);
+  }
+}
+
+/**
  * Answer Telegram callback query
  */
 async function answerTelegramCallback(callbackQueryId, text = '', showAlert = false) {
@@ -226,7 +248,7 @@ function selectNextPendingArticle() {
 
 /**
  * Handle Telegram button callback clicks (✅ 𝕏 올림 완료 / 🗑️ 건너뛰기)
- * ✨ Automatically deletes both 3 capture photos & text message to prevent long scroll!
+ * ✨ Deletes heavy photo albums, preserves concise title and [🌐 𝕏 작성창 다시 열기] button!
  */
 async function handleTelegramCallbackQuery(callbackQuery) {
   const data = callbackQuery.data || '';
@@ -238,42 +260,58 @@ async function handleTelegramCallbackQuery(callbackQuery) {
     const id = data.replace('post_x:', '');
     let pending = pendingPostsCache.get(String(id));
 
-    // 1. Delete all 3 capture card photos from telegram chat
+    // 1. Delete all 3 heavy capture card photos from telegram chat to save scroll space
     if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds)) {
       for (const mId of pending.mediaMessageIds) {
         await deleteTelegramMessage(chatId, mId);
       }
     }
 
-    // 2. Delete the text message itself
-    await deleteTelegramMessage(chatId, messageId);
+    const tweetText = pending?.text || '𝕏에 게시된 콘텐츠';
+    const originalTitle = pending?.title || '';
+    const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
-    // 3. Show notification toast to user
-    await answerTelegramCallback(callbackQueryId, '✅ [𝕏 올림 완료] 사진과 멘트가 깔끔하게 정리되었습니다!', false);
+    let postedText = `✅ <b>[𝕏에 올림 완료]</b>\n\n`;
+    if (originalTitle) {
+      postedText += `📌 <b>${originalTitle}</b>\n`;
+    }
+    postedText += `━━━━━━━━━━━━━━━━━━━━━\n${tweetText}\n━━━━━━━━━━━━━━━━━━━━━\n🎉 X(트위터) 게시 완료 상태로 전환되었습니다. (사진 정리됨)`;
+
+    const newKeyboard = [
+      [
+        { text: '🌐 𝕏 작성창 다시 열기 ↗', url: tweetIntentUrl }
+      ]
+    ];
+
+    // 2. Edit the text message to concise completed state with reopen button
+    await editTelegramMessageText(chatId, messageId, postedText, newKeyboard);
+    await answerTelegramCallback(callbackQueryId, '✅ [𝕏 올림 완료]로 마킹되었습니다! (사진 정리됨)', false);
     
-    // 4. Update status in database & history
+    // 3. Update status in database & history
     markPostingStatus(id, 'tweet');
-    pendingPostsCache.delete(String(id));
-    addLog('SUCCESS', `🎉 [텔레그램 승인 & 메시지 자동삭제 완료] 𝕏 올림 마킹: ${id}`);
+    addLog('SUCCESS', `🎉 [텔레그램 승인 & 사진 정리 완료] 𝕏 올림 마킹: ${id}`);
 
   } else if (data.startsWith('skip_x:')) {
     const id = data.replace('skip_x:', '');
     let pending = pendingPostsCache.get(String(id));
 
-    // 1. Delete all photos
+    // 1. Delete photos
     if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds)) {
       for (const mId of pending.mediaMessageIds) {
         await deleteTelegramMessage(chatId, mId);
       }
     }
 
-    // 2. Delete text message
-    await deleteTelegramMessage(chatId, messageId);
+    const originalTitle = pending?.title || '';
+    let skippedText = `🗑️ <b>[건너뜀]</b> 해당 트윗 멘트는 스킵되었습니다.`;
+    if (originalTitle) {
+      skippedText += `\n📌 <i>${originalTitle}</i>`;
+    }
 
-    // 3. Show toast
-    await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료 (메시지 정리됨)', false);
-    pendingPostsCache.delete(String(id));
-    addLog('INFO', `⏭️ [텔레그램 스킵 & 메시지 자동삭제 완료] ${id}`);
+    // 2. Edit text message to skipped state
+    await editTelegramMessageText(chatId, messageId, skippedText, []);
+    await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료', false);
+    addLog('INFO', `⏭️ [텔레그램 스킵 & 사진 정리 완료] ${id}`);
   }
 }
 
