@@ -182,12 +182,11 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
     ]
   };
 
-  // 1. Thread Options (1편 올리기 + 2편 1-Tap 복사)
+  // 1. Thread Option (1편 바로 올리기)
   if (threadInfo?.tweet1) {
     const threadIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(threadInfo.tweet1)}`;
     inlineKeyboard.inline_keyboard.push([
-      { text: '🧵 스레드 1편 올리기 ↗', url: threadIntentUrl },
-      { text: '📋 스레드 2편 복사하기', callback_data: `copy_t2:${id}` }
+      { text: '🧵 2단 스레드 올리기 ↗', url: threadIntentUrl }
     ]);
   }
 
@@ -224,7 +223,7 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
   formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
   if (threadInfo?.tweet2) {
-    formattedMessage += `🧵 <b>[스레드 2편 답글 멘트]</b>:\n`;
+    formattedMessage += `🧵 <b>[스레드 2편 (답글용)]</b> (👇 터치 시 1초 만에 자동 복사됨):\n`;
     formattedMessage += `<code>${threadInfo.tweet2}</code>\n\n`;
   }
 
@@ -416,36 +415,6 @@ async function handleTelegramCallbackQuery(callbackQuery) {
     await editTelegramMessageText(chatId, messageId, skippedText, []);
     await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료', false);
     addLog('INFO', `⏭️ [텔레그램 스킵 & 사진 정리 완료] ${id}`);
-
-  } else if (data.startsWith('copy_t2:')) {
-    // 📋 Handle Copy Thread Part 2
-    const id = data.replace('copy_t2:', '');
-    let pending = pendingPostsCache.get(String(id));
-    if (!pending) {
-      const queueMap = getTelegramQueueMap();
-      pending = queueMap[id];
-    }
-
-    const threadTweet2 = pending?.threadInfo?.tweet2 || pending?.threadTweet2 || '';
-    
-    if (threadTweet2) {
-      // 1. Alert Popup
-      await answerTelegramCallback(callbackQueryId, `📋 스레드 2편 문구:\n\n${threadTweet2}`, true);
-
-      // 2. Send Standalone Monospace Message for 1-Tap Copy on Phone
-      const { token } = getTelegramConfig();
-      if (token && chatId) {
-        try {
-          await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
-            chat_id: chatId,
-            text: `📋 <b>[스레드 2편 답글용 복사 텍스트]</b>\n(아래 텍스트를 탭하면 바로 복사됩니다)\n\n<code>${threadTweet2}</code>`,
-            parse_mode: 'HTML'
-          }, { timeout: 6000 });
-        } catch (e) {}
-      }
-    } else {
-      await answerTelegramCallback(callbackQueryId, '⚠️ 스레드 2편 문구가 생성되지 않았습니다.', true);
-    }
   }
 }
 
