@@ -17,7 +17,7 @@ let lastUpdateId = 0;
 let isPollingActive = false;
 let isWorkerRunning = false;
 
-// In-memory cache for pending telegram messages: { [id]: { text, type, article } }
+// In-memory cache for pending telegram messages: { [id]: { text, type, article, mediaMessageIds, textMessageId } }
 const pendingPostsCache = new Map();
 
 function getTelegramConfig() {
@@ -42,11 +42,31 @@ function isQuietHours() {
 }
 
 /**
+ * Delete a message from Telegram chat
+ */
+async function deleteTelegramMessage(chatId, messageId) {
+  if (!chatId || !messageId) return;
+  const { token } = getTelegramConfig();
+  if (!token) return;
+
+  const url = `https://api.telegram.org/bot${token}/deleteMessage`;
+  try {
+    await axios.post(url, {
+      chat_id: chatId,
+      message_id: messageId
+    }, { timeout: 6000 });
+  } catch (err) {
+    // Already deleted or not found is safe to ignore
+  }
+}
+
+/**
  * Send 3 Capture Cards as a Telegram Media Group Album (📸 제목+사진 / 📝 제목+본문 / 📄 제목만)
+ * Returns array of created message_ids
  */
 async function sendTelegramCaptureMediaGroup(imageCards, articleTitle) {
   const { token, chatId } = getTelegramConfig();
-  if (!token || !chatId) return null;
+  if (!token || !chatId) return [];
 
   try {
     const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2)}`;
@@ -59,13 +79,13 @@ async function sendTelegramCaptureMediaGroup(imageCards, articleTitle) {
       validCards.push({ path: imageCards.photoCard.filepath, label: '📸 1. [기사 캡처: 제목+사진]' });
     }
     if (imageCards.bodyCard?.filepath && fs.existsSync(imageCards.bodyCard.filepath)) {
-      validCards.push({ path: imageCards.bodyCard.filepath, label: '📝 2. [기사 캡처: 제목+본문]' });
+      validCards.push({ path: imageCards.bodyCard.filepath, label: '📄 2. [기사 캡처: 제목+본문]' });
     }
     if (imageCards.titleCard?.filepath && fs.existsSync(imageCards.titleCard.filepath)) {
-      validCards.push({ path: imageCards.titleCard.filepath, label: '📄 3. [기사 캡처: 제목만]' });
+      validCards.push({ path: imageCards.titleCard.filepath, label: '📝 3. [기사 캡처: 제목만]' });
     }
 
-    if (validCards.length === 0) return null;
+    if (validCards.length === 0) return [];
 
     validCards.forEach((c, idx) => {
       mediaList.push({
@@ -101,10 +121,13 @@ async function sendTelegramCaptureMediaGroup(imageCards, articleTitle) {
       timeout: 20000
     });
 
-    return res.data;
+    if (res.data?.result && Array.isArray(res.data.result)) {
+      return res.data.result.map(m => m.message_id);
+    }
+    return [];
   } catch (err) {
     console.error('Failed to send telegram media group:', err.message);
-    return null;
+    return [];
   }
 }
 
@@ -125,7 +148,7 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
         { text: '🚀 𝕏에 바로 올리기 (글 자동입력) ↗', url: tweetIntentUrl }
       ],
       [
-        { text: '✅ 𝕏 올림 완료 마킹', callback_data: `post_x:${id}` },
+        { text: '✅ 𝕏 올림 완료 (메시지 정리)', callback_data: `post_x:${id}` },
         { text: '🗑️ 건너뛰기', callback_data: `skip_x:${id}` }
       ]
     ]
@@ -144,7 +167,7 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
   if (originalTitle) {
     formattedMessage += `📌 <i>참고: ${originalTitle.slice(0, 45)}...</i>\n`;
   }
-  formattedMessage += `💡 <b>위 3종 캡처 카드(제목+사진/제목+본문/제목만) 중 원하는 이미지를 선택하여 저장 후 함께 올려보세요!</b>`;
+  formattedMessage += `💡 <b>[🚀 𝕏에 바로 올리기]로 게시 후 [✅ 𝕏 올림 완료]를 누르면 사진과 메시지가 깔끔하게 자동 삭제됩니다.</b>`;
 
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   const response = await axios.post(url, {
@@ -156,28 +179,6 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
   }, { timeout: 10000 });
 
   return response.data;
-}
-
-/**
- * Edit message text and inline keyboard
- */
-async function editTelegramMessageText(chatId, messageId, newText, inlineKeyboard = []) {
-  const { token } = getTelegramConfig();
-  if (!token) return;
-
-  const url = `https://api.telegram.org/bot${token}/editMessageText`;
-  try {
-    await axios.post(url, {
-      chat_id: chatId,
-      message_id: messageId,
-      text: newText,
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: inlineKeyboard },
-      disable_web_page_preview: true
-    }, { timeout: 8000 });
-  } catch (err) {
-    console.error('Failed to edit telegram message text:', err.message);
-  }
 }
 
 /**
@@ -225,6 +226,7 @@ function selectNextPendingArticle() {
 
 /**
  * Handle Telegram button callback clicks (✅ 𝕏 올림 완료 / 🗑️ 건너뛰기)
+ * ✨ Automatically deletes both 3 capture photos & text message to prevent long scroll!
  */
 async function handleTelegramCallbackQuery(callbackQuery) {
   const data = callbackQuery.data || '';
@@ -236,28 +238,42 @@ async function handleTelegramCallbackQuery(callbackQuery) {
     const id = data.replace('post_x:', '');
     let pending = pendingPostsCache.get(String(id));
 
-    const tweetText = pending?.text || '𝕏에 게시된 콘텐츠';
-    const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+    // 1. Delete all 3 capture card photos from telegram chat
+    if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds)) {
+      for (const mId of pending.mediaMessageIds) {
+        await deleteTelegramMessage(chatId, mId);
+      }
+    }
 
-    const postedText = `✅ <b>[𝕏에 올림 완료]</b>\n\n━━━━━━━━━━━━━━━━━━━━━\n${tweetText}\n━━━━━━━━━━━━━━━━━━━━━\n🎉 X(트위터) 게시 완료 상태로 전환되었습니다.`;
+    // 2. Delete the text message itself
+    await deleteTelegramMessage(chatId, messageId);
 
-    const newKeyboard = [
-      [
-        { text: '🌐 𝕏 작성창 다시 열기 ↗', url: tweetIntentUrl }
-      ]
-    ];
-
-    await editTelegramMessageText(chatId, messageId, postedText, newKeyboard);
-    await answerTelegramCallback(callbackQueryId, '✅ [𝕏에 올림 완료]로 마킹되었습니다!');
+    // 3. Show notification toast to user
+    await answerTelegramCallback(callbackQueryId, '✅ [𝕏 올림 완료] 사진과 멘트가 깔끔하게 정리되었습니다!', false);
     
+    // 4. Update status in database & history
     markPostingStatus(id, 'tweet');
-    addLog('SUCCESS', `🎉 [텔레그램 승인] 𝕏 올림 완료 마킹: ${id}`);
+    pendingPostsCache.delete(String(id));
+    addLog('SUCCESS', `🎉 [텔레그램 승인 & 메시지 자동삭제 완료] 𝕏 올림 마킹: ${id}`);
 
   } else if (data.startsWith('skip_x:')) {
     const id = data.replace('skip_x:', '');
-    await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료');
-    await editTelegramMessageText(chatId, messageId, `🗑️ <b>[건너뜀]</b> 해당 트윗 멘트는 스킵되었습니다.`, []);
-    addLog('INFO', `⏭️ [텔레그램 승인] 트윗 스킵 처리됨: ${id}`);
+    let pending = pendingPostsCache.get(String(id));
+
+    // 1. Delete all photos
+    if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds)) {
+      for (const mId of pending.mediaMessageIds) {
+        await deleteTelegramMessage(chatId, mId);
+      }
+    }
+
+    // 2. Delete text message
+    await deleteTelegramMessage(chatId, messageId);
+
+    // 3. Show toast
+    await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료 (메시지 정리됨)', false);
+    pendingPostsCache.delete(String(id));
+    addLog('INFO', `⏭️ [텔레그램 스킵 & 메시지 자동삭제 완료] ${id}`);
   }
 }
 
@@ -317,13 +333,14 @@ async function triggerTenMinuteBriefing(force = false) {
   let itemId = '';
   let originalTitle = '';
   let originalLink = '';
+  let mediaMessageIds = [];
 
   if (article) {
-    // 1. Generate 3 Capture Cards in parallel (📸 제목+사진 / 📝 제목+본문 / 📄 제목만)
+    // 1. Generate 3 Capture Cards in parallel (📸 제목+사진 / 📄 제목+본문 / 📝 제목만)
     try {
       addLog('INFO', `📸 [카드뉴스 3종 캡처 생성 중] "${article.title.slice(0, 25)}..."`);
       const imageCards = await generateAll3CaptureCards(article);
-      await sendTelegramCaptureMediaGroup(imageCards, article.title);
+      mediaMessageIds = await sendTelegramCaptureMediaGroup(imageCards, article.title);
     } catch (imgErr) {
       console.error('Failed to generate/send 3 capture cards:', imgErr.message);
     }
@@ -363,14 +380,7 @@ async function triggerTenMinuteBriefing(force = false) {
     });
   }
 
-  // Cache in memory
-  pendingPostsCache.set(itemId, {
-    text: tweetText,
-    id: itemId,
-    title: originalTitle
-  });
-
-  // Send message to Telegram
+  // Send text message to Telegram
   const sendRes = await sendTelegramTextMessage({
     titleHeader,
     tweetText,
@@ -380,13 +390,23 @@ async function triggerTenMinuteBriefing(force = false) {
     originalLink
   });
 
-  const messageId = sendRes.result?.message_id;
+  const textMessageId = sendRes.result?.message_id;
+
+  // Cache in memory for deletion upon callback click
+  pendingPostsCache.set(itemId, {
+    text: tweetText,
+    id: itemId,
+    title: originalTitle,
+    mediaMessageIds,
+    textMessageId
+  });
+
   addLog('SUCCESS', `📱 [10분 텔레그램 발송 완료] ${titleHeader.replace(/<[^>]*>/g, '')} - "${tweetText.slice(0, 25)}..." (3종 캡처 앨범 동시 발송)`);
 
   return { 
     success: true, 
     itemId, 
-    messageId, 
+    messageId: textMessageId, 
     type: article ? 'hot_issue' : 'small_talk',
     tweetText 
   };
