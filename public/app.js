@@ -3023,7 +3023,7 @@ function initLiveClock() {
   setInterval(updateClock, 1000);
 }
 
-// ===== 🚀 𝕏 (트위터) & 1시간 텔레그램 브리핑 관리 핸들러 =====
+// ===== 🚀 𝕏 (트위터) & 10분 주기 실시간 핫이슈/스몰톡 텔레그램 브리핑 관리 핸들러 =====
 async function loadQueueAndXStatus() {
   try {
     const res = await fetch('/api/telegram-queue/status');

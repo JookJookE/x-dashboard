@@ -674,21 +674,21 @@
           </div>
         </div>
 
-        <!-- Telegram 1-Hour Briefing & 1-Click X Post Settings -->
+        <!-- Telegram 10-Minute Briefing & 1-Click X Post Settings -->
         <div class="card" style="max-width:600px; margin-bottom:20px; border: 1px solid rgba(56, 189, 248, 0.4); background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h3>🚀 1시간 텔레그램 핵심 브리핑 &amp; 𝕏 원클릭 포스팅</h3>
+            <h3>🚀 10분 주기 실시간 핫이슈 &amp; 엑친 스몰톡 텔레그램 브리핑 &amp; 𝕏 원클릭 포스팅</h3>
             <span id="queue-status-badge" class="badge" style="background:#10b981; color:#fff; font-size:11px; padding:3px 8px; border-radius:4px;">브리핑 가동 중</span>
           </div>
           <div class="card-body">
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
-              매시간 정각마다 <strong>중복 없는 핵심 5개(IT·코인·경제·커뮤니티)</strong>를 <strong>[📸 제목+사진]</strong> 카드뉴스와 함께 텔레그램으로 전송합니다. 텔레그램에서 <strong>[🚀 𝕏에 바로 올리기 ↗]</strong>를 누르면 <strong>100% 무료로 무제한 포스팅</strong>할 수 있습니다! (🌙 00시~07시는 취침 방해 방지 야간 정적 모드)
+              매 10분마다 <strong>실시간 핫이슈(가십·연예·사건·전쟁·테크)</strong> 또는 이슈 부재 시 <strong>엑친 소통 스몰톡/뻘글 1건</strong>을 텔레그램으로 전송합니다. 텔레그램에서 <strong>[🚀 𝕏에 바로 올리기 ↗]</strong>를 누르면 글이 채워진 작성창이 바로 열려 1초 만에 무료로 포스팅할 수 있습니다! (🌙 00시~07시는 취침 방해 방지 야간 정적 모드)
             </p>
             
             <div class="form-group" style="margin-bottom:14px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:var(--accent-cyan);">
                 <input type="checkbox" id="telegram-queue-toggle" style="width:18px; height:18px; accent-color:var(--accent-cyan);">
-                1시간 주기 텔레그램 핵심 5개 자동 브리핑 활성화
+                10분 주기 실시간 핫이슈 &amp; 엑친 스몰톡 자동 브리핑 활성화
               </label>
             </div>
 
@@ -709,7 +709,7 @@
 
             <div style="display:flex; flex-wrap:wrap; gap:8px;">
               <button id="btn-save-x-keys" class="btn btn-primary" onclick="saveXApiSettings()">💾 브리핑 설정 저장</button>
-              <button id="btn-trigger-queue-now" class="btn btn-outline" style="border-color:var(--accent-gold); color:var(--accent-gold);" onclick="triggerQueueNow()">⚡ 즉시 핵심 5개 텔레그램 발송</button>
+              <button id="btn-trigger-queue-now" class="btn btn-outline" style="border-color:var(--accent-gold); color:var(--accent-gold);" onclick="triggerQueueNow()">⚡ 지금 즉시 텔레그램 1건 발송 테스트</button>
             </div>
             <div id="x-auth-status-msg" style="margin-top:10px; font-size:12px;"></div>
           </div>
