@@ -683,6 +683,92 @@ ${NEGATIVE_PROMPT_BLOCK}
 }
 
 /**
+ * 🧠 Smart Category & Keyword-Aware Heuristic Hot Issue Generator
+ * (Provides 30+ contextual, non-repetitive, perfectly tailored tweets even without API key)
+ */
+function generateSmartHeuristicIssueTweet(article) {
+  let rawTitle = (article.title || '').replace(/\[.*?\]/g, '').replace(/<.*?>/g, '').trim();
+  // Clean double quotes
+  rawTitle = rawTitle.replace(/^["']|["']$/g, '').trim();
+
+  const textToAnalyze = `${rawTitle} ${article.category || ''} ${article.categoryTag || ''} ${article.contentSnippet || ''}`.toLowerCase();
+
+  // 1. Entertainment / Gossip / Celebrity / Gold Spoon / Controversy
+  if (textToAnalyze.includes('하영') || textToAnalyze.includes('금수저') || textToAnalyze.includes('태세전환') ||
+      textToAnalyze.includes('연예') || textToAnalyze.includes('가십') || textToAnalyze.includes('아이돌') ||
+      textToAnalyze.includes('배우') || textToAnalyze.includes('드라마') || textToAnalyze.includes('열애') ||
+      textToAnalyze.includes('폭로') || textToAnalyze.includes('선망') || textToAnalyze.includes('기득권')) {
+    
+    const templates = [
+      `오늘 "${rawTitle}" 소식 보는데...\n\n겉으로는 다들 공정과 정의를 외치다가도, 정작 뒤에서는 선망하고 태세전환하는 반응들 보면 참 씁쓸하면서도 현실적이네.\n\n엑친들은 이 현상 어떻게 보고 계신가요? 🤔`,
+      `이번 "${rawTitle}" 이야기 나오는 거 보는데...\n\n남의 일에 쉽게 말 얹다가도 본인 일 되면 다들 달라지는 게 인간 심리인 듯 ㅋㅋㅋ\n\n남들 시선 신경 쓰지 말고 내 중심 잡는 게 제일 중요한 것 같음 🔥`,
+      `오늘 "${rawTitle}" 논란 보는데...\n\n결국 프레임 씌우고 비난하기 바쁜 여론 속에서 진짜 본질을 보는 사람은 몇이나 될까 싶네요.\n\n다들 이번 이슈 어떻게 생각하시나요?`,
+      `이번에 "${rawTitle}" 터진 거 보는데...\n\n세상 돌아가는 거 보면 참 조용할 날이 없네 ㅋㅋㅋ 남일 같지 않아서 괜히 씁쓸함.\n\n다들 오늘 하루도 멘탈 잘 챙기시길 바랍니다 🌿`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  // 2. Crime / Accident / Social Issues
+  if (textToAnalyze.includes('사건') || textToAnalyze.includes('사고') || textToAnalyze.includes('논란') ||
+      textToAnalyze.includes('경찰') || textToAnalyze.includes('음주') || textToAnalyze.includes('피해') ||
+      textToAnalyze.includes('재판') || textToAnalyze.includes('법원') || textToAnalyze.includes('의혹')) {
+    
+    const templates = [
+      `오늘 "${rawTitle}" 소식 보는데...\n\n단순히 한쪽 말만 듣기보다는 사실관계와 전후 사정이 명확히 밝혀져야 할 사안인 듯하네요.\n\n다들 이 상황 어떻게 결론 날 것 같나요? 🤔`,
+      `이번 "${rawTitle}" 기사 보는데...\n\n진짜 상식 밖의 일들이 매일 터지니까 남일 같지가 않아서 답답하네..\n\n다들 오늘도 안전하고 무탈한 하루 보내시길 바랍니다 🙏`,
+      `오늘 "${rawTitle}" 관련해서 말이 많은데...\n\n결국 법과 제도가 이런 현실적인 문제들을 얼마나 제대로 짚어줄 수 있을지가 관건인 듯.\n\n엑친들 생각은 어떠신가요?`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  // 3. Economy / Stock / Coin / Real Estate
+  if (textToAnalyze.includes('주식') || textToAnalyze.includes('코인') || textToAnalyze.includes('비트코인') ||
+      textToAnalyze.includes('금리') || textToAnalyze.includes('환율') || textToAnalyze.includes('증시') ||
+      textToAnalyze.includes('부동산') || textToAnalyze.includes('투자') || textToAnalyze.includes('상승') || textToAnalyze.includes('폭락')) {
+    
+    const templates = [
+      `오늘 "${rawTitle}" 흐름 보는데...\n\n단기적인 흔들림인지, 아니면 시장의 구조적인 변곡점인지 유심히 지켜볼 필요가 있겠네요.\n\n엑친들 포트폴리오는 다들 방어 잘하고 계신가요? 📈`,
+      `이번 "${rawTitle}" 뉴스 보는데...\n\n시장 분위기 롤러코스터 타는 거 보면 멘탈 잡는 게 수익률보다 더 어려운 듯 ㅋㅋㅋ\n\n다들 뇌동매매 하지 말고 원칙 지킵시다 🔥`,
+      `오늘 "${rawTitle}" 소식 보니까...\n\n결국 돈과 유동성의 흐름이 어디로 쏠리는지 촉을 세워야 할 타이밍인 듯.\n\n다들 이번 흐름 어떻게 대응하고 계신가요? 💡`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  // 4. Tech / AI / Semiconductor / Big Tech
+  if (textToAnalyze.includes('ai') || textToAnalyze.includes('인공지능') || textToAnalyze.includes('반도체') ||
+      textToAnalyze.includes('엔비디아') || textToAnalyze.includes('애플') || textToAnalyze.includes('오픈ai') ||
+      textToAnalyze.includes('로봇') || textToAnalyze.includes('테크') || textToAnalyze.includes('피지컬')) {
+    
+    const templates = [
+      `오늘 "${rawTitle}" 발표 소식 보는데...\n\n기술적인 방향성과 비전은 좋아 보이지만, 당장 현장 인프라와 인재 확보가 얼마나 뒷받침될지가 관건일 듯하네요.\n\n다들 한국 테크/AI의 실제 경쟁력 어떻게 보시나요? ⚡`,
+      `이번 "${rawTitle}" 소식 보는데...\n\n기술 발전 속도가 너무 빨라서 현업에서도 체감하기 벅찰 정도임 ㅋㅋㅋ\n\n그래도 이 흐름 속에서 누가 진짜 실속을 챙길지는 계속 주시해야겠네 🚀`,
+      `오늘 "${rawTitle}" 뉴스 보니까...\n\n단순한 선언을 넘어서 실질적인 성과로 이어질 수 있을지 지켜볼 필요가 있겠네요.\n\n엑친들 체감은 어떤지 궁금합니다 🤔`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  // 5. Government / Policy / Administration
+  if (textToAnalyze.includes('정부') || textToAnalyze.includes('부총리') || textToAnalyze.includes('대통령') ||
+      textToAnalyze.includes('국회') || textToAnalyze.includes('법안') || textToAnalyze.includes('정책') ||
+      textToAnalyze.includes('지원') || textToAnalyze.includes('규제')) {
+    
+    const templates = [
+      `오늘 "${rawTitle}" 관련 발표 보는데...\n\n정책적 취지는 이해하지만, 실제 현장과 실무에서 겪는 현실적인 괴리를 얼마나 좁힐지가 핵심일 듯하네요.\n\n다들 이번 정책 실효성에 대해 어떻게 생각하시나요? 🤔`,
+      `이번 "${rawTitle}" 소식 보는데...\n\n계획은 항상 거창한데 막상 실무에서 적용하려면 손이 많이 갈 것 같은 느낌 ㅋㅋㅋ\n\n그래도 긍정적인 변화로 이어지길 기대해 봅니다 💪`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  // 6. General / Default Contextual Fallback
+  const defaultTemplates = [
+    `오늘 "${rawTitle}" 소식 보는데...\n\n단순히 겉으로 보이는 것 이상으로 시사하는 바가 꽤 커 보이네요.\n\n엑친들은 이 이슈 어떻게 보고 계신가요? 다들 생각이 궁금하네 🤔`,
+    `이번 "${rawTitle}" 기사 보는데...\n\n요즘 돌아가는 세상 소식 보면 참 예상 밖의 일들이 많은 듯 ㅋㅋㅋ\n\n다들 오늘 하루도 기분 좋고 무탈하게 보내시길 바랍니다 ✨`,
+    `오늘 "${rawTitle}" 소식 보니까...\n\n각자 처한 위치에 따라 시선이 완전히 엇갈릴 만한 주제인 것 같네요.\n\n다들 어느 쪽 의견에 더 공감이 가시나요?`
+  ];
+  return defaultTemplates[Math.floor(Math.random() * defaultTemplates.length)];
+}
+
+/**
  * 🔥 Generate engaging, likeable, balanced real-time issue tweet (호감형 실시간 핫이슈 트윗)
  * Auto-selects Style 1 (Balanced Realistic View & Question) or Style 2 (Witty Relatable Humor)
  */
@@ -747,16 +833,16 @@ ${NEGATIVE_PROMPT_BLOCK}
     }
   }
 
-  // Fallback
-  const cleanTitle = (article.title || '').replace(/\[.*?\]/g, '').trim();
-  const fallbackText = `오늘 "${cleanTitle}" 소식 보는데...\n\n취지는 알겠지만 당장 현실에서 어떻게 풀어나갈지가 관건일 듯하네요.\n\n다들 이 이슈 어떻게 보고 계신가요? 🤔`;
-  addLog('INFO', `🔥 [호감형 핫이슈 트윗 템플릿 사용] ${fallbackText.slice(0, 30)}...`);
-  return { text: fallbackText, isAiGenerated: false };
+  // Smart Contextual Heuristic Fallback (Category & Keyword Aware)
+  const contextualText = generateSmartHeuristicIssueTweet(article);
+  addLog('INFO', `🔥 [지능형 문맥 맞춤 핫이슈 템플릿 사용] ${contextualText.slice(0, 30)}...`);
+  return { text: contextualText, isAiGenerated: false };
 }
 
 module.exports = {
   generateSummary,
   generateThoughtTweet,
   generateTwitterSmallTalk,
-  generateHotIssueTweet
+  generateHotIssueTweet,
+  generateSmartHeuristicIssueTweet
 };
