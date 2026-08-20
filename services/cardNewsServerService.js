@@ -76,41 +76,133 @@ function wrapBodyLines(text, maxCharsPerLine = 34, maxLines = 10) {
 }
 
 /**
- * Resolve real image URL from article or web scraping
+ * Resolve real image URL from article with 4-tier deep resolution (Exact server.js extraction replica)
  */
 async function resolveArticleImageUrl(article) {
-  if (article.imageUrl && article.imageUrl.startsWith('http')) {
+  if (article.imageUrl && article.imageUrl.startsWith('http') && !article.imageUrl.includes('google') && !article.imageUrl.includes('gstatic') && !article.imageUrl.includes('logo')) {
     return article.imageUrl;
   }
 
   let targetUrl = article.link || '';
-  if (!targetUrl) return null;
 
-  try {
-    const directRes = await axios.get(targetUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      timeout: 4000,
-      responseType: 'arraybuffer'
-    });
+  // 1. Resolve Google redirect link if needed
+  if (targetUrl && targetUrl.includes('news.google.com')) {
+    try {
+      const gRes = await axios.get(targetUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        timeout: 4000,
+        maxRedirects: 5
+      });
+      if (gRes.request?.res?.responseUrl && !gRes.request.res.responseUrl.includes('news.google.com')) {
+        targetUrl = gRes.request.res.responseUrl;
+      }
+    } catch (e) {}
+  }
 
-    const dHtml = directRes.data.toString('utf-8');
-    const ogMatches = [
-      ...dHtml.matchAll(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/gi),
-      ...dHtml.matchAll(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/gi),
-      ...dHtml.matchAll(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/gi)
-    ];
+  // 2. Fetch direct webpage (AI Times, Naver, Nate Pann, Blind, Chosun, etc.)
+  if (targetUrl && !targetUrl.includes('news.google.com')) {
+    try {
+      const directRes = await axios.get(targetUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        timeout: 5000,
+        responseType: 'arraybuffer'
+      });
 
-    for (const og of ogMatches) {
-      if (og && og[1]) {
-        let photo = og[1].replace(/&amp;/g, '&').trim();
-        if (photo.startsWith('//')) photo = 'https:' + photo;
-        const pLower = photo.toLowerCase();
-        if (!pLower.includes('logo') && !pLower.includes('icon') && !pLower.includes('avatar') && !pLower.includes('banner')) {
-          return photo;
+      const iconv = require('iconv-lite');
+      let dHtml = directRes.data.toString('utf-8');
+      if (dHtml.toLowerCase().includes('charset=euc-kr')) {
+        dHtml = iconv.decode(directRes.data, 'EUC-KR');
+      }
+
+      // 2a. Meta og:image & twitter:image
+      const ogMatches = [
+        ...dHtml.matchAll(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/gi),
+        ...dHtml.matchAll(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/gi),
+        ...dHtml.matchAll(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/gi)
+      ];
+
+      for (const og of ogMatches) {
+        if (og && og[1]) {
+          let photo = og[1].replace(/&amp;/g, '&').trim();
+          if (photo.startsWith('//')) photo = 'https:' + photo;
+          const pLower = photo.toLowerCase();
+          if (!pLower.includes('google') && !pLower.includes('gstatic') && !pLower.includes('logo') && !pLower.includes('icon') && !pLower.includes('avatar') && !pLower.includes('banner')) {
+            return photo;
+          }
         }
       }
-    }
-  } catch (e) {}
+
+      // 2b. Article body images
+      const bodyImgs = [
+        ...dHtml.matchAll(/<img[^>]*src=["'](https?:\/\/[^"']+)["']/gi),
+        ...dHtml.matchAll(/<img[^>]*src=["'](\/\/[^"']+)["']/gi)
+      ];
+
+      for (const m of bodyImgs) {
+        let src = m[1].replace(/&amp;/g, '&').trim();
+        if (src.startsWith('//')) src = 'https:' + src;
+        const sLower = src.toLowerCase();
+
+        const isPhoto = sLower.includes('fimg') || sLower.includes('download.jsp') || sLower.includes('imgnews') ||
+          sLower.includes('upload') || sLower.includes('article') || sLower.includes('content') ||
+          /\.(jpg|jpeg|png|webp)(\?|$)/i.test(sLower);
+
+        if (isPhoto && !sLower.includes('google') && !sLower.includes('gstatic') && !sLower.includes('logo') && !sLower.includes('icon') && !sLower.includes('btn') && !sLower.includes('stat') && !sLower.includes('emoticon')) {
+          return src;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. High-precision Naver News Photo Search by Title
+  const cleanTitle = (article.title || '').replace(/\[.*?\]/g, '').replace(/ - .*$/, '').trim();
+  if (cleanTitle) {
+    try {
+      const searchUrl = `https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(cleanTitle)}`;
+      const searchRes = await axios.get(searchUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 6000
+      });
+
+      const html = searchRes.data;
+      const imgMatches = [...html.matchAll(/src=["'](https?:\/\/[^"']+)["']/gi)];
+
+      for (const m of imgMatches) {
+        let src = m[1].replace(/&amp;/g, '&');
+        let checkUrl = src;
+        const paramMatch = src.match(/src=([^&]+)/);
+        if (paramMatch && paramMatch[1]) {
+          checkUrl = decodeURIComponent(paramMatch[1]);
+        }
+        const lower = checkUrl.toLowerCase();
+        if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(lower) || lower.includes('imgnews') || lower.includes('search.pstatic.net')) {
+          if (!lower.includes('logo') && !lower.includes('icon') && !lower.includes('profile') && !lower.includes('spg') && !lower.includes('google') && !lower.includes('gstatic')) {
+            return checkUrl;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 4. Daum News Photo Search Backup
+  if (cleanTitle) {
+    try {
+      const daumUrl = `https://search.daum.net/search?w=news&q=${encodeURIComponent(cleanTitle)}`;
+      const dRes = await axios.get(daumUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 5000
+      });
+      const dHtml = dRes.data;
+      const dImgs = [...dHtml.matchAll(/src=["'](https?:\/\/[^"']+)["']/gi)];
+      for (const m of dImgs) {
+        const src = m[1].replace(/&amp;/g, '&');
+        const lower = src.toLowerCase();
+        if ((lower.includes('daumcdn.net') || lower.includes('fname=')) && !lower.includes('logo') && !lower.includes('icon') && !lower.includes('static') && !lower.includes('google')) {
+          return src;
+        }
+      }
+    } catch (e) {}
+  }
 
   return null;
 }
@@ -333,5 +425,6 @@ module.exports = {
   generateCardNewsBody,
   generateCardNewsPhoto,
   generateAll3CaptureCards,
-  generateCardNewsImage
+  generateCardNewsImage,
+  resolveArticleImageUrl
 };
