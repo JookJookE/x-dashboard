@@ -162,7 +162,13 @@ function markPostingStatus(articleId, type = 'tweet', title = '', link = '') {
 
   history.unshift(newRecord);
   const trimmed = history.slice(0, 1000);
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
+  } catch (e) {}
+
+  // 🟩 Always increment streak count for today!
+  incrementTodayXPostCount();
+
   return newRecord;
 }
 
@@ -313,9 +319,10 @@ function getStreakStats() {
   
   // Merge history events if daily counts file is fresh
   history.forEach(h => {
-    if (h.type === 'tweet' && h.timestamp) {
-      const kstDate = new Date(new Date(h.timestamp).getTime() + (9 * 60 * 60 * 1000)).toISOString().split('T')[0];
-      if (!data[kstDate]) data[kstDate] = 0;
+    const time = h.usedAt || h.timestamp;
+    if (time) {
+      const kstDate = new Date(new Date(time).getTime() + (9 * 60 * 60 * 1000)).toISOString().split('T')[0];
+      data[kstDate] = (data[kstDate] || 0) + 1;
     }
   });
 

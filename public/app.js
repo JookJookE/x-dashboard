@@ -1674,18 +1674,23 @@ function postViaWebIntent() {
     imageCopied = copyActiveImageToClipboard();
   }
 
+  const articleIdToMark = selectedArticle?.id || `custom_${Date.now()}`;
+  const articleTitleToMark = selectedArticle?.title || text.slice(0, 30);
+  const articleLinkToMark = selectedArticle?.link || '';
+
   if (selectedArticle) {
     selectedArticle.postedTweet = true;
     saveLocalPostedStatus(selectedArticle.id, 'tweet');
-    fetch('/api/mark-posted', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ articleId: selectedArticle.id, type: 'tweet', title: selectedArticle.title, link: selectedArticle.link })
-    }).then(() => {
-      renderFilteredArticles();
-      loadStreakStats();
-    }).catch(() => {});
   }
+
+  fetch('/api/mark-posted', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ articleId: articleIdToMark, type: 'tweet', title: articleTitleToMark, link: articleLinkToMark })
+  }).then(() => {
+    renderFilteredArticles();
+    loadStreakStats();
+  }).catch(() => {});
 
   const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
@@ -1695,7 +1700,7 @@ function postViaWebIntent() {
   } else if (!isThreadModeActive && imageCopied) {
     showToast('🌐 X 작성창이 열립니다! 이미지가 클립보드에 복사되었으니 붙여넣기(Ctrl+V) 하세요!');
   } else {
-    showToast('🌐 X.com 작성 창에 문구가 자동으로 채워졌습니다!');
+    showToast('🌐 X.com 작성 창에 문구가 자동으로 채워졌습니다! (잔디 반영됨)');
   }
 }
 
@@ -1707,21 +1712,26 @@ function openXArticlesComposer() {
     return;
   }
 
+  const articleIdToMark = selectedArticle?.id || `custom_${Date.now()}`;
+  const articleTitleToMark = selectedArticle?.title || text.slice(0, 30);
+  const articleLinkToMark = selectedArticle?.link || '';
+
   if (selectedArticle) {
     selectedArticle.postedArticle = true;
     saveLocalPostedStatus(selectedArticle.id, 'article');
-    fetch('/api/mark-posted', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ articleId: selectedArticle.id, type: 'article', title: selectedArticle.title, link: selectedArticle.link })
-    }).then(() => {
-      renderFilteredArticles();
-      loadStreakStats();
-    }).catch(() => {});
   }
 
+  fetch('/api/mark-posted', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ articleId: articleIdToMark, type: 'article', title: articleTitleToMark, link: articleLinkToMark })
+  }).then(() => {
+    renderFilteredArticles();
+    loadStreakStats();
+  }).catch(() => {});
+
   navigator.clipboard.writeText(text).then(() => {
-    showToast('📋 글 전문이 복사되었습니다! X 아티클 에디터(Ctrl+V) 하세요. [📰 X 아티클] 표시가 반영되었습니다.');
+    showToast('📋 글 전문이 복사되었습니다! X 아티클 에디터(Ctrl+V) 하세요. (잔디 반영됨)');
   }).catch(() => {});
 
   window.open('https://x.com/compose/articles', '_blank');
