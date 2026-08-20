@@ -482,6 +482,17 @@ app.post('/api/generate-poll', async (req, res) => {
   }
 });
 
+app.post('/api/generate-thread', async (req, res) => {
+  try {
+    const { article } = req.body;
+    if (!article) return res.status(400).json({ success: false, message: 'article data required' });
+    const threadResult = await generateThreadTweet(article);
+    res.json({ success: true, thread: threadResult });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 let globalPublicUrl = `http://${LOCAL_WIFI_IP}:${PORT}`;
 
 function setGlobalPublicUrl(url) {
