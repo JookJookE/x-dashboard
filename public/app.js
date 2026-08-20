@@ -114,6 +114,8 @@ function setComposerMode(mode, silent = false) {
   const btnIdol = document.getElementById('btn-mode-idol');
   const btnSpicy = document.getElementById('btn-mode-spicy');
   const btnMindset = document.getElementById('btn-mode-mindset');
+  const btnPoll = document.getElementById('btn-mode-poll');
+  const btnThread = document.getElementById('btn-mode-thread');
 
   if (btnBlock) btnBlock.classList.remove('active');
   if (btnStory) btnStory.classList.remove('active');
@@ -122,6 +124,15 @@ function setComposerMode(mode, silent = false) {
   if (btnIdol) btnIdol.classList.remove('active');
   if (btnSpicy) btnSpicy.classList.remove('active');
   if (btnMindset) btnMindset.classList.remove('active');
+  if (btnPoll) btnPoll.classList.remove('active');
+  if (btnThread) btnThread.classList.remove('active');
+
+  // Reset thread view to single view
+  isThreadModeActive = false;
+  const singleContainer = document.getElementById('single-tweet-container');
+  const threadContainer = document.getElementById('thread-tweet-container');
+  if (singleContainer) singleContainer.style.display = 'block';
+  if (threadContainer) threadContainer.style.display = 'none';
 
   if (mode === 'story') {
     if (btnStory) btnStory.classList.add('active');
@@ -1696,7 +1707,7 @@ function postViaWebIntent() {
   window.open(url, '_blank');
 
   if (isThreadModeActive && part2Text) {
-    showToast('🌐 1번 트윗이 채워졌습니다! 2번 답글 타래 문구는 클립보드에 자동 복사되었습니다 (Ctrl+V).');
+    showToast('🌐 1번 트윗이 채워졌습니다! 게시 후 내 글 아래 [답글]을 눌러 2번 글을 붙여넣기(Ctrl+V) 하세요! 🧵');
   } else if (!isThreadModeActive && imageCopied) {
     showToast('🌐 X 작성창이 열립니다! 이미지가 클립보드에 복사되었으니 붙여넣기(Ctrl+V) 하세요!');
   } else {
@@ -3260,7 +3271,7 @@ async function generateThreadForSelected() {
     showToast('먼저 기사를 선택해 주세요.');
     return;
   }
-  showToast('🧵 [2단 타래(스레드)] 1편 훅 + 2편 인사이트 세트 생성 중...');
+  showToast('🧵 [2단 타래(스레드)] 1편 훅 + 2편 인사이트 생성 중...');
   try {
     const res = await fetch('/api/generate-thread', {
       method: 'POST',
@@ -3270,14 +3281,25 @@ async function generateThreadForSelected() {
     const data = await res.json();
     if (data.success && data.thread) {
       const thread = data.thread;
-      const combinedText = `[1번째 트윗]\n${thread.tweet1}\n\n━━━━━━━━━━━━━━━━━━━━━\n[2번째 답글 트윗]\n${thread.tweet2}`;
-      
-      const tweetInput = document.getElementById('tweet-text-input');
-      if (tweetInput) {
-        tweetInput.value = combinedText;
-        updateCharCounter();
-      }
-      showToast('🧵 2단 스레드 세트가 성공적으로 생성되었습니다!');
+
+      // Switch to Dual Textarea Thread View
+      isThreadModeActive = true;
+      const singleContainer = document.getElementById('single-tweet-container');
+      const threadContainer = document.getElementById('thread-tweet-container');
+      if (singleContainer) singleContainer.style.display = 'none';
+      if (threadContainer) threadContainer.style.display = 'flex';
+
+      // Update mode button active state
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      const btnThread = document.getElementById('btn-mode-thread');
+      if (btnThread) btnThread.classList.add('active');
+
+      const p1El = document.getElementById('thread-part-1');
+      const p2El = document.getElementById('thread-part-2');
+      if (p1El) p1El.value = thread.tweet1;
+      if (p2El) p2El.value = thread.tweet2;
+
+      showToast('🧵 2단 타래 전용 텍스트창(1번/2번)이 열렸습니다! [🌐 X 작성창 열기]를 누르면 1번 글이 자동 채워지고 2번 글은 클립보드에 자동 복사됩니다.');
     }
   } catch (err) {
     showToast('생성 실패: ' + err.message);
