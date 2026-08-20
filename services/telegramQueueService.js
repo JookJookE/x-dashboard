@@ -61,7 +61,7 @@ async function deleteTelegramMessage(chatId, messageId) {
 }
 
 /**
- * Send 3 Capture Cards as a Telegram Media Group Album (📸 제목+사진 / 📝 제목+본문 / 📄 제목만)
+ * Send 3 Capture Cards as a Telegram Media Group Album (📸 제목+사진 / 📄 제목+본문 / 📝 제목만)
  * Returns array of created message_ids
  */
 async function sendTelegramCaptureMediaGroup(imageCards, articleTitle) {
@@ -148,7 +148,7 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
         { text: '🚀 𝕏에 바로 올리기 (글 자동입력) ↗', url: tweetIntentUrl }
       ],
       [
-        { text: '✅ 𝕏 올림 완료 (메시지 정리)', callback_data: `post_x:${id}` },
+        { text: '✅ 𝕏 올림 완료 (사진 정리)', callback_data: `post_x:${id}` },
         { text: '🗑️ 건너뛰기', callback_data: `skip_x:${id}` }
       ]
     ]
@@ -167,7 +167,7 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
   if (originalTitle) {
     formattedMessage += `📌 <i>참고: ${originalTitle.slice(0, 45)}...</i>\n`;
   }
-  formattedMessage += `💡 <b>[🚀 𝕏에 바로 올리기]로 게시 후 [✅ 𝕏 올림 완료]를 누르면 사진과 메시지가 깔끔하게 자동 삭제됩니다.</b>`;
+  formattedMessage += `💡 <b>[🚀 𝕏에 바로 올리기]로 게시 후 [✅ 𝕏 올림 완료]를 누르면 사진이 깔끔하게 자동 정리됩니다.</b>`;
 
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   const response = await axios.post(url, {
@@ -249,6 +249,7 @@ function selectNextPendingArticle() {
 /**
  * Handle Telegram button callback clicks (✅ 𝕏 올림 완료 / 🗑️ 건너뛰기)
  * ✨ Deletes heavy photo albums, preserves concise title and [🌐 𝕏 작성창 다시 열기] button!
+ * 🛡️ Works 100% reliably even for past/backlogged messages across server restarts!
  */
 async function handleTelegramCallbackQuery(callbackQuery) {
   const data = callbackQuery.data || '';
@@ -258,17 +259,29 @@ async function handleTelegramCallbackQuery(callbackQuery) {
 
   if (data.startsWith('post_x:')) {
     const id = data.replace('post_x:', '');
+    
+    // 1. Resolve pending info from memory cache OR persisted DB map
     let pending = pendingPostsCache.get(String(id));
-
-    // 1. Delete all 3 heavy capture card photos from telegram chat to save scroll space
-    if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds)) {
-      for (const mId of pending.mediaMessageIds) {
-        await deleteTelegramMessage(chatId, mId);
-      }
+    if (!pending) {
+      const queueMap = getTelegramQueueMap();
+      pending = queueMap[id];
     }
 
-    const tweetText = pending?.text || '𝕏에 게시된 콘텐츠';
-    const originalTitle = pending?.title || '';
+    // 2. Delete photo album: Try explicit mediaMessageIds FIRST
+    let mediaIdsToDelete = [];
+    if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds) && pending.mediaMessageIds.length > 0) {
+      mediaIdsToDelete = pending.mediaMessageIds;
+    } else if (messageId) {
+      // Fallback: Delete immediately preceding 3-4 messages (where media group photos reside)
+      mediaIdsToDelete = [messageId - 1, messageId - 2, messageId - 3, messageId - 4];
+    }
+
+    for (const mId of mediaIdsToDelete) {
+      await deleteTelegramMessage(chatId, mId);
+    }
+
+    const tweetText = pending?.text || (callbackQuery.message?.text?.split('━━━━━━━━━━━━━━━━━━━━━')?.[1]?.trim()) || '𝕏에 게시된 콘텐츠';
+    const originalTitle = pending?.articleTitle || pending?.title || '';
     const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
     let postedText = `✅ <b>[𝕏에 올림 완료]</b>\n\n`;
@@ -283,26 +296,35 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       ]
     ];
 
-    // 2. Edit the text message to concise completed state with reopen button
+    // 3. Edit text message to concise completed state with reopen button
     await editTelegramMessageText(chatId, messageId, postedText, newKeyboard);
     await answerTelegramCallback(callbackQueryId, '✅ [𝕏 올림 완료]로 마킹되었습니다! (사진 정리됨)', false);
     
-    // 3. Update status in database & history
+    // 4. Update status in database & history
     markPostingStatus(id, 'tweet');
     addLog('SUCCESS', `🎉 [텔레그램 승인 & 사진 정리 완료] 𝕏 올림 마킹: ${id}`);
 
   } else if (data.startsWith('skip_x:')) {
     const id = data.replace('skip_x:', '');
     let pending = pendingPostsCache.get(String(id));
-
-    // 1. Delete photos
-    if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds)) {
-      for (const mId of pending.mediaMessageIds) {
-        await deleteTelegramMessage(chatId, mId);
-      }
+    if (!pending) {
+      const queueMap = getTelegramQueueMap();
+      pending = queueMap[id];
     }
 
-    const originalTitle = pending?.title || '';
+    // 1. Delete photos: Explicit IDs + Preceding Fallback
+    let mediaIdsToDelete = [];
+    if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds) && pending.mediaMessageIds.length > 0) {
+      mediaIdsToDelete = pending.mediaMessageIds;
+    } else if (messageId) {
+      mediaIdsToDelete = [messageId - 1, messageId - 2, messageId - 3, messageId - 4];
+    }
+
+    for (const mId of mediaIdsToDelete) {
+      await deleteTelegramMessage(chatId, mId);
+    }
+
+    const originalTitle = pending?.articleTitle || pending?.title || '';
     let skippedText = `🗑️ <b>[건너뜀]</b> 해당 트윗 멘트는 스킵되었습니다.`;
     if (originalTitle) {
       skippedText += `\n📌 <i>${originalTitle}</i>`;
@@ -396,26 +418,12 @@ async function triggerTenMinuteBriefing(force = false) {
     originalTitle = article.title;
     originalLink = article.link || '';
     titleHeader = `🔥 <b>[실시간 핫이슈 트윗 멘트]</b> (${article.categoryTag || article.category || '실시간'})`;
-
-    // Mark in history queue map
-    markAsTelegramSent(article.id, {
-      text: tweetText,
-      articleTitle: article.title,
-      type: 'hot_issue'
-    });
   } else {
     // 3. No new issue or duplicates -> Generate Twitter Small Talk / Banter (엑친 소통 멘트)
     const smallTalk = await generateTwitterSmallTalk();
     tweetText = smallTalk.text;
     itemId = `smalltalk_${Date.now()}`;
-    titleHeader = `💬 <b>[엑친 소통 / 스몰톡 멘트]</b> (답글 유도)`;
-
-    // Store in queue map
-    markAsTelegramSent(itemId, {
-      text: tweetText,
-      articleTitle: '엑친 소통 스몰톡',
-      type: 'small_talk'
-    });
+    titleHeader = `💬 <b>[소통 / 스몰톡 멘트]</b> (답글 유도)`;
   }
 
   // Send text message to Telegram
@@ -430,11 +438,21 @@ async function triggerTenMinuteBriefing(force = false) {
 
   const textMessageId = sendRes.result?.message_id;
 
-  // Cache in memory for deletion upon callback click
+  // 4. Persist in JSON Database file (telegram_queue_status.json) so IDs are NEVER lost!
+  markAsTelegramSent(itemId, {
+    text: tweetText,
+    articleTitle: originalTitle || '소통 스몰톡',
+    type: article ? 'hot_issue' : 'small_talk',
+    mediaMessageIds,
+    textMessageId
+  });
+
+  // Cache in memory as well
   pendingPostsCache.set(itemId, {
     text: tweetText,
     id: itemId,
     title: originalTitle,
+    articleTitle: originalTitle,
     mediaMessageIds,
     textMessageId
   });

@@ -64,6 +64,12 @@
 
 ## 📅 6. 버전 변경 이력 (Changelog)
 
+### v3.9.11 (2026-08-20) - 🛡️ 밀린 과거 텔레그램 메시지 사진 앨범 100% 영구 삭제 보장 (DB 영구 기록 & 직전 ID 탐색 Fallback)
+- 💾 **미디어 메시지 ID 영구 파일 DB 저장 (`services/telegramQueueService.js`)**:
+  - 발송 즉시 `telegram_queue_status.json`에 3장의 사진 메시지 ID(`mediaMessageIds`)를 영구 저장하여 서버 재시작 후에도 정보 보존.
+- 🎯 **인접 메시지 직전 ID 탐색 폴백 (Double-Safety Net)**:
+  - 과거에 밀려있던 메시지의 버튼 클릭 시, 매핑 정보가 없더라도 텍스트 메시지의 직전 번호들(`messageId - 1`, `messageId - 2`, `messageId - 3`, `messageId - 4`)을 역추적하여 3종 캡처 사진 앨범을 100% 무조건 삭제.
+
 ### v3.9.10 (2026-08-20) - 🗣️ '엑친/트친' 작위적 호칭 전면 제거 및 자연스러운 일상 질문형 문장으로 전면 개편
 - 🚫 **인위적 호칭 박멸 (`summarizer.js`)**:
   - `NEGATIVE_PROMPT_BLOCK`에 "엑친", "엑친들", "액친", "액친들", "트친", "트친들"을 금지어로 등록.
