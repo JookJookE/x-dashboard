@@ -10,6 +10,7 @@ const {
   addLog 
 } = require('../history');
 const { generateSummary, generateTwitterSmallTalk, generateHotIssueTweet } = require('../summarizer');
+const { generateAll3CaptureCards } = require('./cardNewsServerService');
 
 let pollingInterval = null;
 let lastUpdateId = 0;
@@ -38,6 +39,73 @@ function isQuietHours() {
   const kstHours = new Date(now.getTime() + (9 * 60 * 60 * 1000)).getUTCHours();
   // 00:00 to 06:59 (0, 1, 2, 3, 4, 5, 6)
   return kstHours >= 0 && kstHours < 7;
+}
+
+/**
+ * Send 3 Capture Cards as a Telegram Media Group Album (📸 제목+사진 / 📝 제목+본문 / 📄 제목만)
+ */
+async function sendTelegramCaptureMediaGroup(imageCards, articleTitle) {
+  const { token, chatId } = getTelegramConfig();
+  if (!token || !chatId) return null;
+
+  try {
+    const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2)}`;
+    const url = `https://api.telegram.org/bot${token}/sendMediaGroup`;
+
+    const mediaList = [];
+    const validCards = [];
+
+    if (imageCards.photoCard?.filepath && fs.existsSync(imageCards.photoCard.filepath)) {
+      validCards.push({ path: imageCards.photoCard.filepath, label: '📸 1. [기사 캡처: 제목+사진]' });
+    }
+    if (imageCards.bodyCard?.filepath && fs.existsSync(imageCards.bodyCard.filepath)) {
+      validCards.push({ path: imageCards.bodyCard.filepath, label: '📝 2. [기사 캡처: 제목+본문]' });
+    }
+    if (imageCards.titleCard?.filepath && fs.existsSync(imageCards.titleCard.filepath)) {
+      validCards.push({ path: imageCards.titleCard.filepath, label: '📄 3. [기사 캡처: 제목만]' });
+    }
+
+    if (validCards.length === 0) return null;
+
+    validCards.forEach((c, idx) => {
+      mediaList.push({
+        type: 'photo',
+        media: `attach://photo_${idx}`,
+        caption: c.label
+      });
+    });
+
+    const buffers = [
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media"\r\n\r\n${JSON.stringify(mediaList)}\r\n`)
+    ];
+
+    validCards.forEach((c, idx) => {
+      const imgBuffer = fs.readFileSync(c.path);
+      const filename = path.basename(c.path);
+      buffers.push(
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo_${idx}"; filename="${filename}"\r\nContent-Type: image/png\r\n\r\n`),
+        imgBuffer,
+        Buffer.from(`\r\n`)
+      );
+    });
+
+    buffers.push(Buffer.from(`--${boundary}--\r\n`));
+    const bodyBuffer = Buffer.concat(buffers);
+
+    const res = await axios.post(url, bodyBuffer, {
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': bodyBuffer.length
+      },
+      timeout: 20000
+    });
+
+    return res.data;
+  } catch (err) {
+    console.error('Failed to send telegram media group:', err.message);
+    return null;
+  }
 }
 
 /**
@@ -76,7 +144,7 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
   if (originalTitle) {
     formattedMessage += `📌 <i>참고: ${originalTitle.slice(0, 45)}...</i>\n`;
   }
-  formattedMessage += `💡 <b>[🚀 𝕏에 바로 올리기]</b>를 누르면 글이 채워진 작성창이 바로 열립니다.`;
+  formattedMessage += `💡 <b>위 3종 캡처 카드(제목+사진/제목+본문/제목만) 중 원하는 이미지를 선택하여 저장 후 함께 올려보세요!</b>`;
 
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   const response = await axios.post(url, {
@@ -149,11 +217,9 @@ function selectNextPendingArticle() {
   });
 
   if (priorityArticles.length > 0) {
-    // Return newest priority article
     return priorityArticles[0];
   }
 
-  // Otherwise return newest unsent article
   return unsent[0];
 }
 
@@ -227,7 +293,7 @@ async function pollTelegramUpdates() {
 }
 
 /**
- * ⏱️ Trigger 10-Minute Telegram Briefing (Sends 1 Real-time Issue or Small Talk)
+ * ⏱️ Trigger 10-Minute Telegram Briefing (Sends 3 Capture Cards + Real-time Issue or Small Talk)
  * Strictly respects 00:00 ~ 06:59 KST Quiet Hours unless force=true
  */
 async function triggerTenMinuteBriefing(force = false) {
@@ -242,7 +308,7 @@ async function triggerTenMinuteBriefing(force = false) {
     return { success: true, skipped: true, reason: 'quiet_hours' };
   }
 
-  addLog('INFO', '⏱️ [10분 주기 실시간 트윗 탐색] 실시간 핫이슈 및 엑친 소통 멘트 검토 중...');
+  addLog('INFO', '⏱️ [10분 주기 실시간 트윗 탐색] 실시간 핫이슈 및 3종 캡처 카드 검토 중...');
 
   const article = selectNextPendingArticle();
 
@@ -253,7 +319,16 @@ async function triggerTenMinuteBriefing(force = false) {
   let originalLink = '';
 
   if (article) {
-    // 1. Real-time Issue Found -> Generate engaging, likeable, balanced Twitter prompt (Style 1 or Style 2)
+    // 1. Generate 3 Capture Cards in parallel (📸 제목+사진 / 📝 제목+본문 / 📄 제목만)
+    try {
+      addLog('INFO', `📸 [카드뉴스 3종 캡처 생성 중] "${article.title.slice(0, 25)}..."`);
+      const imageCards = await generateAll3CaptureCards(article);
+      await sendTelegramCaptureMediaGroup(imageCards, article.title);
+    } catch (imgErr) {
+      console.error('Failed to generate/send 3 capture cards:', imgErr.message);
+    }
+
+    // 2. Generate engaging, likeable, balanced Twitter prompt (Style 1 or Style 2)
     try {
       const issueResult = await generateHotIssueTweet(article);
       tweetText = issueResult.text || issueResult;
@@ -274,7 +349,7 @@ async function triggerTenMinuteBriefing(force = false) {
       type: 'hot_issue'
     });
   } else {
-    // 2. No new issue or duplicates -> Generate Twitter Small Talk / Banter (엑친 소통 멘트)
+    // 3. No new issue or duplicates -> Generate Twitter Small Talk / Banter (엑친 소통 멘트)
     const smallTalk = await generateTwitterSmallTalk();
     tweetText = smallTalk.text;
     itemId = `smalltalk_${Date.now()}`;
@@ -306,7 +381,7 @@ async function triggerTenMinuteBriefing(force = false) {
   });
 
   const messageId = sendRes.result?.message_id;
-  addLog('SUCCESS', `📱 [10분 텔레그램 발송 완료] ${titleHeader.replace(/<[^>]*>/g, '')} - "${tweetText.slice(0, 25)}..."`);
+  addLog('SUCCESS', `📱 [10분 텔레그램 발송 완료] ${titleHeader.replace(/<[^>]*>/g, '')} - "${tweetText.slice(0, 25)}..." (3종 캡처 앨범 동시 발송)`);
 
   return { 
     success: true, 
@@ -336,7 +411,7 @@ function initTelegramQueueWorker() {
   // Start Long Polling for button clicks
   pollTelegramUpdates();
 
-  addLog('SUCCESS', '🚀 [텔레그램 10분 실시간 브리핑 가동] 실시간 핫이슈 & 엑친 스몰톡 발송 대기 중 (07:00~23:59 운영)');
+  addLog('SUCCESS', '🚀 [텔레그램 10분 실시간 브리핑 가동] 3종 캡처 카드 & 호감형 트윗 멘트 발송 대기 중 (07:00~23:59 운영)');
 }
 
 /**

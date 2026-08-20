@@ -64,6 +64,16 @@
 
 ## 📅 6. 버전 변경 이력 (Changelog)
 
+### v3.9.5 (2026-08-20) - 📸 텔레그램 3종 캡처 카드 앨범 동시 발송 탑재 ([제목+사진] / [제목+본문] / [제목만])
+- 📸 **3종 캡처 렌더링 엔진 완비 (`services/cardNewsServerService.js`)**:
+  - `generateCardNewsPhoto` (📸 기사 캡처: 제목+사진)
+  - `generateCardNewsBody` (📝 기사 캡처: 제목+본문)
+  - `generateCardNewsTitleOnly` (📄 기사 캡처: 제목만)
+  - `generateAll3CaptureCards`: 3종 이미지를 초고속 병렬(`Promise.all`) 생성.
+- 📱 **텔레그램 미디어 그룹(사진 앨범 묶음) 발송 연동 (`services/telegramQueueService.js`)**:
+  - 10분 주기 실시간 핫이슈 발송 시 `sendMediaGroup`으로 3장의 캡처 카드를 1개의 앨범으로 묶어 전송하고, 바로 이어서 트윗 멘트 + 1-Click X 올리기 버튼 전송.
+  - 사용자가 모바일 텔레그램에서 3종 카드 중 마음에 드는 이미지를 자유롭게 선택하여 활용 가능.
+
 ### v3.9.4 (2026-08-20) - 🤖 Gemini 최신 9종 모델 풀(`GEMINI_MODELS_POOL`) 전체 AI 함수 일원화
 - 🚀 **공통 모델 풀 통합 (`summarizer.js`, `visualMediaService.js`)**:
   - `generateSummary`, `generateThoughtTweet`, `generateTwitterSmallTalk`, `generateHotIssueTweet` 등 모든 AI 트윗 생성 함수가 `gemini-flash-latest`부터 `gemini-3.6-flash`까지 **최신 9종 모델 풀**을 완벽하게 공유하도록 일원화.
