@@ -25,7 +25,7 @@ function escapeXml(unsafe) {
 }
 
 /**
- * Split text into wrapped lines (Pretendard 32px, max-width 880px)
+ * Split title into wrapped lines (32px Bold, max-width 880px)
  */
 function wrapTitleLines(text, maxCharsPerLine = 22, maxLines = 3) {
   if (!text) return [''];
@@ -50,33 +50,65 @@ function wrapTitleLines(text, maxCharsPerLine = 22, maxLines = 3) {
 }
 
 /**
- * Split body text into wrapped lines (Pretendard 22px, max-width 880px)
+ * Clean and split snippet/body text (22px Regular, max-width 880px)
  */
-function wrapBodyLines(text, maxCharsPerLine = 34, maxLines = 10) {
-  if (!text) return [''];
-  const clean = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-  const words = clean.split(' ');
-  const lines = [];
-  let currentLine = '';
+function getSnippetLines(article, maxCharsPerLine = 34, maxLines = 18) {
+  let snippet = article.contentSnippet || article.excerpt || article.title || '';
+  
+  // Clean snippet from ugly RSS artifacts matching app.js getSnippetLines
+  let cleaned = snippet
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/v\.daum\.net/gi, '')
+    .replace(/n\.news\.naver\.com/gi, '')
+    .replace(/boannews\.com/gi, '')
+    .replace(/\[단독\]/gi, '')
+    .replace(/\[인터뷰\]/gi, '')
+    .replace(new RegExp((article.source || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n\n')
+    .trim();
 
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (testLine.length > maxCharsPerLine && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-      if (lines.length === maxLines - 1) break;
-    } else {
-      currentLine = testLine;
-    }
+  let titleRemoved = cleaned.replace(new RegExp((article.title || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '').trim();
+  if (titleRemoved.length > 10) {
+    cleaned = titleRemoved;
   }
-  if (currentLine && lines.length < maxLines) {
-    lines.push(currentLine);
+
+  snippet = cleaned;
+  if (!snippet || snippet.length < 5) {
+    snippet = "본문 요약 내용이 없습니다. 원본 링크를 참고해 주세요.";
+  }
+
+  const paragraphs = snippet.split('\n').filter(p => p.trim() !== '');
+  const lines = [];
+
+  for (const p of paragraphs) {
+    const words = p.split(' ');
+    let currentLine = '';
+    for (let n = 0; n < words.length; n++) {
+      const testLine = currentLine ? `${currentLine} ${words[n]}` : words[n];
+      if (testLine.length > maxCharsPerLine && currentLine) {
+        lines.push(currentLine);
+        currentLine = words[n];
+        if (lines.length >= maxLines) break;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine && lines.length < maxLines) {
+      lines.push(currentLine);
+    }
+    if (lines.length >= maxLines) break;
   }
   return lines.slice(0, maxLines);
 }
 
 /**
- * Resolve real image URL from article with 4-tier deep resolution (Exact server.js extraction replica)
+ * Resolve real image URL from article with 4-tier deep resolution (Exact server.js replica)
  */
 async function resolveArticleImageUrl(article) {
   if (article.imageUrl && article.imageUrl.startsWith('http') && !article.imageUrl.includes('google') && !article.imageUrl.includes('gstatic') && !article.imageUrl.includes('logo')) {
@@ -208,7 +240,7 @@ async function resolveArticleImageUrl(article) {
 }
 
 /**
- * 1. 📄 Generate [기사 캡처: 제목만] Card
+ * 1. 📝 [기사 캡처 (제목만)] Card (Dashboard Replica)
  */
 async function generateCardNewsTitleOnly(article) {
   const title = article.title || '최신 뉴스 리포트';
@@ -257,7 +289,7 @@ async function generateCardNewsTitleOnly(article) {
 }
 
 /**
- * 2. 📝 Generate [기사 캡처: 제목+본문] Card
+ * 2. 📄 [기사 캡처 (제목+본문)] Card (Dashboard Replica)
  */
 async function generateCardNewsBody(article) {
   const title = article.title || '최신 뉴스 리포트';
@@ -269,8 +301,7 @@ async function generateCardNewsBody(article) {
     day: 'numeric'
   });
 
-  const snippet = article.contentSnippet || article.excerpt || article.title || '';
-  const bodyLines = wrapBodyLines(snippet, 34, 8);
+  const bodyLines = getSnippetLines(article, 34, 18);
 
   const timestamp = Date.now() + Math.floor(Math.random() * 1000);
   const filename = `news-capture-body-${timestamp}.png`;
@@ -279,7 +310,9 @@ async function generateCardNewsBody(article) {
   const canvasWidth = 1000;
   const titleLines = wrapTitleLines(title, 22, 3);
   const lineCount = titleLines.length;
-  const canvasHeight = 240 + (lineCount * 46) + (bodyLines.length * 36);
+
+  let currentY = 125 + (lineCount * 46) + 10 + 22 + 30;
+  const canvasHeight = currentY + (bodyLines.length * 40) + 40;
 
   const titleSvg = titleLines.map((line, idx) => {
     const yPos = 125 + (idx * 46);
@@ -290,8 +323,8 @@ async function generateCardNewsBody(article) {
   const dividerY = reporterY + 22;
 
   const bodySvg = bodyLines.map((line, idx) => {
-    const yPos = dividerY + 42 + (idx * 36);
-    return `<text x="60" y="${yPos}" font-family="'Pretendard', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="21" fill="#334155">${escapeXml(line.trim())}</text>`;
+    const yPos = currentY + 10 + (idx * 40);
+    return `<text x="60" y="${yPos}" font-family="'Pretendard', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="22" fill="#334155">${escapeXml(line.trim())}</text>`;
   }).join('\n');
 
   const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
@@ -315,7 +348,7 @@ async function generateCardNewsBody(article) {
 }
 
 /**
- * 3. 📸 Generate [기사 캡처: 제목+사진] Card
+ * 3. 📸 [기사 캡처 (제목+사진)] Card (Dashboard Replica)
  */
 async function generateCardNewsPhoto(article) {
   const title = article.title || '최신 뉴스 리포트';
@@ -337,13 +370,21 @@ async function generateCardNewsPhoto(article) {
 
   const imageUrl = await resolveArticleImageUrl(article);
   let photoBuffer = null;
+  let photoHeight = 520;
 
   if (imageUrl) {
     try {
-      const imgRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 5000 });
+      const imgRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 6000 });
       if (sharp) {
+        const metadata = await sharp(imgRes.data).metadata();
+        const photoWidth = 880;
+        if (metadata.width && metadata.height) {
+          photoHeight = Math.round((metadata.height / metadata.width) * photoWidth);
+          if (photoHeight > 1400) photoHeight = 1400; // max height
+          if (photoHeight < 300) photoHeight = 300;   // min height
+        }
         photoBuffer = await sharp(imgRes.data)
-          .resize(880, 520, { fit: 'cover', position: 'center' })
+          .resize(photoWidth, photoHeight, { fit: 'cover', position: 'center' })
           .png()
           .toBuffer();
       }
@@ -352,16 +393,22 @@ async function generateCardNewsPhoto(article) {
     }
   }
 
+  // If no photo found, fallback to rendering body text
+  if (!photoBuffer) {
+    return generateCardNewsBody(article);
+  }
+
   const reporterY = 125 + (lineCount * 46) + 10;
   const dividerY = reporterY + 22;
   const photoY = dividerY + 30;
-  const canvasHeight = photoY + 520 + 40;
+  const canvasHeight = photoY + photoHeight + 40;
 
   const titleSvg = titleLines.map((line, idx) => {
     const yPos = 125 + (idx * 46);
     return `<text x="60" y="${yPos}" font-family="'Pretendard', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="32" font-weight="bold" fill="#0f172a">${escapeXml(line.trim())}</text>`;
   }).join('\n');
 
+  // SVG Base Canvas
   const baseSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" width="${canvasWidth}" height="${canvasHeight}">
   <rect width="${canvasWidth}" height="${canvasHeight}" fill="#ffffff"/>
@@ -370,24 +417,27 @@ async function generateCardNewsPhoto(article) {
   ${titleSvg}
   <text x="60" y="${reporterY}" font-family="'Pretendard', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="17" fill="#64748b">${escapeXml(author)} · ${escapeXml(dateStr)}</text>
   <line x1="60" y1="${dividerY}" x2="940" y2="${dividerY}" stroke="#e2e8f0" stroke-width="1.5"/>
-  ${!photoBuffer ? `
-  <rect x="60" y="${photoY}" width="880" height="520" rx="12" fill="#0f172a"/>
-  <text x="500" y="${photoY + 240}" font-family="'Pretendard', sans-serif" font-size="28" font-weight="bold" fill="#38bdf8" text-anchor="middle">📡 실시간 이슈 브리핑</text>
-  <text x="500" y="${photoY + 290}" font-family="'Pretendard', sans-serif" font-size="18" fill="#94a3b8" text-anchor="middle">헤드라인 및 세부 분석 리포트</text>
-  ` : ''}
 </svg>`;
 
   if (sharp) {
-    if (photoBuffer) {
-      // Composite actual photo onto white news canvas
-      const baseBuffer = await sharp(Buffer.from(baseSvg, 'utf8')).png().toBuffer();
-      await sharp(baseBuffer)
-        .composite([{ input: photoBuffer, top: photoY, left: 60 }])
-        .png({ quality: 95 })
-        .toFile(outputPath);
-    } else {
-      await sharp(Buffer.from(baseSvg, 'utf8')).png({ quality: 95 }).toFile(outputPath);
-    }
+    const baseBuffer = await sharp(Buffer.from(baseSvg, 'utf8')).png().toBuffer();
+    
+    // Create rounded mask for photo
+    const roundedMask = Buffer.from(`
+      <svg width="880" height="${photoHeight}">
+        <rect x="0" y="0" width="880" height="${photoHeight}" rx="10" ry="10" fill="#fff" />
+      </svg>
+    `);
+
+    const maskedPhoto = await sharp(photoBuffer)
+      .composite([{ input: roundedMask, blend: 'dest-in' }])
+      .png()
+      .toBuffer();
+
+    await sharp(baseBuffer)
+      .composite([{ input: maskedPhoto, top: photoY, left: 60 }])
+      .png({ quality: 95 })
+      .toFile(outputPath);
   } else {
     fs.writeFileSync(outputPath.replace('.png', '.svg'), baseSvg, 'utf8');
   }
@@ -402,7 +452,7 @@ async function generateCardNewsPhoto(article) {
 async function generateAll3CaptureCards(article) {
   try {
     const [photoCard, bodyCard, titleCard] = await Promise.all([
-      generateCardNewsPhoto(article).catch(() => generateCardNewsTitleOnly(article)),
+      generateCardNewsPhoto(article).catch(() => generateCardNewsBody(article)),
       generateCardNewsBody(article).catch(() => generateCardNewsTitleOnly(article)),
       generateCardNewsTitleOnly(article)
     ]);
