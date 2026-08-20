@@ -9,7 +9,14 @@ const {
   markPostingStatus,
   addLog 
 } = require('../history');
-const { generateSummary, generateTwitterSmallTalk, generateHotIssueTweet } = require('../summarizer');
+const { 
+  generateSummary, 
+  generateTwitterSmallTalk, 
+  generateHotIssueTweet, 
+  generatePollTweet, 
+  generateThreadTweet 
+} = require('../summarizer');
+const { isSimilarArticleTitle } = require('../scraper');
 const { generateAll3CaptureCards } = require('./cardNewsServerService');
 
 let pollingInterval = null;
@@ -22,7 +29,6 @@ const pendingPostsCache = new Map();
 
 function getTelegramConfig() {
   const config = getConfig();
-  // Use dedicated briefing bot if set, otherwise fallback to general bot
   const rawToken = process.env.TELEGRAM_BRIEFING_BOT_TOKEN || config.telegramBriefingBotToken || process.env.TELEGRAM_BOT_TOKEN || config.telegramBotToken;
   const rawChatId = process.env.TELEGRAM_BRIEFING_CHAT_ID || config.telegramBriefingChatId || process.env.TELEGRAM_CHAT_ID || config.telegramChatId;
   const token = (rawToken || '').toString().trim();
@@ -37,8 +43,37 @@ function getTelegramConfig() {
 function isQuietHours() {
   const now = new Date();
   const kstHours = new Date(now.getTime() + (9 * 60 * 60 * 1000)).getUTCHours();
-  // 00:00 to 06:59 (0, 1, 2, 3, 4, 5, 6)
   return kstHours >= 0 && kstHours < 7;
+}
+
+/**
+ * ⏰ Detect Twitter Traffic Peak Time (Golden Hour in KST)
+ */
+function getGoldenHourInfo() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  const hours = kst.getUTCHours();
+  const minutes = kst.getUTCMinutes();
+  const timeVal = hours + (minutes / 60);
+
+  // 1. Morning Commute: 07:30 ~ 09:00 (7.5 ~ 9.0)
+  if (timeVal >= 7.5 && timeVal <= 9.0) {
+    return { isGolden: true, label: '🌅 [골든타임: 출근길 피크]', tag: '🔥 출근길 트래픽 폭발' };
+  }
+  // 2. Lunch Peak: 11:50 ~ 13:00 (11.83 ~ 13.0)
+  if (timeVal >= 11.83 && timeVal <= 13.0) {
+    return { isGolden: true, label: '🍱 [골든타임: 점심시간 피크]', tag: '🔥 점심시간 피드 폭발' };
+  }
+  // 3. Evening Commute: 18:00 ~ 19:30 (18.0 ~ 19.5)
+  if (timeVal >= 18.0 && timeVal <= 19.5) {
+    return { isGolden: true, label: '🚇 [골든타임: 퇴근길 피크]', tag: '🔥 퇴근길 도파민 피크' };
+  }
+  // 4. Night Golden Hour: 22:30 ~ 24:00 (22.5 ~ 24.0)
+  if (timeVal >= 22.5 && timeVal < 24.0) {
+    return { isGolden: true, label: '🌙 [골든타임: 심야 감성 피크]', tag: '🔥 심야 타임라인 피크' };
+  }
+
+  return { isGolden: false, label: '', tag: '' };
 }
 
 /**
@@ -55,9 +90,7 @@ async function deleteTelegramMessage(chatId, messageId) {
       chat_id: chatId,
       message_id: messageId
     }, { timeout: 6000 });
-  } catch (err) {
-    // Already deleted or not found is safe to ignore
-  }
+  } catch (err) {}
 }
 
 /**
@@ -134,7 +167,7 @@ async function sendTelegramCaptureMediaGroup(imageCards, articleTitle) {
 /**
  * Send text message with action buttons to Telegram
  */
-async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, originalTitle, originalLink }) {
+async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, originalTitle, originalLink, pollInfo, threadInfo }) {
   const { token, chatId } = getTelegramConfig();
   if (!token || !chatId) {
     throw new Error('텔레그램 봇 토큰과 Chat ID가 설정되지 않았습니다.');
@@ -146,13 +179,29 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
     inline_keyboard: [
       [
         { text: '🚀 𝕏에 바로 올리기 (글 자동입력) ↗', url: tweetIntentUrl }
-      ],
-      [
-        { text: '✅ 𝕏 올림 완료 (사진 정리)', callback_data: `post_x:${id}` },
-        { text: '🗑️ 건너뛰기', callback_data: `skip_x:${id}` }
       ]
     ]
   };
+
+  // Add Thread & Poll intent options if available
+  const subRow = [];
+  if (pollInfo?.tweetText) {
+    const pollText = `${pollInfo.tweetText}\n\n[투표 항목]\n` + pollInfo.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
+    const pollIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pollText)}`;
+    subRow.push({ text: '🗳️ 투표형으로 올리기 ↗', url: pollIntentUrl });
+  }
+  if (threadInfo?.tweet1) {
+    const threadIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(threadInfo.tweet1)}`;
+    subRow.push({ text: '🧵 스레드 1편 올리기 ↗', url: threadIntentUrl });
+  }
+  if (subRow.length > 0) {
+    inlineKeyboard.inline_keyboard.push(subRow);
+  }
+
+  inlineKeyboard.inline_keyboard.push([
+    { text: '✅ 𝕏 올림 완료 (사진 정리)', callback_data: `post_x:${id}` },
+    { text: '🗑️ 건너뛰기', callback_data: `skip_x:${id}` }
+  ]);
 
   if (originalLink) {
     inlineKeyboard.inline_keyboard.push([
@@ -160,10 +209,25 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
     ]);
   }
 
-  let formattedMessage = `${titleHeader}\n\n`;
+  const goldenInfo = getGoldenHourInfo();
+
+  let formattedMessage = '';
+  if (goldenInfo.isGolden) {
+    formattedMessage += `${goldenInfo.label}\n`;
+  }
+  formattedMessage += `${titleHeader}\n\n`;
   formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n`;
   formattedMessage += `${tweetText}\n`;
   formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n`;
+
+  if (pollInfo?.options && pollInfo.options.length > 0) {
+    formattedMessage += `🗳️ <b>[추천 X 투표 선택지]</b>:\n`;
+    pollInfo.options.forEach((opt, idx) => {
+      formattedMessage += `   ${idx + 1}️⃣ ${opt}\n`;
+    });
+    formattedMessage += `\n`;
+  }
+
   if (originalTitle) {
     formattedMessage += `📌 <i>참고: ${originalTitle.slice(0, 45)}...</i>\n`;
   }
@@ -220,17 +284,40 @@ async function answerTelegramCallback(callbackQueryId, text = '', showAlert = fa
 }
 
 /**
- * Select 1 best pending real-time issue article (Gossip, Crime/Accident, War, Entertainment, Community, Tech)
+ * 🛡️ Select 1 best pending real-time issue article
+ * - 100% Cross-Press Semantic Deduplication: Ignores articles with same event/content from other press within 24h
+ * - Detects Breaking News if covered simultaneously by >= 3 press
  */
 function selectNextPendingArticle() {
   const articles = getStoredArticles();
   const queueMap = getTelegramQueueMap();
 
-  // Filter only unsent articles with valid titles
-  const unsent = articles.filter(a => !queueMap[a.id] && a.title && a.title.trim().length > 0);
+  // 1. Gather all article titles sent within the last 24 hours
+  const now = Date.now();
+  const sentArticleTitles = [];
+  Object.values(queueMap).forEach(q => {
+    if (q.sentAt && (now - new Date(q.sentAt).getTime()) < 24 * 60 * 60 * 1000) {
+      if (q.articleTitle) sentArticleTitles.push(q.articleTitle);
+    }
+  });
+
+  // 2. Filter unsent articles with valid titles and NO cross-press content duplicate
+  const unsent = articles.filter(a => {
+    if (queueMap[a.id]) return false;
+    if (!a.title || a.title.trim().length === 0) return false;
+
+    // Cross-press duplicate check against recently sent articles
+    const isDuplicateContent = sentArticleTitles.some(sentTitle => isSimilarArticleTitle(sentTitle, a.title));
+    if (isDuplicateContent) {
+      return false; // Skip duplicate topic from other media!
+    }
+
+    return true;
+  });
+
   if (unsent.length === 0) return null;
 
-  // Priority: Community/Gossip/Blind/Nate/War/Crime first, then IT/Stock/General
+  // 3. Priority topics (Gossip, Blind, Nate Pann, Crime/Accident, War, Entertainment, Tech)
   const priorityArticles = unsent.filter(a => {
     const text = `${a.title} ${a.category || ''} ${a.categoryTag || ''}`.toLowerCase();
     return text.includes('커뮤니티') || text.includes('네이트판') || text.includes('블라인드') ||
@@ -239,17 +326,19 @@ function selectNextPendingArticle() {
            text.includes('충격') || text.includes('폭로') || text.includes('연예');
   });
 
-  if (priorityArticles.length > 0) {
-    return priorityArticles[0];
+  const selected = priorityArticles.length > 0 ? priorityArticles[0] : unsent[0];
+
+  // 4. Check if it is a Breaking Mega Issue (Covered by >= 3 different press in stored DB)
+  const similarCount = articles.filter(other => isSimilarArticleTitle(other.title, selected.title)).length;
+  if (similarCount >= 3) {
+    selected.isBreakingNews = true;
   }
 
-  return unsent[0];
+  return selected;
 }
 
 /**
  * Handle Telegram button callback clicks (✅ 𝕏 올림 완료 / 🗑️ 건너뛰기)
- * ✨ Deletes heavy photo albums, preserves concise title and [🌐 𝕏 작성창 다시 열기] button!
- * 🛡️ Works 100% reliably even for past/backlogged messages across server restarts!
  */
 async function handleTelegramCallbackQuery(callbackQuery) {
   const data = callbackQuery.data || '';
@@ -259,20 +348,17 @@ async function handleTelegramCallbackQuery(callbackQuery) {
 
   if (data.startsWith('post_x:')) {
     const id = data.replace('post_x:', '');
-    
-    // 1. Resolve pending info from memory cache OR persisted DB map
     let pending = pendingPostsCache.get(String(id));
     if (!pending) {
       const queueMap = getTelegramQueueMap();
       pending = queueMap[id];
     }
 
-    // 2. Delete photo album: Try explicit mediaMessageIds FIRST
+    // 1. Delete photo album: Try explicit mediaMessageIds FIRST + Preceding Fallback
     let mediaIdsToDelete = [];
     if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds) && pending.mediaMessageIds.length > 0) {
       mediaIdsToDelete = pending.mediaMessageIds;
     } else if (messageId) {
-      // Fallback: Delete immediately preceding 3-4 messages (where media group photos reside)
       mediaIdsToDelete = [messageId - 1, messageId - 2, messageId - 3, messageId - 4];
     }
 
@@ -296,11 +382,11 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       ]
     ];
 
-    // 3. Edit text message to concise completed state with reopen button
+    // 2. Edit text message to concise completed state with reopen button
     await editTelegramMessageText(chatId, messageId, postedText, newKeyboard);
     await answerTelegramCallback(callbackQueryId, '✅ [𝕏 올림 완료]로 마킹되었습니다! (사진 정리됨)', false);
     
-    // 4. Update status in database & history
+    // 3. Update status in database & history
     markPostingStatus(id, 'tweet');
     addLog('SUCCESS', `🎉 [텔레그램 승인 & 사진 정리 완료] 𝕏 올림 마킹: ${id}`);
 
@@ -312,7 +398,7 @@ async function handleTelegramCallbackQuery(callbackQuery) {
       pending = queueMap[id];
     }
 
-    // 1. Delete photos: Explicit IDs + Preceding Fallback
+    // 1. Delete photos
     let mediaIdsToDelete = [];
     if (pending?.mediaMessageIds && Array.isArray(pending.mediaMessageIds) && pending.mediaMessageIds.length > 0) {
       mediaIdsToDelete = pending.mediaMessageIds;
@@ -359,9 +445,7 @@ async function pollTelegramUpdates() {
         await handleTelegramCallbackQuery(update.callback_query);
       }
     }
-  } catch (err) {
-    // Network or timeout errors in polling are normal
-  }
+  } catch (err) {}
 
   if (isPollingActive) {
     setTimeout(pollTelegramUpdates, 1500);
@@ -369,8 +453,7 @@ async function pollTelegramUpdates() {
 }
 
 /**
- * ⏱️ Trigger 10-Minute Telegram Briefing (Sends 3 Capture Cards + Real-time Issue or Small Talk)
- * Strictly respects 00:00 ~ 06:59 KST Quiet Hours unless force=true
+ * ⏱️ Trigger 10-Minute Telegram Briefing
  */
 async function triggerTenMinuteBriefing(force = false) {
   const { token, chatId } = getTelegramConfig();
@@ -378,7 +461,6 @@ async function triggerTenMinuteBriefing(force = false) {
     return { success: false, message: '텔레그램 봇 토큰 또는 Chat ID가 설정되지 않았습니다.' };
   }
 
-  // 🌙 Strict Quiet Hours Check: 00:00 ~ 06:59 KST
   if (!force && isQuietHours()) {
     addLog('INFO', '🌙 [텔레그램 야간 정적 모드] 00:00 ~ 07:00 KST 사이에는 취침 방해 방지를 위해 발송을 건너뜁니다.');
     return { success: true, skipped: true, reason: 'quiet_hours' };
@@ -394,6 +476,8 @@ async function triggerTenMinuteBriefing(force = false) {
   let originalTitle = '';
   let originalLink = '';
   let mediaMessageIds = [];
+  let pollInfo = null;
+  let threadInfo = null;
 
   if (article) {
     // 1. Generate 3 Capture Cards in parallel (📸 제목+사진 / 📄 제목+본문 / 📝 제목만)
@@ -405,21 +489,32 @@ async function triggerTenMinuteBriefing(force = false) {
       console.error('Failed to generate/send 3 capture cards:', imgErr.message);
     }
 
-    // 2. Generate engaging, likeable, balanced Twitter prompt (Style 1 or Style 2)
+    // 2. Generate engaging tweet + Poll + Thread in parallel
     try {
-      const issueResult = await generateHotIssueTweet(article);
+      const [issueResult, pRes, tRes] = await Promise.all([
+        generateHotIssueTweet(article).catch(() => ({ text: `오늘 "${article.title}" 소식 보는데 다들 어떻게 생각하시나요? 🤔` })),
+        generatePollTweet(article).catch(() => null),
+        generateThreadTweet(article).catch(() => null)
+      ]);
       tweetText = issueResult.text || issueResult;
+      pollInfo = pRes;
+      threadInfo = tRes;
     } catch (e) {
       const cleanTitle = (article.title || '').replace(/\[.*?\]/g, '').trim();
-      tweetText = `오늘 "${cleanTitle}" 소식 보는데...\n\n취지는 알겠지만 당장 현실에서 어떻게 풀어나갈지가 관건일 듯하네요.\n\n다들 이 이슈 어떻게 보고 계신가요? 🤔`;
+      tweetText = `오늘 "${cleanTitle}" 소식 보는데...\n\n다들 이 이슈 어떻게 보고 계신가요? 🤔`;
     }
 
     itemId = String(article.id);
     originalTitle = article.title;
     originalLink = article.link || '';
-    titleHeader = `🔥 <b>[실시간 핫이슈 트윗 멘트]</b> (${article.categoryTag || article.category || '실시간'})`;
+
+    if (article.isBreakingNews) {
+      titleHeader = `🚨 <b>[초긴급 속보 감지]</b> (${article.categoryTag || article.category || '실시간'})`;
+    } else {
+      titleHeader = `🔥 <b>[실시간 핫이슈 트윗 멘트]</b> (${article.categoryTag || article.category || '실시간'})`;
+    }
   } else {
-    // 3. No new issue or duplicates -> Generate Twitter Small Talk / Banter (엑친 소통 멘트)
+    // 3. Small Talk
     const smallTalk = await generateTwitterSmallTalk();
     tweetText = smallTalk.text;
     itemId = `smalltalk_${Date.now()}`;
@@ -433,12 +528,14 @@ async function triggerTenMinuteBriefing(force = false) {
     id: itemId,
     type: article ? 'issue' : 'smalltalk',
     originalTitle,
-    originalLink
+    originalLink,
+    pollInfo,
+    threadInfo
   });
 
   const textMessageId = sendRes.result?.message_id;
 
-  // 4. Persist in JSON Database file (telegram_queue_status.json) so IDs are NEVER lost!
+  // Persist in DB
   markAsTelegramSent(itemId, {
     text: tweetText,
     articleTitle: originalTitle || '소통 스몰톡',
@@ -447,7 +544,7 @@ async function triggerTenMinuteBriefing(force = false) {
     textMessageId
   });
 
-  // Cache in memory as well
+  // Cache in memory
   pendingPostsCache.set(itemId, {
     text: tweetText,
     id: itemId,
@@ -457,7 +554,7 @@ async function triggerTenMinuteBriefing(force = false) {
     textMessageId
   });
 
-  addLog('SUCCESS', `📱 [10분 텔레그램 발송 완료] ${titleHeader.replace(/<[^>]*>/g, '')} - "${tweetText.slice(0, 25)}..." (3종 캡처 앨범 동시 발송)`);
+  addLog('SUCCESS', `📱 [10분 텔레그램 발송 완료] ${titleHeader.replace(/<[^>]*>/g, '')} - "${tweetText.slice(0, 25)}..."`);
 
   return { 
     success: true, 
@@ -468,31 +565,18 @@ async function triggerTenMinuteBriefing(force = false) {
   };
 }
 
-/**
- * Backwards compatibility wrapper for hourly trigger
- */
 async function triggerHourlyTelegramBriefing(force = false) {
   return triggerTenMinuteBriefing(force);
 }
 
-/**
- * Initialize Telegram Service Worker
- */
 function initTelegramQueueWorker() {
   stopTelegramQueueWorker();
-
   isPollingActive = true;
   isWorkerRunning = true;
-
-  // Start Long Polling for button clicks
   pollTelegramUpdates();
-
-  addLog('SUCCESS', '🚀 [텔레그램 10분 실시간 브리핑 가동] 3종 캡처 카드 & 호감형 트윗 멘트 발송 대기 중 (07:00~23:59 운영)');
+  addLog('SUCCESS', '🚀 [텔레그램 10분 실시간 브리핑 가동] 3종 캡처 카드 & 중복 필터링 엔진 대기 중 (07:00~23:59 운영)');
 }
 
-/**
- * Stop Telegram Service Worker
- */
 function stopTelegramQueueWorker() {
   isPollingActive = false;
   isWorkerRunning = false;
@@ -509,5 +593,6 @@ module.exports = {
   isQueueActive,
   triggerTenMinuteBriefing,
   triggerHourlyTelegramBriefing,
-  isQuietHours
+  isQuietHours,
+  getGoldenHourInfo
 };

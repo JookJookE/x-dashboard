@@ -4,15 +4,15 @@ const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
 const { getConfig, saveConfig } = require('./config');
-const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, getStoredArticles, saveStoredArticles, getReadStatusMap, markAsRead, markAllAsRead, getSavedDrafts, saveSavedDraft, deleteSavedDraft } = require('./history');
+const { getHistory, getLogs, addLog, getPostingStatusMap, markPostingStatus, getStoredArticles, saveStoredArticles, getReadStatusMap, markAsRead, markAllAsRead, getSavedDrafts, saveSavedDraft, deleteSavedDraft, getStreakStats } = require('./history');
 const { fetchLatestArticles } = require('./scraper');
-const { generateSummary, generateThoughtTweet } = require('./summarizer');
+const { generateSummary, generateThoughtTweet, generatePollTweet, generateThreadTweet } = require('./summarizer');
 const { generateNewsInfographicSvg } = require('./imageGenerator');
 const { VISUAL_PRESETS, searchVisualMedia, generateVisualTweet } = require('./visualMediaService');
 const { getGitInfo, pullAndApplyUpdates, initGitAutoSync } = require('./gitAutoSync');
 const { initScheduler, generateDailyDraftsJob, getDailyDrafts } = require('./scheduler');
 const { sendTelegramMessage, sendEmailMessage, notifyNewTunnelUrl } = require('./notifier');
-const { initTelegramQueueWorker, stopTelegramQueueWorker, isQueueActive, triggerHourlyTelegramBriefing, processAndSendArticle } = require('./services/telegramQueueService');
+const { initTelegramQueueWorker, stopTelegramQueueWorker, isQueueActive, triggerHourlyTelegramBriefing, processAndSendArticle, getGoldenHourInfo } = require('./services/telegramQueueService');
 const { postTweetWithMedia, testTwitterConnection } = require('./services/xPostService');
 const { generateCardNewsImage } = require('./services/cardNewsServerService');
 
@@ -445,6 +445,49 @@ app.delete('/api/user-drafts/:id', (req, res) => {
     const drafts = deleteSavedDraft(req.params.id);
     addLog('INFO', `🗑️ 임시 보관함에서 항목이 삭제되었습니다. (남은 항목: ${drafts.length}건)`);
     res.json({ success: true, drafts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ===== 30-Day X Posting Streak Stats (포스팅 잔디밭) =====
+app.get('/api/streak-stats', (req, res) => {
+  try {
+    const stats = getStreakStats();
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ===== Twitter Realtime Golden Hour (골든타임 뱃지) =====
+app.get('/api/golden-hour', (req, res) => {
+  try {
+    const info = getGoldenHourInfo();
+    res.json({ success: true, ...info });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ===== X Poll & Thread Generators =====
+app.post('/api/generate-poll', async (req, res) => {
+  try {
+    const { article } = req.body;
+    if (!article) return res.status(400).json({ success: false, message: 'article data required' });
+    const pollResult = await generatePollTweet(article);
+    res.json({ success: true, poll: pollResult });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/generate-thread', async (req, res) => {
+  try {
+    const { article } = req.body;
+    if (!article) return res.status(400).json({ success: false, message: 'article data required' });
+    const threadResult = await generateThreadTweet(article);
+    res.json({ success: true, thread: threadResult });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

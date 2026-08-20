@@ -1681,7 +1681,10 @@ function postViaWebIntent() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ articleId: selectedArticle.id, type: 'tweet', title: selectedArticle.title, link: selectedArticle.link })
-    }).then(() => renderFilteredArticles()).catch(() => {});
+    }).then(() => {
+      renderFilteredArticles();
+      loadStreakStats();
+    }).catch(() => {});
   }
 
   const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
@@ -1711,7 +1714,10 @@ function openXArticlesComposer() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ articleId: selectedArticle.id, type: 'article', title: selectedArticle.title, link: selectedArticle.link })
-    }).then(() => renderFilteredArticles()).catch(() => {});
+    }).then(() => {
+      renderFilteredArticles();
+      loadStreakStats();
+    }).catch(() => {});
   }
 
   navigator.clipboard.writeText(text).then(() => {
@@ -3147,7 +3153,131 @@ async function triggerQueueNow() {
   }
 }
 
+// ===== 🟩 30-Day X Posting Streak (잔디 심기) =====
+async function loadStreakStats() {
+  const widget = document.getElementById('streak-tracker-widget');
+  const daysText = document.getElementById('streak-days-text');
+  const todayCountEl = document.getElementById('streak-today-count');
+  const totalCountEl = document.getElementById('streak-total-count');
+  const gridContainer = document.getElementById('streak-grid-container');
+
+  if (!gridContainer) return;
+
+  try {
+    const res = await fetch('/api/streak-stats');
+    const data = await res.json();
+    if (data.success && data.stats) {
+      const { days, currentStreak, todayCount, totalCount } = data.stats;
+
+      if (todayCountEl) todayCountEl.textContent = todayCount;
+      if (totalCountEl) totalCountEl.textContent = totalCount;
+
+      if (daysText) {
+        if (currentStreak > 0) {
+          daysText.innerHTML = `🔥 <span style="color:#22c55e;">${currentStreak}일 연속 포스팅 달성 중!</span> (꾸준함이 계정 성장의 핵심)`;
+        } else {
+          daysText.innerHTML = `🌱 <span style="color:#94a3b8;">오늘 첫 트윗을 올려 스트릭을 시작해보세요!</span>`;
+        }
+      }
+
+      gridContainer.innerHTML = '';
+      days.forEach(day => {
+        const box = document.createElement('div');
+        box.className = `streak-box level-${day.level}`;
+        box.title = `${day.date} (${day.dayName}): ${day.count}건 포스팅 완료`;
+        box.onclick = () => {
+          showToast(`📅 ${day.date} (${day.dayName}): 총 ${day.count}건 X 포스팅`);
+        };
+        gridContainer.appendChild(box);
+      });
+    }
+  } catch (e) {
+    console.error('Failed to load streak stats:', e);
+  }
+}
+
+// ===== ⏰ Golden Hour Check =====
+async function checkGoldenHourStatus() {
+  const badgeEl = document.getElementById('header-golden-hour-badge');
+  const textEl = document.getElementById('golden-hour-text');
+  if (!badgeEl || !textEl) return;
+
+  try {
+    const res = await fetch('/api/golden-hour');
+    const data = await res.json();
+    if (data.success && data.isGolden) {
+      badgeEl.style.display = 'inline-flex';
+      textEl.textContent = data.label;
+    } else {
+      badgeEl.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+// ===== 🗳️ Generate Poll for Selected Article =====
+async function generatePollForSelected() {
+  if (!selectedArticle) {
+    showToast('먼저 기사를 선택해 주세요.');
+    return;
+  }
+  showToast('🗳️ [X 공식 투표(Poll)] 질문 및 밸런스 선택지 생성 중...');
+  try {
+    const res = await fetch('/api/generate-poll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ article: selectedArticle })
+    });
+    const data = await res.json();
+    if (data.success && data.poll) {
+      const poll = data.poll;
+      let fullPollText = `${poll.tweetText}\n\n[투표 항목]\n` + poll.options.map((opt, i) => `${i + 1}️⃣ ${opt}`).join('\n');
+      
+      const tweetInput = document.getElementById('tweet-text-input');
+      if (tweetInput) {
+        tweetInput.value = fullPollText;
+        updateCharCounter();
+      }
+      showToast('🗳️ X 공식 투표용 질문과 선택지가 생성되었습니다!');
+    }
+  } catch (err) {
+    showToast('생성 실패: ' + err.message);
+  }
+}
+
+// ===== 🧵 Generate Thread for Selected Article =====
+async function generateThreadForSelected() {
+  if (!selectedArticle) {
+    showToast('먼저 기사를 선택해 주세요.');
+    return;
+  }
+  showToast('🧵 [2단 타래(스레드)] 1편 훅 + 2편 인사이트 세트 생성 중...');
+  try {
+    const res = await fetch('/api/generate-thread', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ article: selectedArticle })
+    });
+    const data = await res.json();
+    if (data.success && data.thread) {
+      const thread = data.thread;
+      const combinedText = `[1번째 트윗]\n${thread.tweet1}\n\n━━━━━━━━━━━━━━━━━━━━━\n[2번째 답글 트윗]\n${thread.tweet2}`;
+      
+      const tweetInput = document.getElementById('tweet-text-input');
+      if (tweetInput) {
+        tweetInput.value = combinedText;
+        updateCharCounter();
+      }
+      showToast('🧵 2단 스레드 세트가 성공적으로 생성되었습니다!');
+    }
+  } catch (err) {
+    showToast('생성 실패: ' + err.message);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadQueueAndXStatus();
+  loadStreakStats();
+  checkGoldenHourStatus();
+  setInterval(checkGoldenHourStatus, 60000); // Check golden hour every minute
 });
 

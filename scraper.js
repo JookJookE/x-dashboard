@@ -38,8 +38,12 @@ function extractKeywords(str) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  const stopWords = new Set(['등', '및', '관한', '위해', '하는', '있다', '했다', '속', '까지', '으로', '에서', '에게', '과', '와', '은', '는', '이', '가', '을', '를', '사연', '논란', '기사', '뉴스', '진짜']);
-  const words = cleaned.split(' ').filter(w => w.length >= 2 && !stopWords.has(w));
+  const stopWords = new Set(['등', '및', '관한', '위해', '하는', '있다', '했다', '속', '까지', '으로', '에서', '에게', '과', '와', '은', '는', '이', '가', '을', '를', '사연', '논란', '기사', '뉴스', '진짜', '단독', '화제']);
+  
+  const words = cleaned.split(' ')
+    .map(w => w.replace(/(은|는|이|가|을|를|의|과|와|에|로|으로|들|에서|에게|에는|부터|까지|하고|하며|하여|관련|뒤|본|보고)$/, '').trim())
+    .filter(w => w.length >= 2 && !stopWords.has(w));
+  
   return new Set(words);
 }
 
@@ -90,8 +94,9 @@ function isSimilarArticleTitle(title1, title2) {
   if (set1.size === 0 || set2.size === 0) return false;
 
   let intersectionCount = 0;
-  set1.forEach(w => {
-    if (set2.has(w)) intersectionCount++;
+  set1.forEach(w1 => {
+    const hasMatch = Array.from(set2).some(w2 => w1 === w2 || (w1.length >= 3 && w2.length >= 3 && (w1.includes(w2) || w2.includes(w1))));
+    if (hasMatch) intersectionCount++;
   });
 
   const minSize = Math.min(set1.size, set2.size);
@@ -99,7 +104,7 @@ function isSimilarArticleTitle(title1, title2) {
 
   const overlapRatio = intersectionCount / minSize;
 
-  if (intersectionCount >= 3 || (intersectionCount >= 2 && overlapRatio >= 0.45)) {
+  if (intersectionCount >= 3 || (intersectionCount >= 2 && overlapRatio >= 0.3)) {
     return true;
   }
   return false;

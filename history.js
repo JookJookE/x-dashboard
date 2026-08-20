@@ -307,6 +307,67 @@ function incrementTodayXPostCount() {
   return newCount;
 }
 
+function getStreakStats() {
+  const data = getDailyXPostData();
+  const history = getHistory();
+  
+  // Merge history events if daily counts file is fresh
+  history.forEach(h => {
+    if (h.type === 'tweet' && h.timestamp) {
+      const kstDate = new Date(new Date(h.timestamp).getTime() + (9 * 60 * 60 * 1000)).toISOString().split('T')[0];
+      if (!data[kstDate]) data[kstDate] = 0;
+    }
+  });
+
+  const now = new Date();
+  const kstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  
+  const days = [];
+  // Generate last 30 days
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(kstNow);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const count = data[dateStr] || 0;
+    
+    // Level: 0 (0), 1 (1-2), 2 (3-4), 3 (5+)
+    let level = 0;
+    if (count >= 5) level = 3;
+    else if (count >= 3) level = 2;
+    else if (count >= 1) level = 1;
+
+    days.push({
+      date: dateStr,
+      dayName: ['일', '월', '화', '수', '목', '금', '토'][d.getUTCDay()],
+      count,
+      level
+    });
+  }
+
+  // Calculate current streak
+  let currentStreak = 0;
+  for (let i = days.length - 1; i >= 0; i--) {
+    if (days[i].count > 0) {
+      currentStreak++;
+    } else {
+      // If today has 0 but yesterday had > 0, don't break streak yet for today
+      if (i === days.length - 1) continue;
+      break;
+    }
+  }
+
+  const todayKey = getTodayKey();
+  const todayCount = data[todayKey] || 0;
+  const totalCount = Object.values(data).reduce((a, b) => a + b, 0);
+
+  return {
+    days,
+    currentStreak,
+    todayCount,
+    totalCount
+  };
+}
+
 module.exports = {
   getHistory,
   getStoredArticles,
@@ -330,7 +391,8 @@ module.exports = {
   getNextArticleForTelegramQueue,
   getTodayXPostCount,
   incrementTodayXPostCount,
-  getTodayKey
+  getTodayKey,
+  getStreakStats
 };
 
 

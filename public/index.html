@@ -140,6 +140,10 @@
           </div>
         </div>
         <div class="header-center-wrapper">
+          <div id="header-golden-hour-badge" class="golden-hour-badge" style="display:none; margin-right:12px;" title="현재 트위터 피크 트래픽 시간대">
+            <span class="live-status-dot" style="background:#f59e0b; box-shadow:0 0 8px #f59e0b;"></span>
+            <span id="golden-hour-text" style="font-size:12px; font-weight:800; color:#fbbf24;">🔥 [골든타임: 피크 시간대]</span>
+          </div>
           <div class="live-clock-card" id="live-clock-widget" title="실시간 한국 표준시 (KST)">
             <div class="clock-icon-badge">
               <span class="live-status-dot"></span>
@@ -170,6 +174,22 @@
 
       <!-- TAB 1: Dashboard -->
       <section id="tab-dashboard" class="tab-content active">
+        <!-- 🟩 30-Day X Posting Streak (잔디 심기) & 일일 목표 트래커 -->
+        <div class="streak-tracker-card" id="streak-tracker-widget">
+          <div class="streak-header">
+            <div class="streak-title-wrap">
+              <span class="streak-icon">🔥</span>
+              <span class="streak-title" id="streak-days-text">연속 포스팅 스트릭 계산 중...</span>
+            </div>
+            <div class="streak-summary" id="streak-summary-text">
+              오늘 <b id="streak-today-count" style="color:var(--accent-cyan);">0</b>건 작성 · 30일 누적 <b id="streak-total-count" style="color:var(--accent-gold);">0</b>건
+            </div>
+          </div>
+          <div class="streak-grid-container" id="streak-grid-container">
+            <!-- 30 Days Squares dynamically injected -->
+          </div>
+        </div>
+
         <!-- Stats Bar: Dual Group Unread Status -->
         <div class="stats-grid">
           <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('tech_all')">
@@ -414,6 +434,12 @@
                   </button>
                   <button id="btn-mode-mindset" class="btn btn-outline mode-btn" onclick="setComposerMode('mindset')">
                     🧠 7. 멘탈/공감 힐링
+                  </button>
+                  <button id="btn-mode-poll" class="btn btn-outline mode-btn" style="border-color:rgba(245,158,11,0.5); color:#fbbf24;" onclick="generatePollForSelected()">
+                    🗳️ 8. X 공식 투표 (Poll)
+                  </button>
+                  <button id="btn-mode-thread" class="btn btn-outline mode-btn" style="border-color:rgba(168,85,247,0.5); color:#c084fc;" onclick="generateThreadForSelected()">
+                    🧵 9. 2단 타래 (스레드)
                   </button>
                 </div>
               </div>

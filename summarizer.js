@@ -835,10 +835,140 @@ ${NEGATIVE_PROMPT_BLOCK}
   return { text: contextualText, isAiGenerated: false };
 }
 
+
+/**
+ * 🗳️ Generate Twitter Poll Tweet (X 공식 투표용 멘트 + 선택지 2~4개)
+ */
+async function generatePollTweet(article) {
+  const config = getConfig();
+  const apiKey = config.geminiApiKey;
+
+  if (apiKey) {
+    const promptText = `
+당신은 X(트위터)에서 수많은 유저들의 참여를 유도하는 투표(Poll) 기획 전문가입니다.
+아래 기사/사연을 바탕으로, 타임라인 사람들이 **"참지 못하고 1초 만에 클릭(투표)하게 만드는 밸런스 투표 트윗"**을 작성하세요.
+
+[뉴스 원본]:
+- 제목: ${article.title}
+- 내용: ${article.contentSnippet || article.excerpt}
+
+📌 [작성 규칙]:
+1. [본문 1~2줄]: 상황 맥락을 가볍게 짚고 투표 질문을 던지세요.
+2. [선택지 2~3개]: 사람들이 팽팽하게 갈릴 만한 매력적이고 솔직한 선택지 2~3개를 작성하세요. (각 선택지는 15자 이내)
+3. 출력 형식은 반드시 아래 JSON 형식으로만 출력하세요:
+{
+  "tweetText": "이번 이슈 보는데 다들 생각이 궁금하네요... 당신의 선택은? 👇",
+  "options": ["1. 충분히 납득된다", "2. 선 넘었다"]
+}
+${NEGATIVE_PROMPT_BLOCK}
+`;
+
+    for (const modelName of GEMINI_MODELS_POOL) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await axios.post(
+          url,
+          { contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.8 } },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 7000 }
+        );
+
+        let raw = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (raw) {
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.tweetText && Array.isArray(parsed.options) && parsed.options.length >= 2) {
+              return {
+                tweetText: parsed.tweetText.trim(),
+                options: parsed.options.slice(0, 4),
+                isAiGenerated: true
+              };
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Heuristic Poll Fallback
+  const cleanTitle = (article.title || '').replace(/\[.*?\]/g, '').trim();
+  return {
+    tweetText: `오늘 "${cleanTitle}" 소식 보는데 의견이 꽤 팽팽하네요...\n\n다들 어느 쪽에 더 공감이 가시나요? 투표 한번 해봅시다 👇`,
+    options: ['1. 충분히 이해된다', '2. 현실성 없다 / 선 넘음'],
+    isAiGenerated: false
+  };
+}
+
+/**
+ * 🧵 Generate 2-Step Thread Tweet (2단 타래: 1편 훅 + 2편 반전/인사이트)
+ */
+async function generateThreadTweet(article) {
+  const config = getConfig();
+  const apiKey = config.geminiApiKey;
+
+  if (apiKey) {
+    const promptText = `
+당신은 X(트위터)에서 수천 개의 리트윗과 북마크를 모으는 스레드(타래) 전문 크리에이터입니다.
+아래 기사를 바탕으로, 읽자마자 다음 트윗을 보게 만드는 **'2단 스레드(타래)'**를 작성하세요.
+
+[뉴스 원본]:
+- 제목: ${article.title}
+- 내용: ${article.contentSnippet || article.excerpt}
+
+📌 [작성 규칙]:
+1. [1번째 트윗 (1/2)]: 호기심을 극대화하는 강력한 1줄 훅 + 핵심 상황 요약 (끝에 🧵 1/2 표시)
+2. [2번째 트윗 (2/2)]: 대중이 놓친 구조적 팩트/반전 결론/인사이트 + 생각거리 질문 (끝에 2/2 표시)
+3. 출력 형식은 반드시 아래 JSON 형식으로만 출력하세요:
+{
+  "tweet1": "1번째 트윗 본문 🧵 (1/2)",
+  "tweet2": "2번째 트윗 본문 (2/2)"
+}
+${NEGATIVE_PROMPT_BLOCK}
+`;
+
+    for (const modelName of GEMINI_MODELS_POOL) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await axios.post(
+          url,
+          { contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.8 } },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 7000 }
+        );
+
+        let raw = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (raw) {
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.tweet1 && parsed.tweet2) {
+              return {
+                tweet1: parsed.tweet1.trim(),
+                tweet2: parsed.tweet2.trim(),
+                isAiGenerated: true
+              };
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Heuristic Thread Fallback
+  const cleanTitle = (article.title || '').replace(/\[.*?\]/g, '').trim();
+  return {
+    tweet1: `다들 겉으로 보이는 것만 보는데, 이번 "${cleanTitle}" 이슈의 진짜 본질은 따로 있음 🧵 (1/2)`,
+    tweet2: `결국 판을 바꾸는 건 요란한 소리가 아니라 실질적인 인프라와 자본의 흐름임.\n\n다들 이번 사안 어떻게 보고 계신가요? (2/2)`,
+    isAiGenerated: false
+  };
+}
+
 module.exports = {
   generateSummary,
   generateThoughtTweet,
   generateTwitterSmallTalk,
   generateHotIssueTweet,
-  generateSmartHeuristicIssueTweet
+  generateSmartHeuristicIssueTweet,
+  generatePollTweet,
+  generateThreadTweet
 };
+
