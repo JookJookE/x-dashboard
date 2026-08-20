@@ -64,6 +64,11 @@
 
 ## 📅 6. 버전 변경 이력 (Changelog)
 
+### v3.9.4 (2026-08-20) - 🤖 Gemini 최신 9종 모델 풀(`GEMINI_MODELS_POOL`) 전체 AI 함수 일원화
+- 🚀 **공통 모델 풀 통합 (`summarizer.js`, `visualMediaService.js`)**:
+  - `generateSummary`, `generateThoughtTweet`, `generateTwitterSmallTalk`, `generateHotIssueTweet` 등 모든 AI 트윗 생성 함수가 `gemini-flash-latest`부터 `gemini-3.6-flash`까지 **최신 9종 모델 풀**을 완벽하게 공유하도록 일원화.
+  - 특정 모델 Quota 소진/지연 시 자동으로 9개 모델을 순차 순회하여 무중단 AI 생성 보장.
+
 ### v3.9.3 (2026-08-20) - 🧠 카테고리/키워드 인식형 지능형 핫이슈 문맥 맞춤 엔진 탑재 & 동일 문구 반복 완전 해결
 - 🎯 **카테고리/키워드 인식 엔진 (`generateSmartHeuristicIssueTweet`)**:
   - 연예/가십/금수저/태세전환, 사건/사고/사회, 경제/주식/코인, 테크/AI, 정책/정부 등 기사 본문과 제목의 핵심 키워드를 정밀 분석.

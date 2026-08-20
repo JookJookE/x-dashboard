@@ -3,6 +3,19 @@ const { getConfig } = require('./config');
 const { addLog } = require('./history');
 
 // ✅ 공통 금지어 Negative Prompt Block - 모든 트윗 생성 시 주입
+// 🚀 최신 Gemini 모델 순차 시도 풀 (9종)
+const GEMINI_MODELS_POOL = [
+  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-3.5-flash',
+  'gemini-3.6-flash'
+];
+
 const NEGATIVE_PROMPT_BLOCK = `
 
 🚫 [절대 사용 금지 - 위반 시 즉시 재생성]:
@@ -53,7 +66,7 @@ async function generateSummary(article, mode = 'block') {
 ⚠️ [리얼 리액션 작성 규칙]:
 1. 🚨[분량 절대 준수]🚨: 무조건 1~2줄! 절대 3줄 이상 길게 쓰지 마세요.
 2. AI 로봇 같은 느낌이 0.1%도 안 나게, 진짜 사람이 방금 폰으로 쓴 것처럼 자연스러운 한마디를 던지세요.
-   - 예시 1: "와 이건 좀 소름 돋는다 ㅋㅋㅋ 설마 했는데 진짜 이렇게 나온다고? 판도 완전히 뒤집힐 듯.."
+   - 예시 1: "와 이건 좀 소름 돋는다... 설마 했는데 진짜 이렇게 나온다고? 판도 완전히 뒤집힐 듯.."
    - 예시 2: "이거 실시간으로 보는데 뇌정지 옴.. 생각보다 스케일 훨씬 심각한데? 말이 안 나온다 진짜"
 3. "실화냐", "ㄷㄷ" 같은 뻔한 단어는 피하고, 다채로운 자연스러운 반응(소름, 대박, 뇌정지, 헛웃음 등)을 쓰세요.
 4. 오직 완성된 1~2줄 트윗 문구만 출력하세요.
@@ -100,7 +113,7 @@ async function generateSummary(article, mode = 'block') {
    - "결론부터 박고 시작함", "요약하자면" 같은 천편일률적 봇 말투 절대 사용 금지!
    - 오직 완성된 트윗 문구만 출력하세요.
 `;
-} else if (mode === 'mindset') {
+    } else if (mode === 'mindset') {
       promptText = `
 당신은 X(트위터)에서 뼈를 때리는 현실적 위로와 멘탈 관리 글로 수많은 북마크를 모으는 멘토입니다.
 아래 기사/사연을 계기로, 현대인들의 머리를 맑게 해주는 단단한 '멘탈 통찰 트윗'을 작성하세요.
@@ -158,17 +171,7 @@ async function generateSummary(article, mode = 'block') {
 `;
     }
 
-    const modelsToTry = [
-      'gemini-flash-latest',
-      'gemini-flash-lite-latest',
-      'gemini-3.5-flash-lite',
-      'gemini-3.1-flash-lite',
-      'gemini-3-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-2.5-flash',
-      'gemini-3.5-flash',
-      'gemini-3.6-flash'
-    ];
+    const modelsToTry = GEMINI_MODELS_POOL;
     let generatedText = null;
     let lastError = null;
 
@@ -203,7 +206,7 @@ async function generateSummary(article, mode = 'block') {
     let summaryText = generatedText.trim();
     // Strip trailing hashtag lines and #/$ hashtags from main text
     summaryText = summaryText.replace(/(?:^|\n)\s*[#$][\w가-힣\s#$]+/g, '').replace(/#[^\s#]+/g, '').trim();
-    
+
     addLog('SUCCESS', `[${article.categoryTag || article.category}] Gemini AI 한글 트윗 생성 완료 (${summaryText.length}자)`);
     const extra = generateHooksAndTags(article, summaryText);
     return { text: summaryText, hooks: extra.hooks, tags: extra.tags, isAiGenerated: true, mode };
@@ -537,14 +540,7 @@ ${stylePrompt}
 4. 완성된 트윗 본문만 출력하세요. (설명이나 따옴표 금지)
 `;
 
-    const modelsToTry = [
-      'gemini-flash-latest',
-      'gemini-flash-lite-latest',
-      'gemini-2.5-flash-lite',
-      'gemini-3.1-flash-lite',
-      'gemini-3-flash',
-      'gemini-2.5-flash'
-    ];
+    const modelsToTry = GEMINI_MODELS_POOL;
     let summaryText = null;
 
     for (const modelName of modelsToTry) {
@@ -642,7 +638,7 @@ async function generateTwitterSmallTalk() {
 ${NEGATIVE_PROMPT_BLOCK}
 `;
 
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    const modelsToTry = GEMINI_MODELS_POOL;
 
     for (const modelName of modelsToTry) {
       try {
@@ -695,10 +691,10 @@ function generateSmartHeuristicIssueTweet(article) {
 
   // 1. Entertainment / Gossip / Celebrity / Gold Spoon / Controversy
   if (textToAnalyze.includes('하영') || textToAnalyze.includes('금수저') || textToAnalyze.includes('태세전환') ||
-      textToAnalyze.includes('연예') || textToAnalyze.includes('가십') || textToAnalyze.includes('아이돌') ||
-      textToAnalyze.includes('배우') || textToAnalyze.includes('드라마') || textToAnalyze.includes('열애') ||
-      textToAnalyze.includes('폭로') || textToAnalyze.includes('선망') || textToAnalyze.includes('기득권')) {
-    
+    textToAnalyze.includes('연예') || textToAnalyze.includes('가십') || textToAnalyze.includes('아이돌') ||
+    textToAnalyze.includes('배우') || textToAnalyze.includes('드라마') || textToAnalyze.includes('열애') ||
+    textToAnalyze.includes('폭로') || textToAnalyze.includes('선망') || textToAnalyze.includes('기득권')) {
+
     const templates = [
       `오늘 "${rawTitle}" 소식 보는데...\n\n겉으로는 다들 공정과 정의를 외치다가도, 정작 뒤에서는 선망하고 태세전환하는 반응들 보면 참 씁쓸하면서도 현실적이네.\n\n엑친들은 이 현상 어떻게 보고 계신가요? 🤔`,
       `이번 "${rawTitle}" 이야기 나오는 거 보는데...\n\n남의 일에 쉽게 말 얹다가도 본인 일 되면 다들 달라지는 게 인간 심리인 듯 ㅋㅋㅋ\n\n남들 시선 신경 쓰지 말고 내 중심 잡는 게 제일 중요한 것 같음 🔥`,
@@ -710,9 +706,9 @@ function generateSmartHeuristicIssueTweet(article) {
 
   // 2. Crime / Accident / Social Issues
   if (textToAnalyze.includes('사건') || textToAnalyze.includes('사고') || textToAnalyze.includes('논란') ||
-      textToAnalyze.includes('경찰') || textToAnalyze.includes('음주') || textToAnalyze.includes('피해') ||
-      textToAnalyze.includes('재판') || textToAnalyze.includes('법원') || textToAnalyze.includes('의혹')) {
-    
+    textToAnalyze.includes('경찰') || textToAnalyze.includes('음주') || textToAnalyze.includes('피해') ||
+    textToAnalyze.includes('재판') || textToAnalyze.includes('법원') || textToAnalyze.includes('의혹')) {
+
     const templates = [
       `오늘 "${rawTitle}" 소식 보는데...\n\n단순히 한쪽 말만 듣기보다는 사실관계와 전후 사정이 명확히 밝혀져야 할 사안인 듯하네요.\n\n다들 이 상황 어떻게 결론 날 것 같나요? 🤔`,
       `이번 "${rawTitle}" 기사 보는데...\n\n진짜 상식 밖의 일들이 매일 터지니까 남일 같지가 않아서 답답하네..\n\n다들 오늘도 안전하고 무탈한 하루 보내시길 바랍니다 🙏`,
@@ -723,9 +719,9 @@ function generateSmartHeuristicIssueTweet(article) {
 
   // 3. Economy / Stock / Coin / Real Estate
   if (textToAnalyze.includes('주식') || textToAnalyze.includes('코인') || textToAnalyze.includes('비트코인') ||
-      textToAnalyze.includes('금리') || textToAnalyze.includes('환율') || textToAnalyze.includes('증시') ||
-      textToAnalyze.includes('부동산') || textToAnalyze.includes('투자') || textToAnalyze.includes('상승') || textToAnalyze.includes('폭락')) {
-    
+    textToAnalyze.includes('금리') || textToAnalyze.includes('환율') || textToAnalyze.includes('증시') ||
+    textToAnalyze.includes('부동산') || textToAnalyze.includes('투자') || textToAnalyze.includes('상승') || textToAnalyze.includes('폭락')) {
+
     const templates = [
       `오늘 "${rawTitle}" 흐름 보는데...\n\n단기적인 흔들림인지, 아니면 시장의 구조적인 변곡점인지 유심히 지켜볼 필요가 있겠네요.\n\n엑친들 포트폴리오는 다들 방어 잘하고 계신가요? 📈`,
       `이번 "${rawTitle}" 뉴스 보는데...\n\n시장 분위기 롤러코스터 타는 거 보면 멘탈 잡는 게 수익률보다 더 어려운 듯 ㅋㅋㅋ\n\n다들 뇌동매매 하지 말고 원칙 지킵시다 🔥`,
@@ -736,9 +732,9 @@ function generateSmartHeuristicIssueTweet(article) {
 
   // 4. Tech / AI / Semiconductor / Big Tech
   if (textToAnalyze.includes('ai') || textToAnalyze.includes('인공지능') || textToAnalyze.includes('반도체') ||
-      textToAnalyze.includes('엔비디아') || textToAnalyze.includes('애플') || textToAnalyze.includes('오픈ai') ||
-      textToAnalyze.includes('로봇') || textToAnalyze.includes('테크') || textToAnalyze.includes('피지컬')) {
-    
+    textToAnalyze.includes('엔비디아') || textToAnalyze.includes('애플') || textToAnalyze.includes('오픈ai') ||
+    textToAnalyze.includes('로봇') || textToAnalyze.includes('테크') || textToAnalyze.includes('피지컬')) {
+
     const templates = [
       `오늘 "${rawTitle}" 발표 소식 보는데...\n\n기술적인 방향성과 비전은 좋아 보이지만, 당장 현장 인프라와 인재 확보가 얼마나 뒷받침될지가 관건일 듯하네요.\n\n다들 한국 테크/AI의 실제 경쟁력 어떻게 보시나요? ⚡`,
       `이번 "${rawTitle}" 소식 보는데...\n\n기술 발전 속도가 너무 빨라서 현업에서도 체감하기 벅찰 정도임 ㅋㅋㅋ\n\n그래도 이 흐름 속에서 누가 진짜 실속을 챙길지는 계속 주시해야겠네 🚀`,
@@ -749,9 +745,9 @@ function generateSmartHeuristicIssueTweet(article) {
 
   // 5. Government / Policy / Administration
   if (textToAnalyze.includes('정부') || textToAnalyze.includes('부총리') || textToAnalyze.includes('대통령') ||
-      textToAnalyze.includes('국회') || textToAnalyze.includes('법안') || textToAnalyze.includes('정책') ||
-      textToAnalyze.includes('지원') || textToAnalyze.includes('규제')) {
-    
+    textToAnalyze.includes('국회') || textToAnalyze.includes('법안') || textToAnalyze.includes('정책') ||
+    textToAnalyze.includes('지원') || textToAnalyze.includes('규제')) {
+
     const templates = [
       `오늘 "${rawTitle}" 관련 발표 보는데...\n\n정책적 취지는 이해하지만, 실제 현장과 실무에서 겪는 현실적인 괴리를 얼마나 좁힐지가 핵심일 듯하네요.\n\n다들 이번 정책 실효성에 대해 어떻게 생각하시나요? 🤔`,
       `이번 "${rawTitle}" 소식 보는데...\n\n계획은 항상 거창한데 막상 실무에서 적용하려면 손이 많이 갈 것 같은 느낌 ㅋㅋㅋ\n\n그래도 긍정적인 변화로 이어지길 기대해 봅니다 💪`
@@ -810,7 +806,7 @@ async function generateHotIssueTweet(article) {
 ${NEGATIVE_PROMPT_BLOCK}
 `;
 
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    const modelsToTry = GEMINI_MODELS_POOL;
 
     for (const modelName of modelsToTry) {
       try {
