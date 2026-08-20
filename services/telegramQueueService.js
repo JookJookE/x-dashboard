@@ -9,7 +9,7 @@ const {
   markPostingStatus,
   addLog 
 } = require('../history');
-const { generateSummary, generateTwitterSmallTalk } = require('../summarizer');
+const { generateSummary, generateTwitterSmallTalk, generateHotIssueTweet } = require('../summarizer');
 
 let pollingInterval = null;
 let lastUpdateId = 0;
@@ -253,15 +253,13 @@ async function triggerTenMinuteBriefing(force = false) {
   let originalLink = '';
 
   if (article) {
-    // 1. Real-time Issue Found -> Generate high-engagement Twitter prompt
-    const modes = ['spicy', 'reaction', 'story', 'hybrid'];
-    const chosenMode = modes[Math.floor(Math.random() * modes.length)];
-
+    // 1. Real-time Issue Found -> Generate engaging, likeable, balanced Twitter prompt (Style 1 or Style 2)
     try {
-      const summaryResult = await generateSummary(article, chosenMode);
-      tweetText = summaryResult.text || summaryResult;
+      const issueResult = await generateHotIssueTweet(article);
+      tweetText = issueResult.text || issueResult;
     } catch (e) {
-      tweetText = `와 이건 진짜 이슈네.. 실시간으로 터진 건데 다들 어떻게 봄?\n\n"${article.title}"`;
+      const cleanTitle = (article.title || '').replace(/\[.*?\]/g, '').trim();
+      tweetText = `오늘 "${cleanTitle}" 소식 보는데...\n\n취지는 알겠지만 당장 현실에서 어떻게 풀어나갈지가 관건일 듯하네요.\n\n다들 이 이슈 어떻게 보고 계신가요? 🤔`;
     }
 
     itemId = String(article.id);

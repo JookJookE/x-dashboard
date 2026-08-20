@@ -665,7 +665,7 @@ ${NEGATIVE_PROMPT_BLOCK}
     }
   }
 
-  // Fallback templates
+  // Fallback templates for small talk
   const fallbackList = [
     '야 엑친들아 솔직히 평생 치킨 끊기 vs 평생 라면 끊기 뭐 고름? 난 전자 절대 못함..',
     '다들 오늘 점심 뭐 먹을 거임? 메뉴 정하는 게 하루 중 제일 고난도 미션이다 진짜',
@@ -682,8 +682,81 @@ ${NEGATIVE_PROMPT_BLOCK}
   return { text: fallbackText, isAiGenerated: false, topic: selectedTopic.type };
 }
 
+/**
+ * 🔥 Generate engaging, likeable, balanced real-time issue tweet (호감형 실시간 핫이슈 트윗)
+ * Auto-selects Style 1 (Balanced Realistic View & Question) or Style 2 (Witty Relatable Humor)
+ */
+async function generateHotIssueTweet(article) {
+  const config = getConfig();
+  const apiKey = config.geminiApiKey;
+
+  if (apiKey) {
+    const promptText = `
+당신은 X(트위터)에서 수만 명의 팔로워를 보유하고 있으며, 균형 잡힌 시각과 위트 있는 소통으로 큰 호감을 얻고 있는 인기 오피니언 트위터리안입니다.
+아래 기사/이슈를 읽고, 타임라인 사람들이 **"무슨 일인지 바로 이해하고, 공감해서 답글(멘션)과 리트윗을 누를 수밖에 없는 호감형 트윗"**을 한글로 작성하세요.
+
+[뉴스/사연 원본]:
+- 제목: ${article.title}
+- 본문 요약: ${article.contentSnippet || article.excerpt}
+
+━━━━━━━━━━━━━━━━━━━━━
+🎯 [스타일 자동 판단 가이드]:
+기사의 성격에 따라 아래 [스타일 1]과 [스타일 2] 중 가장 자연스럽고 반응이 좋을 스타일 하나를 스스로 선택하여 작성하세요.
+
+💡 [스타일 1: 현실 관전평 & 밸런스 질문형] (사회/경제/정책/테크/토론 이슈에 적합)
+- 1줄: 무슨 상황인지 타임라인 독자가 바로 알 수 있게 가벼운 맥락 한 줄 (예: "오늘 [기관/인물]에서 [주제] 관련 발표/소식이 나왔는데...")
+- 2줄: 막무가내 비난이나 무조건적 찬양 대신, 현실적인 관전 포인트나 솔직한 생각 1~2줄 (예: "이론상으론 좋아 보이지만 당장 현장 인프라나 실효성이 받쳐줄지가 관건인 듯")
+- 3줄: 엑친들에게 투표/질문을 던져 답글 유도 (예: "다들 어떻게 보시나요? [A]다 vs [B]다", "엑친들 체감은 어떤지 궁금하네 🤔")
+
+☕ [스타일 2: 위트 있는 현실 공감형] (가십/연예/직장/사건/생활 이슈에 적합)
+- 1줄: 화제의 사건/현상을 알기 쉽게 1줄로 짚어줌 (예: "이번에 [사건/현상] 논란 터진 거 보는데...")
+- 2줄: 선 넘는 욕설 대신, 누구나 겪는 일상/사회생활에 빗대어 피식 웃음과 공감을 주는 솔직한 한마디 (예: "이상은 거창한데 현실은 매일 수습하기 바쁜 우리네 일상 보는 기분임 ㅋㅋㅋ")
+- 3줄: 훈훈하고 위트 있는 공감 마무리 (예: "남일 같지가 않아서 괜히 짠하네.. 다들 오늘 하루도 힘내자 🔥")
+
+━━━━━━━━━━━━━━━━━━━━━
+⚠️ [절대 지켜야 할 필수 규칙 - 위반 시 무효]:
+1. 🚨[극단적 비하/욕설/선 넘는 혐오 표현 100% 금지]🚨
+   - "구상장애", "개뿔", "ㅉㅉ", "탈조선", "헛소리", "망했다" 등 저급하거나 공격적인 단어 절대 금지!
+2. 🚨[맥락(무슨 일인지) 반드시 1줄 포함]🚨
+   - 혼자만 아는 이야기처럼 쓰지 말고, 독자가 1초 만에 배경을 이해할 수 있게 첫 머리에 상황을 자연스럽게 요약하세요.
+3. [분량]: 2~4줄 이내로 깔끔하게.
+4. 오직 완성된 트윗 본문만 출력하세요.
+${NEGATIVE_PROMPT_BLOCK}
+`;
+
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await axios.post(
+          url,
+          { contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.8 } },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 7000 }
+        );
+
+        let text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text && text.length > 10) {
+          text = text.replace(/(?:^|\n)\s*[#$][\w가-힣\s#$]+/g, '').replace(/#[^\s#]+/g, '').trim();
+          addLog('SUCCESS', `🔥 [호감형 핫이슈 트윗 AI 생성 완료] ${text.slice(0, 30)}...`);
+          return { text, isAiGenerated: true };
+        }
+      } catch (e) {
+        // try next
+      }
+    }
+  }
+
+  // Fallback
+  const cleanTitle = (article.title || '').replace(/\[.*?\]/g, '').trim();
+  const fallbackText = `오늘 "${cleanTitle}" 소식 보는데...\n\n취지는 알겠지만 당장 현실에서 어떻게 풀어나갈지가 관건일 듯하네요.\n\n다들 이 이슈 어떻게 보고 계신가요? 🤔`;
+  addLog('INFO', `🔥 [호감형 핫이슈 트윗 템플릿 사용] ${fallbackText.slice(0, 30)}...`);
+  return { text: fallbackText, isAiGenerated: false };
+}
+
 module.exports = {
   generateSummary,
   generateThoughtTweet,
-  generateTwitterSmallTalk
+  generateTwitterSmallTalk,
+  generateHotIssueTweet
 };
