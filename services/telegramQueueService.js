@@ -182,12 +182,21 @@ async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, origi
     ]
   };
 
-  // 1. Thread Options (1편 올리기 + 2편 복사하기)
+  // 1. Thread 1-Click Bridge Option (1편 자동입력 + 2편 클립보드 자동복사)
   if (threadInfo?.tweet1) {
-    const threadIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(threadInfo.tweet1)}`;
+    let threadBridgeUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(threadInfo.tweet1)}`;
+    try {
+      const { getGlobalPublicUrl } = require('../server');
+      if (getGlobalPublicUrl) {
+        const pubUrl = getGlobalPublicUrl();
+        if (pubUrl && !pubUrl.includes('localhost')) {
+          threadBridgeUrl = `${pubUrl}/bridge/thread?id=${encodeURIComponent(id)}`;
+        }
+      }
+    } catch (e) {}
+
     inlineKeyboard.inline_keyboard.push([
-      { text: '🧵 스레드 1편 올리기 ↗', url: threadIntentUrl },
-      { text: '📋 스레드 2편 복사하기', callback_data: `copy_t2:${id}` }
+      { text: '🧵 2단 스레드로 올리기 (1번입력+2번복사) ↗', url: threadBridgeUrl }
     ]);
   }
 

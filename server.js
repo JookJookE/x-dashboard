@@ -482,14 +482,126 @@ app.post('/api/generate-poll', async (req, res) => {
   }
 });
 
-app.post('/api/generate-thread', async (req, res) => {
+let globalPublicUrl = `http://${LOCAL_WIFI_IP}:${PORT}`;
+
+function setGlobalPublicUrl(url) {
+  if (url) globalPublicUrl = url;
+}
+
+function getGlobalPublicUrl() {
+  return globalPublicUrl;
+}
+
+// ===== 🧵 1-Click Thread Bridge Page (스마트폰 2번 글 자동 복사 & 1번 글 작성창 리다이렉트) =====
+app.get('/bridge/thread', async (req, res) => {
   try {
-    const { article } = req.body;
-    if (!article) return res.status(400).json({ success: false, message: 'article data required' });
-    const threadResult = await generateThreadTweet(article);
-    res.json({ success: true, thread: threadResult });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    const { id } = req.query;
+    let tweet1 = '';
+    let tweet2 = '';
+
+    if (id) {
+      const { getTelegramQueueMap } = require('./history');
+      const queueMap = getTelegramQueueMap();
+      const item = queueMap[id];
+      if (item?.threadInfo?.tweet1 && item?.threadInfo?.tweet2) {
+        tweet1 = item.threadInfo.tweet1;
+        tweet2 = item.threadInfo.tweet2;
+      }
+    }
+
+    if (!tweet1 || !tweet2) {
+      tweet1 = '다들 이번 이슈 어떻게 보고 계신가요? 🧵 (1/2)';
+      tweet2 = '자세한 내용과 생각거리는 타래에서 이어집니다. (2/2)';
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧵 𝕏 2단 스레드 올리기</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 28px 24px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(255,255,255,0.15);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 18px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .msg { font-size: 17px; font-weight: 800; color: #38bdf8; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: #94a3b8; line-height: 1.5; }
+    .btn-manual {
+      margin-top: 20px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <div class="msg">📋 2번 글을 클립보드에 복사 완료!</div>
+    <div class="sub">1번 글이 채워진 𝕏 작성창으로 이동합니다.<br>게시 후 <b>[답글]</b>에 바로 붙여넣기(Ctrl+V) 하세요!</div>
+    <a id="x-link" href="#" class="btn-manual" style="display:none;">🚀 𝕏 작성창으로 바로 이동</a>
+  </div>
+  <script>
+    const tweet1 = ${JSON.stringify(tweet1)};
+    const tweet2 = ${JSON.stringify(tweet2)};
+    const targetUrl = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(tweet1);
+
+    // 1. Copy part 2 to clipboard
+    if (navigator.clipboard && tweet2) {
+      navigator.clipboard.writeText(tweet2).catch(() => {});
+    }
+
+    const linkEl = document.getElementById('x-link');
+    if (linkEl) linkEl.href = targetUrl;
+
+    // 2. Redirect to X Intent
+    setTimeout(() => {
+      window.location.href = targetUrl;
+    }, 400);
+  </script>
+</body>
+</html>`;
+
+    res.send(html);
+  } catch (e) {
+    res.status(500).send('오류 발생: ' + e.message);
   }
 });
 
@@ -523,6 +635,7 @@ function startCloudflareTunnel() {
       if (match && !tunnelUrlFound && !fallbackTriggered) {
         tunnelUrlFound = true;
         const tunnelUrl = match[0];
+        setGlobalPublicUrl(tunnelUrl);
         console.log(`\n=======================================================`);
         console.log(`🌐 외부(LTE/5G/스마트폰) 접속 주소:`);
         console.log(`👉 ${tunnelUrl}`);
@@ -554,6 +667,7 @@ function startLocaltunnelFallback() {
     if (match && !urlFound) {
       urlFound = true;
       const tunnelUrl = match[0];
+      setGlobalPublicUrl(tunnelUrl);
       console.log(`\n=======================================================`);
       console.log(`🌐 백업 터널(LTE/스마트폰) 접속 주소 [Localtunnel]:`);
       console.log(`👉 ${tunnelUrl}`);
@@ -1088,5 +1202,11 @@ const startServer = (port, retries = 5) => {
 };
 
 startServer(PORT);
+
+module.exports = {
+  app,
+  getGlobalPublicUrl,
+  setGlobalPublicUrl
+};
 
 
