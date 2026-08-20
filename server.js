@@ -168,6 +168,16 @@ app.post('/api/mark-read', (req, res) => {
   }
 });
 
+app.post('/api/telegram/trigger-briefing', async (req, res) => {
+  try {
+    const { triggerTenMinuteBriefing } = require('./services/telegramQueueService');
+    const result = await triggerTenMinuteBriefing(true); // force=true for manual dashboard test
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.post('/api/mark-all-read', (req, res) => {
   try {
     const articles = getStoredArticles();

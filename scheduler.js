@@ -29,32 +29,37 @@ function saveDailyDrafts(drafts) {
   }
 }
 
+let cronJobTenMin = null;
+
 function initScheduler() {
   if (cronJobHourly) cronJobHourly.stop();
+  if (cronJobTenMin) cronJobTenMin.stop();
 
-  // Every 1 Hour Check (매시간 정각마다 신규 뉴스 자동 감지 및 DB 보관 + 텔레그램 핵심 5개 브리핑)
+  // 1. Every 1 Hour Check (매시간 정각마다 신규 뉴스 자동 수집 및 DB 보관)
   cronJobHourly = cron.schedule('0 * * * *', async () => {
-    addLog('INFO', '⏰ [1시간 주기 정각 감지] 신규 뉴스 탐지 중...');
+    addLog('INFO', '⏰ [1시간 주기 정각 감지] 신규 뉴스 탐지 및 DB 보관 중...');
     try {
       const articles = await fetchLatestArticles(30);
       addLog('SUCCESS', `⏰ [1시간 주기 정각 감지] 총 ${articles.length}건의 최신 뉴스를 DB에 성공적으로 보관했습니다.`);
-
-      // 📱 Trigger Telegram Hourly Briefing (Top 5 Diverse Articles)
-      const config = getConfig();
-      if (config.telegramQueueEnabled) {
-        try {
-          const { triggerHourlyTelegramBriefing } = require('./services/telegramQueueService');
-          await triggerHourlyTelegramBriefing(false);
-        } catch (teleErr) {
-          addLog('ERROR', `텔레그램 정각 브리핑 실패: ${teleErr.message}`);
-        }
-      }
     } catch (e) {
       addLog('ERROR', `정각 뉴스 수집 실패: ${e.message}`);
     }
   });
 
-  addLog('INFO', '⏰ 스케줄러 활성화: 매시간 정각 최신 뉴스 수집 & 텔레그램 핵심 5개 브리핑 연동 중');
+  // 2. Every 10 Minutes Check (매 10분마다 실시간 핫이슈 or 엑친 스몰톡 1건 텔레그램 브리핑)
+  cronJobTenMin = cron.schedule('*/10 * * * *', async () => {
+    const config = getConfig();
+    if (config.telegramQueueEnabled) {
+      try {
+        const { triggerTenMinuteBriefing } = require('./services/telegramQueueService');
+        await triggerTenMinuteBriefing(false);
+      } catch (teleErr) {
+        addLog('ERROR', `텔레그램 10분 브리핑 실패: ${teleErr.message}`);
+      }
+    }
+  });
+
+  addLog('INFO', '⏰ 스케줄러 활성화: [정각: 뉴스 DB 수집] & [10분: 텔레그램 실시간 핫이슈/스몰톡 1건 발송]');
 }
 
 async function checkAndGenerateNewDrafts(targetCount = 5) {

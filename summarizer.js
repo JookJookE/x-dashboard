@@ -608,7 +608,82 @@ ${stylePrompt}
   }
 }
 
+/**
+ * 💬 Generate engaging Twitter small talk / casual question / banter for followers (엑친 소통 멘트)
+ */
+async function generateTwitterSmallTalk() {
+  const config = getConfig();
+  const apiKey = config.geminiApiKey;
+
+  const topics = [
+    { type: 'food', prompt: '점심이나 저녁, 야식 메뉴, 커피/디저트 취향에 대해 엑친들에게 툭 던지며 추천이나 투표를 유도하는 침샘 자극/결정장애 스몰톡 트윗' },
+    { type: 'workplace', prompt: '직장 생활, 월요병/퇴근, 회의/업무 번아웃, 사회생활 현실에 대해 직장인 엑친들이 폭풍 공감하고 리트윗할 1~2줄 사이다/유머 트윗' },
+    { type: 'balance_game', prompt: '엑친들 사이에서 열띤 토론과 인용(Quote)이 폭발할 만한 재미있고 사소한 밸런스 게임 질문 (예: 평생 탄산 끊기 vs 평생 라면 끊기 등)' },
+    { type: 'curiosity', prompt: '다들 요즘 뭐하고 사는지, 최근 꽂힌 음악/드라마/취미/소비 꿀템이 뭔지 엑친들에게 편하게 물어보는 다정한 소통 트윗' },
+    { type: 'relatable', prompt: '주말/계절/날씨/기분 변화나 침대에 누워 폰 보다가 문득 든 현실 자각 타임(현타) 또는 인간관계 꿀팁 공감 뻘글' },
+    { type: 'humor', prompt: '트위터(X) 특유의 피식 웃게 만드는 날것의 자조적 유머나 혼잣말 뻘글' }
+  ];
+
+  const selectedTopic = topics[Math.floor(Math.random() * topics.length)];
+
+  if (apiKey) {
+    const promptText = `
+당신은 X(트위터)에서 수만 명의 팔로워(엑친들)와 편하게 반말이나 친근한 어투로 소통하는 인기 트위터리안입니다.
+지금 타임라인에 뜬금없이 툭 던져서 엑친들의 답글(멘션)과 인용(Quote)이 폭발할 '엑친 소통/스몰톡 트윗'을 한글로 작성하세요.
+
+[이번 트윗 테마]: ${selectedTopic.prompt}
+
+⚠️ [트위터 감성 소통 작성 규칙]:
+1. 🚨[교과서/뉴스/존댓말 앵커 말투 절대 금지]🚨
+   - 엑친들과 친구처럼 수다 떠는 톤 ("야 엑친들아", "다들 ~하냐?", "솔직히 ~아님?", "진짜 궁금해서 묻는데")
+2. [분량]: 1~3줄 이내 (군더더기 없이 깔끔하게).
+3. 억지 해시태그(#) 절대 금지.
+4. 오직 완성된 트윗 문구만 출력하세요.
+${NEGATIVE_PROMPT_BLOCK}
+`;
+
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await axios.post(
+          url,
+          { contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.85 } },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 6000 }
+        );
+
+        let text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text && text.length > 5) {
+          text = text.replace(/(?:^|\n)\s*[#$][\w가-힣\s#$]+/g, '').replace(/#[^\s#]+/g, '').trim();
+          addLog('SUCCESS', `💬 [엑친 스몰톡 AI 생성 완료] ${text.slice(0, 30)}...`);
+          return { text, isAiGenerated: true, topic: selectedTopic.type };
+        }
+      } catch (e) {
+        // try next
+      }
+    }
+  }
+
+  // Fallback templates
+  const fallbackList = [
+    '야 엑친들아 솔직히 평생 치킨 끊기 vs 평생 라면 끊기 뭐 고름? 난 전자 절대 못함..',
+    '다들 오늘 점심 뭐 먹을 거임? 메뉴 정하는 게 하루 중 제일 고난도 미션이다 진짜',
+    '퇴근 마렵다.. 아직 출근도 안 했는데 (또는 한 지 얼마 안 됐는데) 벌써 집 가고 싶음 정상이지?',
+    '요즘 다들 꽂힌 음악이나 드라마 뭐 있음? 퇴근길에 볼 거 추천 좀 해주고 가라',
+    '솔직히 침대에 누워서 폰 하는 이 시간이 하루 중에 제일 행복한 거 나만 그럼? ㅋㅋㅋ',
+    '진짜 궁금해서 묻는데 다들 주말에 약속 없으면 하루 종일 침대에서 안 나옴? 나만 이러냐고',
+    '오늘 날씨 무슨 일임.. 당장 카페 가서 시원한 아아 한잔 때리고 싶다 ☕',
+    '월요병 치료제는 퇴근밖에 없다는 게 학계의 정설 ㅋㅋㅋ 다들 오늘 하루도 버텨보자 🔥'
+  ];
+
+  const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)];
+  addLog('INFO', `💬 [엑친 스몰톡 템플릿 사용] ${fallbackText.slice(0, 30)}...`);
+  return { text: fallbackText, isAiGenerated: false, topic: selectedTopic.type };
+}
+
 module.exports = {
   generateSummary,
-  generateThoughtTweet
+  generateThoughtTweet,
+  generateTwitterSmallTalk
 };

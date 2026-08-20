@@ -9,15 +9,14 @@ const {
   markPostingStatus,
   addLog 
 } = require('../history');
-const { generateSummary } = require('../summarizer');
-const { generateCardNewsImage } = require('./cardNewsServerService');
+const { generateSummary, generateTwitterSmallTalk } = require('../summarizer');
 
 let pollingInterval = null;
 let lastUpdateId = 0;
 let isPollingActive = false;
 let isWorkerRunning = false;
 
-// In-memory cache for pending telegram messages: { [articleId]: { text, imagePath, messageId, article } }
+// In-memory cache for pending telegram messages: { [id]: { text, type, article } }
 const pendingPostsCache = new Map();
 
 function getTelegramConfig() {
@@ -42,78 +41,74 @@ function isQuietHours() {
 }
 
 /**
- * Send photo with action buttons to Telegram
+ * Send text message with action buttons to Telegram
  */
-async function sendTelegramCardWithButtons(imagePath, caption, article) {
+async function sendTelegramTextMessage({ titleHeader, tweetText, id, type, originalTitle, originalLink }) {
   const { token, chatId } = getTelegramConfig();
   if (!token || !chatId) {
     throw new Error('텔레그램 봇 토큰과 Chat ID가 설정되지 않았습니다.');
   }
 
-  const url = `https://api.telegram.org/bot${token}/sendPhoto`;
-  const imageBuffer = fs.readFileSync(imagePath);
-  const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2)}`;
+  const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
   const inlineKeyboard = {
     inline_keyboard: [
       [
-        { text: '🚀 𝕏에 올리기 (승인)', callback_data: `post_x:${article.id}` },
-        { text: '🗑️ 건너뛰기', callback_data: `skip_x:${article.id}` }
+        { text: '🚀 𝕏에 바로 올리기 (글 자동입력) ↗', url: tweetIntentUrl }
+      ],
+      [
+        { text: '✅ 𝕏 올림 완료 마킹', callback_data: `post_x:${id}` },
+        { text: '🗑️ 건너뛰기', callback_data: `skip_x:${id}` }
       ]
     ]
   };
 
-  // Truncate caption if exceeding Telegram photo caption limit (1024 chars)
-  let safeCaption = caption;
-  if (safeCaption.length > 950) {
-    safeCaption = safeCaption.slice(0, 940) + '...';
+  if (originalLink) {
+    inlineKeyboard.inline_keyboard.push([
+      { text: '📰 관련 기사/원문 보기 ↗', url: originalLink }
+    ]);
   }
 
-  const filename = path.basename(imagePath);
+  let formattedMessage = `${titleHeader}\n\n`;
+  formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  formattedMessage += `${tweetText}\n`;
+  formattedMessage += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  if (originalTitle) {
+    formattedMessage += `📌 <i>참고: ${originalTitle.slice(0, 45)}...</i>\n`;
+  }
+  formattedMessage += `💡 <b>[🚀 𝕏에 바로 올리기]</b>를 누르면 글이 채워진 작성창이 바로 열립니다.`;
 
-  let bodyBuffer = Buffer.concat([
-    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`),
-    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${safeCaption}\r\n`),
-    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="reply_markup"\r\n\r\n${JSON.stringify(inlineKeyboard)}\r\n`),
-    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="${filename}"\r\nContent-Type: image/png\r\n\r\n`),
-    imageBuffer,
-    Buffer.from(`\r\n--${boundary}--\r\n`)
-  ]);
-
-  const response = await axios.post(url, bodyBuffer, {
-    headers: {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      'Content-Length': bodyBuffer.length
-    },
-    timeout: 15000
-  });
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const response = await axios.post(url, {
+    chat_id: chatId,
+    text: formattedMessage,
+    parse_mode: 'HTML',
+    reply_markup: inlineKeyboard,
+    disable_web_page_preview: true
+  }, { timeout: 10000 });
 
   return response.data;
 }
 
 /**
- * Edit message caption and inline keyboard
+ * Edit message text and inline keyboard
  */
-async function editTelegramCaption(chatId, messageId, newCaption, inlineKeyboard = []) {
+async function editTelegramMessageText(chatId, messageId, newText, inlineKeyboard = []) {
   const { token } = getTelegramConfig();
   if (!token) return;
 
-  const url = `https://api.telegram.org/bot${token}/editMessageCaption`;
+  const url = `https://api.telegram.org/bot${token}/editMessageText`;
   try {
-    let safeCaption = newCaption;
-    if (safeCaption.length > 950) {
-      safeCaption = safeCaption.slice(0, 940) + '...';
-    }
-
     await axios.post(url, {
       chat_id: chatId,
       message_id: messageId,
-      caption: safeCaption,
+      text: newText,
       parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: inlineKeyboard }
+      reply_markup: { inline_keyboard: inlineKeyboard },
+      disable_web_page_preview: true
     }, { timeout: 8000 });
   } catch (err) {
-    console.error('Failed to edit telegram message caption:', err.message);
+    console.error('Failed to edit telegram message text:', err.message);
   }
 }
 
@@ -134,125 +129,36 @@ async function answerTelegramCallback(callbackQueryId, text = '', showAlert = fa
 }
 
 /**
- * Select Top 5 diverse, non-duplicate pending articles
- * Covers: IT/AI, Coin, Stock/Economy, Community/Gossip/Blind
+ * Select 1 best pending real-time issue article (Gossip, Crime/Accident, War, Entertainment, Community, Tech)
  */
-function selectTop5DiversePendingArticles(maxCount = 5) {
+function selectNextPendingArticle() {
   const articles = getStoredArticles();
   const queueMap = getTelegramQueueMap();
 
-  // Filter only unsent articles with non-empty titles
+  // Filter only unsent articles with valid titles
   const unsent = articles.filter(a => !queueMap[a.id] && a.title && a.title.trim().length > 0);
-  if (unsent.length === 0) return [];
+  if (unsent.length === 0) return null;
 
-  const itArticles = [];
-  const coinArticles = [];
-  const economyArticles = [];
-  const commArticles = [];
-  const otherArticles = [];
-
-  unsent.forEach(art => {
-    const cat = (art.category || '').toLowerCase();
-    const tag = (art.categoryTag || '').toLowerCase();
-    
-    if (cat.includes('coin') || tag.includes('코인') || tag.includes('가상자산')) {
-      coinArticles.push(art);
-    } else if (cat.includes('stock') || cat.includes('economy') || tag.includes('주식') || tag.includes('경제')) {
-      economyArticles.push(art);
-    } else if (cat.includes('it') || cat.includes('tech') || cat.includes('heisenberg') || tag.includes('반도체') || tag.includes('ai')) {
-      itArticles.push(art);
-    } else if (cat.includes('blind') || cat.includes('gossip') || cat.includes('mindset') || cat.includes('idol') || cat.includes('comm')) {
-      commArticles.push(art);
-    } else {
-      otherArticles.push(art);
-    }
+  // Priority: Community/Gossip/Blind/Nate/War/Crime first, then IT/Stock/General
+  const priorityArticles = unsent.filter(a => {
+    const text = `${a.title} ${a.category || ''} ${a.categoryTag || ''}`.toLowerCase();
+    return text.includes('커뮤니티') || text.includes('네이트판') || text.includes('블라인드') ||
+           text.includes('더쿠') || text.includes('사건') || text.includes('사고') || 
+           text.includes('전쟁') || text.includes('논란') || text.includes('단독') || 
+           text.includes('충격') || text.includes('폭로') || text.includes('연예');
   });
 
-  const selected = [];
-
-  // Pick balanced top items
-  if (itArticles.length > 0) selected.push(itArticles[0]);
-  if (coinArticles.length > 0) selected.push(coinArticles[0]);
-  if (economyArticles.length > 0) selected.push(economyArticles[0]);
-  if (commArticles.length > 0) selected.push(commArticles[0]);
-
-  // Second pass for depth
-  if (selected.length < maxCount && itArticles.length > 1) selected.push(itArticles[1]);
-  if (selected.length < maxCount && commArticles.length > 1) selected.push(commArticles[1]);
-  if (selected.length < maxCount && economyArticles.length > 1) selected.push(economyArticles[1]);
-
-  // Fill remaining slots from unsent pool
-  for (const art of unsent) {
-    if (selected.length >= maxCount) break;
-    if (!selected.some(s => s.id === art.id)) {
-      selected.push(art);
-    }
+  if (priorityArticles.length > 0) {
+    // Return newest priority article
+    return priorityArticles[0];
   }
 
-  return selected.slice(0, maxCount);
+  // Otherwise return newest unsent article
+  return unsent[0];
 }
 
 /**
- * Process a single article: generate summary + card image + send to telegram
- */
-async function processAndSendArticle(article) {
-  if (!article) return null;
-
-  addLog('INFO', `🤖 [텔레그램 브리핑] 기사 카드뉴스 생성 중: "${article.title}"`);
-
-  // 1. Generate AI Tweet Text (Hybrid / Reaction Mode)
-  let tweetText = '';
-  try {
-    const summaryResult = await generateSummary(article, 'hybrid');
-    tweetText = summaryResult.text || `${article.title}\n\n#테크 #인사이트`;
-  } catch (err) {
-    tweetText = `${article.title}\n\n#테크 #경제 #인사이트`;
-  }
-
-  // 2. Generate Server-side Card News (100% Photo + Title format)
-  let cardResult = null;
-  try {
-    cardResult = await generateCardNewsImage(article);
-    addLog('SUCCESS', `🎨 [텔레그램 브리핑] 카드뉴스 렌더링 완료: ${cardResult.filename}`);
-  } catch (err) {
-    console.error('Card news generation failed, using fallback:', err);
-  }
-
-  if (!cardResult || !cardResult.filepath) {
-    throw new Error('카드뉴스 이미지 생성에 실패했습니다.');
-  }
-
-  // 3. Send to Telegram with Interactive Buttons
-  const teleRes = await sendTelegramCardWithButtons(cardResult.filepath, tweetText, article);
-  const messageId = teleRes.result?.message_id;
-
-  // 4. Save to pending post cache
-  pendingPostsCache.set(String(article.id), {
-    articleId: article.id,
-    title: article.title,
-    text: tweetText,
-    imagePath: cardResult.filepath,
-    imageUrl: cardResult.url,
-    link: article.link || article.url || '',
-    messageId,
-    timestamp: Date.now()
-  });
-
-  // 5. Mark as sent in DB history
-  markAsTelegramSent(article.id, {
-    messageId,
-    title: article.title,
-    text: tweetText,
-    imagePath: cardResult.filepath,
-    mode: cardResult.mode
-  });
-
-  addLog('SUCCESS', `📱 [텔레그램 발송 완료] "${article.title.slice(0, 25)}..."`);
-  return { success: true, articleId: article.id, messageId };
-}
-
-/**
- * Handle Telegram button callback clicks (🚀 𝕏에 올리기 / 🗑️ 건너뛰기)
+ * Handle Telegram button callback clicks (✅ 𝕏 올림 완료 / 🗑️ 건너뛰기)
  */
 async function handleTelegramCallbackQuery(callbackQuery) {
   const data = callbackQuery.data || '';
@@ -261,54 +167,31 @@ async function handleTelegramCallbackQuery(callbackQuery) {
   const callbackQueryId = callbackQuery.id;
 
   if (data.startsWith('post_x:')) {
-    const articleId = data.replace('post_x:', '');
+    const id = data.replace('post_x:', '');
+    let pending = pendingPostsCache.get(String(id));
 
-    let pending = pendingPostsCache.get(String(articleId));
-    if (!pending) {
-      const queueMap = getTelegramQueueMap();
-      const stored = queueMap[articleId];
-      if (stored) {
-        pending = {
-          articleId,
-          text: stored.text,
-          imagePath: stored.imagePath,
-          imageUrl: `/thumbnails/${path.basename(stored.imagePath || '')}`
-        };
-      }
-    }
+    const tweetText = pending?.text || '𝕏에 게시된 콘텐츠';
+    const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
-    if (!pending || !pending.text) {
-      await answerTelegramCallback(callbackQueryId, '⚠️ 포스팅 데이터를 찾을 수 없습니다.');
-      return;
-    }
-
-    // Direct X Web Intent URL (Pure Tweet Text Only - No Article Link)
-    const tweetIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(pending.text)}`;
-
-    // Mark as Posted with checkmark in caption
-    const postedCaption = `✅ <b>[𝕏에 올림 완료]</b>\n\n${pending.text}`;
+    const postedText = `✅ <b>[𝕏에 올림 완료]</b>\n\n━━━━━━━━━━━━━━━━━━━━━\n${tweetText}\n━━━━━━━━━━━━━━━━━━━━━\n🎉 X(트위터) 게시 완료 상태로 전환되었습니다.`;
 
     const newKeyboard = [
       [
-        { text: '🌐 𝕏 작성창으로 이동 (글 자동입력) ↗', url: tweetIntentUrl }
-      ],
-      [
-        { text: '📰 기사 원문 보기 ↗', url: pending.link || 'https://x.com' }
+        { text: '🌐 𝕏 작성창 다시 열기 ↗', url: tweetIntentUrl }
       ]
     ];
 
-
-    await editTelegramCaption(chatId, messageId, postedCaption, newKeyboard);
-    await answerTelegramCallback(callbackQueryId, '✅ [𝕏에 올림] 처리되었습니다! 작성창 버튼을 눌러 바로 발행하세요.');
+    await editTelegramMessageText(chatId, messageId, postedText, newKeyboard);
+    await answerTelegramCallback(callbackQueryId, '✅ [𝕏에 올림 완료]로 마킹되었습니다!');
     
-    markPostingStatus(articleId, 'tweet');
-    addLog('SUCCESS', `🎉 [텔레그램 승인] 𝕏 올림 완료 마킹: ${articleId}`);
+    markPostingStatus(id, 'tweet');
+    addLog('SUCCESS', `🎉 [텔레그램 승인] 𝕏 올림 완료 마킹: ${id}`);
 
   } else if (data.startsWith('skip_x:')) {
-    const articleId = data.replace('skip_x:', '');
+    const id = data.replace('skip_x:', '');
     await answerTelegramCallback(callbackQueryId, '🗑️ 건너뛰기 완료');
-    await editTelegramCaption(chatId, messageId, `🗑️ <b>[건너뜀]</b> 해당 기사는 스킵되었습니다.`, []);
-    addLog('INFO', `⏭️ [텔레그램 승인] 기사 스킵 처리됨: ${articleId}`);
+    await editTelegramMessageText(chatId, messageId, `🗑️ <b>[건너뜀]</b> 해당 트윗 멘트는 스킵되었습니다.`, []);
+    addLog('INFO', `⏭️ [텔레그램 승인] 트윗 스킵 처리됨: ${id}`);
   }
 }
 
@@ -344,41 +227,103 @@ async function pollTelegramUpdates() {
 }
 
 /**
- * Trigger Hourly Telegram Briefing (Sends Top 5 Diverse Articles)
- * Respects 00:00 ~ 06:59 KST Quiet Hours unless force=true
+ * ⏱️ Trigger 10-Minute Telegram Briefing (Sends 1 Real-time Issue or Small Talk)
+ * Strictly respects 00:00 ~ 06:59 KST Quiet Hours unless force=true
  */
-async function triggerHourlyTelegramBriefing(force = false) {
+async function triggerTenMinuteBriefing(force = false) {
   const { token, chatId } = getTelegramConfig();
   if (!token || !chatId) {
     return { success: false, message: '텔레그램 봇 토큰 또는 Chat ID가 설정되지 않았습니다.' };
   }
 
+  // 🌙 Strict Quiet Hours Check: 00:00 ~ 06:59 KST
   if (!force && isQuietHours()) {
     addLog('INFO', '🌙 [텔레그램 야간 정적 모드] 00:00 ~ 07:00 KST 사이에는 취침 방해 방지를 위해 발송을 건너뜁니다.');
     return { success: true, skipped: true, reason: 'quiet_hours' };
   }
 
-  const top5Articles = selectTop5DiversePendingArticles(5);
-  if (top5Articles.length === 0) {
-    addLog('INFO', '⏰ [1시간 텔레그램 브리핑] 발송할 새로운 미발행 기사가 없습니다.');
-    return { success: true, count: 0 };
-  }
+  addLog('INFO', '⏱️ [10분 주기 실시간 트윗 탐색] 실시간 핫이슈 및 엑친 소통 멘트 검토 중...');
 
-  addLog('INFO', `🚀 [1시간 텔레그램 브리핑] 엄선된 핵심 기사 ${top5Articles.length}건 순차 발송을 시작합니다...`);
+  const article = selectNextPendingArticle();
 
-  let sentCount = 0;
-  for (const article of top5Articles) {
+  let titleHeader = '';
+  let tweetText = '';
+  let itemId = '';
+  let originalTitle = '';
+  let originalLink = '';
+
+  if (article) {
+    // 1. Real-time Issue Found -> Generate high-engagement Twitter prompt
+    const modes = ['spicy', 'reaction', 'story', 'hybrid'];
+    const chosenMode = modes[Math.floor(Math.random() * modes.length)];
+
     try {
-      await processAndSendArticle(article);
-      sentCount++;
-      await new Promise(r => setTimeout(r, 1500));
-    } catch (err) {
-      addLog('ERROR', `텔레그램 개별 발송 실패: ${err.message}`);
+      const summaryResult = await generateSummary(article, chosenMode);
+      tweetText = summaryResult.text || summaryResult;
+    } catch (e) {
+      tweetText = `와 이건 진짜 이슈네.. 실시간으로 터진 건데 다들 어떻게 봄?\n\n"${article.title}"`;
     }
+
+    itemId = String(article.id);
+    originalTitle = article.title;
+    originalLink = article.link || '';
+    titleHeader = `🔥 <b>[실시간 핫이슈 트윗 멘트]</b> (${article.categoryTag || article.category || '실시간'})`;
+
+    // Mark in history queue map
+    markAsTelegramSent(article.id, {
+      text: tweetText,
+      articleTitle: article.title,
+      type: 'hot_issue'
+    });
+  } else {
+    // 2. No new issue or duplicates -> Generate Twitter Small Talk / Banter (엑친 소통 멘트)
+    const smallTalk = await generateTwitterSmallTalk();
+    tweetText = smallTalk.text;
+    itemId = `smalltalk_${Date.now()}`;
+    titleHeader = `💬 <b>[엑친 소통 / 스몰톡 멘트]</b> (답글 유도)`;
+
+    // Store in queue map
+    markAsTelegramSent(itemId, {
+      text: tweetText,
+      articleTitle: '엑친 소통 스몰톡',
+      type: 'small_talk'
+    });
   }
 
-  addLog('SUCCESS', `🎉 [1시간 텔레그램 브리핑 완료] 총 ${sentCount}건의 핵심 기사 카드뉴스를 발송했습니다.`);
-  return { success: true, count: sentCount };
+  // Cache in memory
+  pendingPostsCache.set(itemId, {
+    text: tweetText,
+    id: itemId,
+    title: originalTitle
+  });
+
+  // Send message to Telegram
+  const sendRes = await sendTelegramTextMessage({
+    titleHeader,
+    tweetText,
+    id: itemId,
+    type: article ? 'issue' : 'smalltalk',
+    originalTitle,
+    originalLink
+  });
+
+  const messageId = sendRes.result?.message_id;
+  addLog('SUCCESS', `📱 [10분 텔레그램 발송 완료] ${titleHeader.replace(/<[^>]*>/g, '')} - "${tweetText.slice(0, 25)}..."`);
+
+  return { 
+    success: true, 
+    itemId, 
+    messageId, 
+    type: article ? 'hot_issue' : 'small_talk',
+    tweetText 
+  };
+}
+
+/**
+ * Backwards compatibility wrapper for hourly trigger
+ */
+async function triggerHourlyTelegramBriefing(force = false) {
+  return triggerTenMinuteBriefing(force);
 }
 
 /**
@@ -393,7 +338,7 @@ function initTelegramQueueWorker() {
   // Start Long Polling for button clicks
   pollTelegramUpdates();
 
-  addLog('SUCCESS', '🚀 [텔레그램 브리핑 서비스 가동] 실시간 버튼 상호작용 및 정각 브리핑 대기 중 (07:00~23:00 운영)');
+  addLog('SUCCESS', '🚀 [텔레그램 10분 실시간 브리핑 가동] 실시간 핫이슈 & 엑친 스몰톡 발송 대기 중 (07:00~23:59 운영)');
 }
 
 /**
@@ -413,9 +358,7 @@ module.exports = {
   initTelegramQueueWorker,
   stopTelegramQueueWorker,
   isQueueActive,
+  triggerTenMinuteBriefing,
   triggerHourlyTelegramBriefing,
-  processAndSendArticle,
-  sendTelegramCardWithButtons,
-  selectTop5DiversePendingArticles,
   isQuietHours
 };
