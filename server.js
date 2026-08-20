@@ -79,20 +79,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
 
-app.get('/api/config', (req, res) => {
-  res.json({ success: true, config: getConfig() });
-});
 
-app.post('/api/config', (req, res) => {
-  try {
-    const updated = saveConfig(req.body);
-    addLog('INFO', '설정 정보가 업데이트되었습니다.');
-    initScheduler();
-    res.json({ success: true, config: updated, message: '설정이 저장되었습니다.' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
 app.get('/api/status', (req, res) => {
   const config = getConfig();
