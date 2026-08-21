@@ -6,9 +6,8 @@
   <title>X Content Helper - IT·코인·주식·경제 트윗 생성기</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="style.css?v=3.13.23">
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app-container">
@@ -98,12 +97,7 @@
         </button>
 
         <div class="menu-label">⭐ 나만의 공간</div>
-        <button id="nav-item-food-map" class="nav-item" data-tab="food-map" data-cat="all" data-hours="0" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.15)); border: 1px solid rgba(245, 158, 11, 0.35);">
-          <span class="icon">🗺️</span>
-          <span style="font-weight: 800; color: #f59e0b;">대한민국 맛집 지도</span>
-          <span class="badge" style="background:#f59e0b; color:#000; font-size:9px; padding:2px 5px; border-radius:4px; margin-left:auto; font-weight:800;">HOT</span>
-        </button>
-        <button id="nav-item-saved-drafts" class="nav-item" data-tab="saved-drafts" data-cat="all" data-hours="0">
+        <button class="nav-item" data-tab="saved-drafts" data-cat="all" data-hours="0">
           <span class="icon">⭐</span>
           <span>임시 보관함 (피크타임)</span>
         </button>
@@ -588,7 +582,7 @@
       </section>
 
       <!-- TAB: Visual Media & Fancam Studio (📸 웹 직캠·화보 X 포스팅) -->
-      <section id="tab-visual-media" class="tab-content" style="display:none;">
+      <section id="tab-visual-media" class="tab-content">
         <div class="visual-studio-container" style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:16px;">
           
           <!-- Left Column: Media Discovery & Gallery -->
@@ -708,159 +702,6 @@
 
         </div>
       </section>
-
-      <!-- TAB: 🗺️ 대한민국 맛집 지도 (Korean Food Map) -->
-      <section id="tab-food-map" class="tab-content" style="padding: 0; position: relative;">
-        <!-- Top Sticky Control Toolbar -->
-        <div class="food-map-toolbar" style="background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.1); padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; z-index: 1000; position: relative;">
-          
-          <!-- Left: Region Presets -->
-          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <span style="font-size: 12px; font-weight: 800; color: #f59e0b; margin-right: 4px;">📍 지역:</span>
-            <button class="btn btn-xs region-pill active" onclick="filterFoodMapRegion('전체', this)" style="border-radius:20px; font-weight:700;">전국</button>
-            <button class="btn btn-xs region-pill" onclick="filterFoodMapRegion('대전', this)" style="border-radius:20px; font-weight:700;">대전</button>
-            <button class="btn btn-xs region-pill" onclick="filterFoodMapRegion('세종', this)" style="border-radius:20px; font-weight:700;">세종</button>
-            <button class="btn btn-xs region-pill" onclick="filterFoodMapRegion('서울', this)" style="border-radius:20px; font-weight:700;">서울</button>
-            <button class="btn btn-xs region-pill" onclick="filterFoodMapRegion('부산', this)" style="border-radius:20px; font-weight:700;">부산</button>
-            <button class="btn btn-xs region-pill" onclick="filterFoodMapRegion('제주', this)" style="border-radius:20px; font-weight:700;">제주</button>
-          </div>
-
-          <!-- Middle: Category Filters -->
-          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <span style="font-size: 12px; font-weight: 800; color: #38bdf8; margin-right: 4px;">🍴 종류:</span>
-            <button class="btn btn-xs cat-pill active" onclick="filterFoodMapCategory('all', this)" style="border-radius:20px;">전체</button>
-            <button class="btn btn-xs cat-pill" onclick="filterFoodMapCategory('korean', this)" style="border-radius:20px;">🍲 한식/국밥</button>
-            <button class="btn btn-xs cat-pill" onclick="filterFoodMapCategory('meat', this)" style="border-radius:20px;">🥩 고기/구이</button>
-            <button class="btn btn-xs cat-pill" onclick="filterFoodMapCategory('western', this)" style="border-radius:20px;">🍕 양식/피자</button>
-            <button class="btn btn-xs cat-pill" onclick="filterFoodMapCategory('japanese', this)" style="border-radius:20px;">🍣 일식/초밥</button>
-            <button class="btn btn-xs cat-pill" onclick="filterFoodMapCategory('cafe', this)" style="border-radius:20px;">☕ 베이커리/카페</button>
-            <button class="btn btn-xs cat-pill" onclick="filterFoodMapCategory('bar', this)" style="border-radius:20px;">🍺 술집/주점</button>
-          </div>
-
-          <!-- Right: Map Theme & Add Button -->
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <div style="display:flex; align-items:center; gap:4px;">
-              <span style="font-size:11px; color:#94a3b8; font-weight:700;">🎨 지도색:</span>
-              <select id="food-map-theme-select" onchange="changeFoodMapTheme(this.value)" style="padding:4px 8px; font-size:11px; border-radius:6px; background:#1e293b; color:#fff; border:1px solid rgba(255,255,255,0.2); cursor:pointer;">
-                <option value="white" selected>☀️ 깔끔한 화이트 (기본)</option>
-                <option value="color">🌈 기본 선명 컬러</option>
-                <option value="standard">🗺️ 표준 오픈스트리트</option>
-                <option value="dark">🌙 다크 나이트</option>
-              </select>
-            </div>
-            <button class="btn btn-accent btn-sm" onclick="openAddRestaurantModal()" style="font-weight: 800; background: linear-gradient(135deg, #f59e0b, #ef4444); border:none; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);">
-              ➕ 새 맛집 등록
-            </button>
-          </div>
-        </div>
-
-        <!-- Main Map & Detail Panel Layout -->
-        <div class="food-map-container" style="display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 150px); min-height: 650px; position: relative;">
-          <!-- Map Canvas -->
-          <div id="food-map-canvas" style="width: 100%; height: 100%; z-index: 1; background: #0f172a;"></div>
-
-          <!-- Right Side Detail & Quick Tweet Panel -->
-          <div id="food-map-detail-panel" style="background: rgba(15, 23, 42, 0.98); border-left: 1px solid rgba(255,255,255,0.1); padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <h4 style="margin:0; font-size:15px; font-weight:800; color:#f59e0b;">📍 맛집 상세 &amp; 트윗 생성</h4>
-              <span id="food-map-count-badge" class="badge" style="background:rgba(245,158,11,0.2); color:#f59e0b; border:1px solid rgba(245,158,11,0.4); font-size:11px;">17곳 등록됨</span>
-            </div>
-
-            <div id="food-map-selected-card" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px;">
-              <p style="font-size:12px; color:var(--text-dim); margin:0; text-align:center; padding:20px 0;">
-                지도 위의 맛집 핀(마커)을 클릭하면<br>상세 정보와 1초 완성 트윗이 표시됩니다.
-              </p>
-            </div>
-
-            <!-- Preset Restaurant Quick List -->
-            <div>
-              <span style="font-size:12px; font-weight:800; color:#94a3b8; margin-bottom:8px; display:block;">🔥 실시간 등록 맛집 리스트</span>
-              <div id="food-map-list-container" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto; padding-right:4px;">
-                <!-- Dynamically populated -->
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- MODAL: Add New Restaurant -->
-      <div id="modal-add-restaurant" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); z-index:99999; justify-content:center; align-items:center;">
-        <div class="card" style="max-width:520px; width:90%; max-height:90vh; overflow-y:auto; border:1px solid rgba(245,158,11,0.5); box-shadow:0 0 30px rgba(0,0,0,0.9); background:#0f172a;">
-          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:0; font-size:16px; font-weight:800; color:#f59e0b;">📍 신규 맛집 지도에 등록</h3>
-            <button class="btn-link" onclick="closeAddRestaurantModal()" style="font-size:18px; color:#fff; cursor:pointer;">✕</button>
-          </div>
-          <div class="card-body" style="display:flex; flex-direction:column; gap:12px;">
-            <div>
-              <label style="font-size:12px; font-weight:700; color:#cbd5e1;">가게 이름 *</label>
-              <input type="text" id="add-rest-name" placeholder="예: 성심당 본점, 태평소국밥" style="width:100%; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15);">
-            </div>
-            
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-              <div>
-                <label style="font-size:12px; font-weight:700; color:#cbd5e1;">지역 *</label>
-                <select id="add-rest-region" style="width:100%; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15);">
-                  <option value="대전">대전</option>
-                  <option value="세종">세종</option>
-                  <option value="서울">서울</option>
-                  <option value="경기">경기</option>
-                  <option value="부산">부산</option>
-                  <option value="제주">제주</option>
-                  <option value="기타">기타 전국</option>
-                </select>
-              </div>
-              <div>
-                <label style="font-size:12px; font-weight:700; color:#cbd5e1;">음식 종류 *</label>
-                <select id="add-rest-category" style="width:100%; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15);">
-                  <option value="korean">🍲 한식 / 국밥 / 분식</option>
-                  <option value="meat">🥩 고기구이 / 바베큐</option>
-                  <option value="western">🍕 양식 / 파스타 / 피자</option>
-                  <option value="japanese">🍣 일식 / 돈카츠 / 라멘</option>
-                  <option value="cafe">☕ 베이커리 / 디저트 / 카페</option>
-                  <option value="bar">🍺 주점 / 이자카야 / 펍</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label style="font-size:12px; font-weight:700; color:#cbd5e1;">주소 또는 위치 검색</label>
-              <div style="display:flex; gap:6px;">
-                <input type="text" id="add-rest-address" placeholder="예: 대전 중구 대종로480번길 15 또는 지번/도로명" style="flex:1; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15);">
-                <button class="btn btn-secondary btn-sm" onclick="geocodeRestaurantAddress()" style="white-space:nowrap;">🔍 좌표찾기</button>
-              </div>
-              <span id="add-rest-geo-status" style="font-size:11px; color:#38bdf8; margin-top:3px; display:block;"></span>
-            </div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-              <div>
-                <label style="font-size:12px; font-weight:700; color:#cbd5e1;">위도 (Lat) *</label>
-                <input type="number" step="any" id="add-rest-lat" placeholder="36.3276" style="width:100%; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15);">
-              </div>
-              <div>
-                <label style="font-size:12px; font-weight:700; color:#cbd5e1;">경도 (Lng) *</label>
-                <input type="number" step="any" id="add-rest-lng" placeholder="127.4273" style="width:100%; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15);">
-              </div>
-            </div>
-
-            <div>
-              <label style="font-size:12px; font-weight:700; color:#cbd5e1;">대표 시그니처 메뉴</label>
-              <input type="text" id="add-rest-signature" placeholder="예: 튀김소보로, 육사시미, 닭떡볶이" style="width:100%; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15);">
-            </div>
-
-            <div>
-              <label style="font-size:12px; font-weight:700; color:#cbd5e1;">내 추천 한줄평 / 꿀팁</label>
-              <textarea id="add-rest-review" rows="2" placeholder="예: 갓 튀긴 튀소가 진리. 주말엔 오픈런 필수!" style="width:100%; padding:9px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15); font-size:12px;"></textarea>
-            </div>
-
-            <div style="display:flex; gap:8px; margin-top:6px;">
-              <button class="btn btn-primary" onclick="submitRestaurantForm()" style="flex:1; font-weight:800; padding:11px; background:linear-gradient(135deg, #f59e0b, #ef4444); border:none;">
-                💾 맛집 저장 완료
-              </button>
-              <button class="btn btn-outline" onclick="closeAddRestaurantModal()">취소</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- TAB 4: AI & Security Settings -->
       <section id="tab-settings" class="tab-content">
@@ -1037,6 +878,9 @@
     </main>
   </div>
 
-  <script src="/app.js?v=3.13.23"></script>
+  <!-- Notification Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/app.js?v=2"></script>
 </body>
 </html>
