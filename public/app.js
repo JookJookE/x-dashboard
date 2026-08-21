@@ -381,7 +381,8 @@ function switchTab(tabId) {
       articles: is6HourFilterActive ? '⚡ 최근 6시간 이내 수집 속보' : getCategoryTitle(selectedCategory),
       composer: '트윗 작성 & 복사',
       'saved-drafts': '⭐ 나만의 임시 보관함',
-      'visual-media': '📸 웹 직캠·화보 & 핫클립 X 포스팅'
+      'visual-media': '📸 웹 직캠·화보 & 핫클립 X 포스팅',
+      'food-map': '🗺️ 대한민국 맛집 지도'
     };
     document.getElementById('page-title').innerText = titleMap[tabId] || '대시보드';
 
@@ -389,6 +390,9 @@ function switchTab(tabId) {
       loadSavedUserDrafts();
     } else if (tabId === 'visual-media') {
       initVisualMediaTab();
+    } else if (tabId === 'food-map') {
+      initFoodMap();
+      loadRestaurants();
     } else if (tabId === 'settings') {
       loadLoginHistory();
     }
@@ -3401,4 +3405,365 @@ document.addEventListener('DOMContentLoaded', () => {
   checkGoldenHourStatus();
   setInterval(checkGoldenHourStatus, 60000); // Check golden hour every minute
 });
+
+/**
+ * ===================================================================
+ * 🗺️ 대한민국 맛집 지도 & 나만의 미식 트윗 엔진 (Korean Food Map Engine)
+ * ===================================================================
+ */
+let foodMap = null;
+let foodMapTileLayer = null;
+let foodMapMarkersGroup = null;
+let allRestaurants = [];
+let selectedFoodRegion = '전체';
+let selectedFoodCategory = 'all';
+let selectedRestaurantId = null;
+
+const CATEGORY_COLORS = {
+  korean: { bg: '#ef4444', icon: '🍲', label: '한식/국밥' },
+  meat: { bg: '#f97316', icon: '🥩', label: '고기/구이' },
+  western: { bg: '#3b82f6', icon: '🍕', label: '양식/피자' },
+  japanese: { bg: '#8b5cf6', icon: '🍣', label: '일식/초밥' },
+  cafe: { bg: '#ec4899', icon: '☕', label: '디저트/카페' },
+  bar: { bg: '#10b981', icon: '🍺', label: '주점/술집' }
+};
+
+const MAP_THEMES = {
+  color: {
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors, HOT'
+  },
+  standard: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors'
+  },
+  white: {
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; CARTO'
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; CARTO'
+  }
+};
+
+function initFoodMap() {
+  if (foodMap) {
+    setTimeout(() => foodMap.invalidateSize(), 200);
+    return;
+  }
+
+  const canvas = document.getElementById('food-map-canvas');
+  if (!canvas) return;
+
+  // Center around Daejeon / Sejong central Korea
+  foodMap = L.map('food-map-canvas', {
+    zoomControl: true,
+    attributionControl: false
+  }).setView([36.3504, 127.3845], 11);
+
+  const defaultTheme = MAP_THEMES.color;
+  foodMapTileLayer = L.tileLayer(defaultTheme.url, {
+    maxZoom: 19,
+    subdomains: 'abc'
+  }).addTo(foodMap);
+
+  foodMapMarkersGroup = L.layerGroup().addTo(foodMap);
+}
+
+function changeFoodMapTheme(themeKey) {
+  if (!foodMap || !MAP_THEMES[themeKey]) return;
+  if (foodMapTileLayer) {
+    foodMap.removeLayer(foodMapTileLayer);
+  }
+  const theme = MAP_THEMES[themeKey];
+  foodMapTileLayer = L.tileLayer(theme.url, {
+    maxZoom: 19,
+    subdomains: 'abc'
+  }).addTo(foodMap);
+}
+
+async function loadRestaurants() {
+  try {
+    const res = await fetch('/api/restaurants');
+    const data = await res.json();
+    if (data.success) {
+      allRestaurants = data.restaurants || [];
+      renderRestaurantMarkers();
+      renderRestaurantList();
+      const badge = document.getElementById('food-map-count-badge');
+      if (badge) badge.innerText = `${allRestaurants.length}곳 등록됨`;
+    }
+  } catch (err) {
+    console.error('Failed to load restaurants:', err);
+  }
+}
+
+function renderRestaurantMarkers() {
+  if (!foodMap || !foodMapMarkersGroup) return;
+  foodMapMarkersGroup.clearLayers();
+
+  const filtered = allRestaurants.filter(r => {
+    const matchRegion = (selectedFoodRegion === '전체') || (r.region === selectedFoodRegion);
+    const matchCat = (selectedFoodCategory === 'all') || (r.category === selectedFoodCategory);
+    return matchRegion && matchCat;
+  });
+
+  filtered.forEach(rest => {
+    if (!rest.lat || !rest.lng) return;
+    const catStyle = CATEGORY_COLORS[rest.category] || CATEGORY_COLORS.korean;
+
+    const iconHtml = `
+      <div class="food-pin-wrapper" onclick="selectRestaurant('${rest.id}')">
+        <div class="food-pin-badge" style="border-color:${catStyle.bg}; color:#fff;">
+          ${rest.name}
+        </div>
+        <div class="food-pin-icon" style="background:${catStyle.bg};">
+          ${catStyle.icon}
+        </div>
+      </div>
+    `;
+
+    const customIcon = L.divIcon({
+      className: 'custom-food-marker',
+      html: iconHtml,
+      iconSize: [120, 60],
+      iconAnchor: [60, 60]
+    });
+
+    const marker = L.marker([rest.lat, rest.lng], { icon: customIcon });
+    marker.on('click', () => selectRestaurant(rest.id));
+    foodMapMarkersGroup.addLayer(marker);
+  });
+}
+
+function renderRestaurantList() {
+  const container = document.getElementById('food-map-list-container');
+  if (!container) return;
+
+  const filtered = allRestaurants.filter(r => {
+    const matchRegion = (selectedFoodRegion === '전체') || (r.region === selectedFoodRegion);
+    const matchCat = (selectedFoodCategory === 'all') || (r.category === selectedFoodCategory);
+    return matchRegion && matchCat;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="font-size:12px; color:#64748b; text-align:center; padding:15px;">해당 조건의 맛집이 없습니다.</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(r => {
+    const catStyle = CATEGORY_COLORS[r.category] || CATEGORY_COLORS.korean;
+    const isSelected = r.id === selectedRestaurantId;
+    return `
+      <div onclick="selectRestaurant('${r.id}')" style="background:${isSelected ? 'rgba(245,158,11,0.15)' : 'rgba(30,41,59,0.5)'}; border:1px solid ${isSelected ? '#f59e0b' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:9px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;">
+        <div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:13px; font-weight:800; color:#fff;">${r.name}</span>
+            <span style="font-size:10px; background:${catStyle.bg}; color:#fff; padding:1px 5px; border-radius:4px; font-weight:700;">${r.region}</span>
+          </div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:2px;">${r.signature || r.address || '시그니처 메뉴'}</div>
+        </div>
+        <span style="font-size:12px; color:#facc15; font-weight:800;">⭐ ${r.rating || 4.5}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectRestaurant(id) {
+  selectedRestaurantId = id;
+  const rest = allRestaurants.find(r => r.id === id);
+  if (!rest) return;
+
+  if (foodMap && rest.lat && rest.lng) {
+    foodMap.flyTo([rest.lat, rest.lng], 15, { duration: 1.0 });
+  }
+
+  renderRestaurantList();
+
+  const card = document.getElementById('food-map-selected-card');
+  if (!card) return;
+
+  const catStyle = CATEGORY_COLORS[rest.category] || CATEGORY_COLORS.korean;
+  card.innerHTML = `
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <div>
+          <span style="font-size:10px; background:${catStyle.bg}; color:#fff; padding:2px 6px; border-radius:4px; font-weight:800;">${rest.region} · ${catStyle.label}</span>
+          <h3 style="margin:4px 0 0 0; font-size:17px; font-weight:800; color:#fff;">${rest.name}</h3>
+        </div>
+        <span style="font-size:14px; font-weight:800; color:#facc15;">⭐ ${rest.rating || 4.5}</span>
+      </div>
+
+      <div style="font-size:12px; color:#94a3b8; margin-bottom:6px;">📍 ${rest.address || '주소 정보 없음'}</div>
+      <div style="font-size:12px; color:#38bdf8; font-weight:700; margin-bottom:8px;">🍽️ 대표: ${rest.signature || '대표 메뉴'}</div>
+      
+      <div style="background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:6px; font-size:12px; color:#cbd5e1; margin-bottom:12px; border-left:3px solid #f59e0b;">
+        "${rest.review || '방문 추천 맛집입니다!'}"
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <button class="btn btn-primary" onclick="openRestaurantTweetWebIntent('${rest.id}')" style="font-size:12px; font-weight:800; padding:9px;">
+          🌐 X(트위터) 작성창 열기 (100% 자동채움)
+        </button>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="copyRestaurantTweet('${rest.id}')" style="flex:1;">📋 문구 복사</button>
+          <button class="btn btn-outline btn-sm" onclick="deleteRestaurant('${rest.id}')" style="color:#ef4444; border-color:rgba(239,68,68,0.4);">🗑️ 삭제</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function filterFoodMapRegion(region, btn) {
+  selectedFoodRegion = region;
+  document.querySelectorAll('.region-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  if (foodMap) {
+    const regionCenters = {
+      '전체': [36.2, 127.8, 7],
+      '대전': [36.3504, 127.3845, 12],
+      '세종': [36.53, 127.28, 12],
+      '서울': [37.5665, 126.9780, 12],
+      '부산': [35.1796, 129.0756, 12],
+      '제주': [33.4996, 126.5312, 11]
+    };
+    const target = regionCenters[region] || regionCenters['전체'];
+    foodMap.flyTo([target[0], target[1]], target[2], { duration: 0.8 });
+  }
+
+  renderRestaurantMarkers();
+  renderRestaurantList();
+}
+
+function filterFoodMapCategory(cat, btn) {
+  selectedFoodCategory = cat;
+  document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  renderRestaurantMarkers();
+  renderRestaurantList();
+}
+
+function openAddRestaurantModal() {
+  const modal = document.getElementById('modal-add-restaurant');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeAddRestaurantModal() {
+  const modal = document.getElementById('modal-add-restaurant');
+  if (modal) modal.style.display = 'none';
+}
+
+async function geocodeRestaurantAddress() {
+  const addrInput = document.getElementById('add-rest-address');
+  const statusEl = document.getElementById('add-rest-geo-status');
+  const nameInput = document.getElementById('add-rest-name');
+  const query = (addrInput?.value || nameInput?.value || '').trim();
+
+  if (!query) {
+    if (statusEl) statusEl.innerText = '⚠️ 주소 또는 가게 이름을 입력해주세요.';
+    return;
+  }
+
+  if (statusEl) statusEl.innerText = '🔍 좌표 검색 중...';
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=kr&limit=1`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'X-Dashboard-Gourmet/1.0' } });
+    const data = await res.json();
+
+    if (data && data.length > 0) {
+      document.getElementById('add-rest-lat').value = parseFloat(data[0].lat).toFixed(6);
+      document.getElementById('add-rest-lng').value = parseFloat(data[0].lon).toFixed(6);
+      if (statusEl) statusEl.innerText = `✅ 좌표 자동 입력 완료: ${data[0].display_name.slice(0, 30)}...`;
+    } else {
+      if (statusEl) statusEl.innerText = '⚠️ 좌표를 찾지 못했습니다. 직접 입력해주세요.';
+    }
+  } catch (e) {
+    if (statusEl) statusEl.innerText = '⚠️ 검색 실패 (직접 입력 가능)';
+  }
+}
+
+async function submitRestaurantForm() {
+  const name = document.getElementById('add-rest-name')?.value?.trim();
+  const region = document.getElementById('add-rest-region')?.value;
+  const category = document.getElementById('add-rest-category')?.value;
+  const address = document.getElementById('add-rest-address')?.value?.trim();
+  const lat = parseFloat(document.getElementById('add-rest-lat')?.value);
+  const lng = parseFloat(document.getElementById('add-rest-lng')?.value);
+  const signature = document.getElementById('add-rest-signature')?.value?.trim();
+  const review = document.getElementById('add-rest-review')?.value?.trim();
+
+  if (!name || !lat || !lng) {
+    alert('가게 이름과 위도/경도 좌표는 필수입니다. (좌표찾기를 이용해보세요)');
+    return;
+  }
+
+  const payload = {
+    name,
+    region,
+    category,
+    address,
+    lat,
+    lng,
+    signature,
+    review,
+    rating: 4.8,
+    tweetTemplate: `🍽️ [${region}] ${name} 다녀왔습니다! 시그니처 메뉴(${signature || name}) 강추 🔥 #${name.replace(/\\s+/g, '')} #${region}맛집`
+  };
+
+  try {
+    const res = await fetch('/api/restaurants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`📍 [${name}] 맛집이 성공적으로 등록되었습니다!`);
+      closeAddRestaurantModal();
+      await loadRestaurants();
+      selectRestaurant(data.restaurant.id);
+    } else {
+      alert('등록 실패: ' + data.message);
+    }
+  } catch (err) {
+    alert('오류 발생: ' + err.message);
+  }
+}
+
+async function deleteRestaurant(id) {
+  if (!confirm('정말 이 맛집을 삭제하시겠습니까?')) return;
+  try {
+    const res = await fetch(`/api/restaurants/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('🗑️ 맛집이 삭제되었습니다.');
+      selectedRestaurantId = null;
+      document.getElementById('food-map-selected-card').innerHTML = `<p style="font-size:12px; color:var(--text-dim); margin:0; text-align:center; padding:20px 0;">맛집을 선택해주세요.</p>`;
+      await loadRestaurants();
+    }
+  } catch (err) {
+    alert('삭제 실패: ' + err.message);
+  }
+}
+
+function copyRestaurantTweet(id) {
+  const rest = allRestaurants.find(r => r.id === id);
+  if (!rest) return;
+  const tweetText = rest.tweetTemplate || `🍽️ [${rest.region}] ${rest.name} 추천! ${rest.signature || ''} #${rest.name.replace(/\\s+/g, '')} #${rest.region}맛집`;
+  navigator.clipboard.writeText(tweetText).then(() => {
+    showToast('📋 맛집 추천 트윗 문구가 복사되었습니다!');
+  });
+}
+
+function openRestaurantTweetWebIntent(id) {
+  const rest = allRestaurants.find(r => r.id === id);
+  if (!rest) return;
+  const tweetText = rest.tweetTemplate || `🍽️ [${rest.region}] ${rest.name} 추천! ${rest.signature || ''} #${rest.name.replace(/\\s+/g, '')} #${rest.region}맛집`;
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+  window.open(url, '_blank');
+}
 

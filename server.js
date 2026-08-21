@@ -765,6 +765,89 @@ app.post('/api/test-email', async (req, res) => {
   }
 });
 
+// ===== 🗺️ Korean Gourmet Food Map API (맛집 지도 CRUD) =====
+const RESTAURANTS_DB_FILE = path.join(DATA_DIR, 'restaurants_db.json');
+
+function getRestaurantsDb() {
+  if (!fs.existsSync(RESTAURANTS_DB_FILE)) {
+    return [];
+  }
+  try {
+    const raw = fs.readFileSync(RESTAURANTS_DB_FILE, 'utf8');
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveRestaurantsDb(list) {
+  try {
+    fs.writeFileSync(RESTAURANTS_DB_FILE, JSON.stringify(list, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('Error saving restaurants DB:', e);
+    return false;
+  }
+}
+
+app.get('/api/restaurants', (req, res) => {
+  try {
+    const list = getRestaurantsDb();
+    res.json({ success: true, count: list.length, restaurants: list });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/restaurants', (req, res) => {
+  try {
+    const { name, category, region, address, lat, lng, rating, signature, review, tweetTemplate } = req.body;
+    if (!name || !region || !lat || !lng) {
+      return res.status(400).json({ success: false, message: '가게명, 지역, 위도/경도 좌표는 필수입니다.' });
+    }
+
+    const list = getRestaurantsDb();
+    const newRestaurant = {
+      id: `rest_${Date.now()}`,
+      name: name.trim(),
+      category: category || 'korean',
+      region: region.trim(),
+      address: (address || '').trim(),
+      lat: Number(lat),
+      lng: Number(lng),
+      rating: Number(rating) || 4.5,
+      signature: (signature || '').trim(),
+      review: (review || '').trim(),
+      tweetTemplate: (tweetTemplate || '').trim() || `🍽️ [${region}] ${name} 다녀왔습니다! 시그니처 메뉴(${signature || name}) 강추 🔥 #${name.replace(/\s+/g, '')} #${region}맛집`,
+      createdAt: new Date().toISOString()
+    };
+
+    list.unshift(newRestaurant);
+    saveRestaurantsDb(list);
+    addLog('SUCCESS', `📍 [맛집 등록 완료] ${newRestaurant.name} (${newRestaurant.region})이(가) 지도에 등록되었습니다.`);
+    res.json({ success: true, restaurant: newRestaurant });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/restaurants/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    let list = getRestaurantsDb();
+    const prevLen = list.length;
+    list = list.filter(r => r.id !== id);
+    if (list.length === prevLen) {
+      return res.status(404).json({ success: false, message: '해당 맛집을 찾을 수 없습니다.' });
+    }
+    saveRestaurantsDb(list);
+    addLog('INFO', `🗑️ [맛집 삭제] 맛집이 삭제되었습니다.`);
+    res.json({ success: true, message: '삭제 완료' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ===== Trending Keywords API (No DB Storage) =====
 
 // ===== 🌐 Google Trends Realtime Keywords (5-Min Memory Cache & Guaranteed Fallback) =====
