@@ -79,6 +79,7 @@ async function sendEmailMessage(subject, htmlContent, customConfig) {
 
 async function notifyNewTunnelUrl(tunnelUrl) {
   const config = getConfig();
+  const username = config.authUsername || 'la5454';
   const password = config.authPassword || 'rudghlWkd!';
 
   // 1. Telegram Notification
@@ -86,7 +87,7 @@ async function notifyNewTunnelUrl(tunnelUrl) {
     try {
       const msg = `🚀 <b>X 트윗 생성기 대시보드 서버가 시작되었습니다!</b>\n\n` +
         `🌐 <b>외부 접속 링크:</b>\n${tunnelUrl}\n\n` +
-        `🔑 <b>로그인 계정:</b> admin / ${password}\n\n` +
+        `🔑 <b>로그인 계정:</b> ${username} / ${password}\n\n` +
         `📱 위 링크를 누르면 스마트폰에서 대시보드로 바로 접속할 수 있습니다.`;
       await sendTelegramMessage(msg);
       addLog('SUCCESS', `📲 [텔레그램 알림] 외부 접속 링크가 텔레그램으로 발송되었습니다.`);
@@ -107,7 +108,7 @@ async function notifyNewTunnelUrl(tunnelUrl) {
             <p style="margin: 0; font-weight: bold; color: #333;">🌐 외부 접속 링크 (클릭하여 이동):</p>
             <p style="margin: 10px 0 0 0; font-size: 16px;"><a href="${tunnelUrl}" target="_blank" style="color: #1d9bf0; font-weight: bold;">${tunnelUrl}</a></p>
           </div>
-          <p style="color: #555;">🔑 <b>보안 로그인:</b> 아이디 <code>admin</code> / 비밀번호 <code>${password}</code></p>
+          <p style="color: #555;">🔑 <b>보안 로그인:</b> 아이디 <code>${username}</code> / 비밀번호 <code>${password}</code></p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
           <p style="font-size: 12px; color: #888;">이 메일은 서버 실행 시 자동으로 발송되는 알림 메일입니다.</p>
         </div>

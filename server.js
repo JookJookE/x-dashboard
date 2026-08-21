@@ -56,22 +56,27 @@ app.get('/api/proxy-image', async (req, res) => {
 // HTTP Basic Security Authentication for Tunnel & External Access
 app.use((req, res, next) => {
   const config = getConfig();
-  const authPassword = config.authPassword || '1234';
+  const authUsername = config.authUsername || 'la5454';
+  const authPassword = config.authPassword || 'rudghlWkd!';
 
   const authHeader = req.headers['authorization'];
   if (!authHeader) {
     res.setHeader('WWW-Authenticate', 'Basic realm="X Tweet Generator Secure Access"');
-    return res.status(401).send('🔒 비밀번호 인증이 필요합니다.');
+    return res.status(401).send('🔒 보안 로그인이 필요합니다.');
   }
 
   const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+  const user = auth[0];
   const pass = auth[1];
 
-  if (pass === authPassword) {
+  const isUserValid = (user === authUsername || user === 'admin' || !user);
+  const isPassValid = (pass === authPassword);
+
+  if (isUserValid && isPassValid) {
     return next();
   } else {
     res.setHeader('WWW-Authenticate', 'Basic realm="X Tweet Generator Secure Access"');
-    return res.status(401).send('🔒 비밀번호가 올바르지 않습니다.');
+    return res.status(401).send('🔒 아이디 또는 비밀번호가 올바르지 않습니다.');
   }
 });
 
@@ -647,10 +652,12 @@ function startCloudflareTunnel() {
         tunnelUrlFound = true;
         const tunnelUrl = match[0];
         setGlobalPublicUrl(tunnelUrl);
+        const config = getConfig();
+        const username = config.authUsername || 'la5454';
         console.log(`\n=======================================================`);
         console.log(`🌐 외부(LTE/5G/스마트폰) 접속 주소:`);
         console.log(`👉 ${tunnelUrl}`);
-        console.log(`🔑 보안 로그인: 아이디 admin / 설정하신 비밀번호`);
+        console.log(`🔑 보안 로그인: 아이디 ${username} / 설정하신 비밀번호`);
         console.log(`=======================================================\n`);
         addLog('SUCCESS', `🌐 Cloudflare 외부 접속 터널이 활성화되었습니다: ${tunnelUrl}`);
         notifyNewTunnelUrl(tunnelUrl);
