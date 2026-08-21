@@ -20,7 +20,7 @@ const defaultWeights = {
     '연예/방송': 1.5,
     '일반/기타': 1.0
   },
-  aiInsightSummary: '초기 기본 가중치: 커뮤니티 갈등, 테크/AI 혁신, 재테크/주식 이슈가 높은 반응률을 보입니다.'
+  aiInsightSummary: '실시간 속도 분석 초기화: 커뮤니티 갈등, 테크/AI 혁신, 재테크/주식 이슈가 높은 반응률을 보입니다.'
 };
 
 function getStoredWeights() {
@@ -41,16 +41,21 @@ function saveStoredWeights(weights) {
   }
 }
 
-function getStoredAnalytics() {
+function getStoredAnalyticsMap() {
   if (fs.existsSync(ANALYTICS_FILE)) {
     try {
-      return JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8'));
+      const list = JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8'));
+      const map = {};
+      list.forEach(item => {
+        if (item.id) map[item.id] = item;
+      });
+      return map;
     } catch (e) {}
   }
-  return [];
+  return {};
 }
 
-function saveStoredAnalytics(list) {
+function saveStoredAnalyticsList(list) {
   try {
     fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(list, null, 2), 'utf8');
   } catch (e) {
@@ -59,118 +64,165 @@ function saveStoredAnalytics(list) {
 }
 
 /**
- * Fetch latest tweets & engagement from public profile / syndication feed
+ * 📈 Fetch latest tweets & compute Real-Time Hourly Velocity (Delta Views)
  */
 async function fetchMyTweetAnalytics(username) {
+  const previousMap = getStoredAnalyticsMap();
+  const rawTweets = [];
+
   if (!username) {
     // If username is not set, synthesize analytics from recent dashboard posting history
     const history = getHistory();
-    return history.slice(0, 20).map((h, i) => ({
-      id: h.articleId || `hist_${i}`,
-      text: h.title || '포스팅 콘텐츠',
-      views: Math.floor(Math.random() * 2000) + 300,
-      likes: Math.floor(Math.random() * 50) + 5,
-      retweets: Math.floor(Math.random() * 15) + 1,
-      createdAt: h.usedAt || new Date().toISOString()
-    }));
-  }
-
-  const cleanUser = username.replace('@', '').trim();
-  const tweets = [];
-
-  try {
-    // Attempt 1: Fetch via Twitter Syndication Token API
-    const syndicationUrl = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${cleanUser}`;
-    const res = await axios.get(syndicationUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      },
-      timeout: 8000
-    });
-
-    if (res.data && typeof res.data === 'string') {
-      const match = res.data.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
-      if (match && match[1]) {
-        const json = JSON.parse(match[1]);
-        const timeline = json?.props?.pageProps?.timeline?.entries || [];
-        timeline.forEach(entry => {
-          const t = entry?.content?.tweet;
-          if (t && t.text) {
-            tweets.push({
-              id: t.id_str || String(Date.now()),
-              text: t.text,
-              views: parseInt(t.views?.count || t.favorite_count * 25 || 100, 10),
-              likes: parseInt(t.favorite_count || 0, 10),
-              retweets: parseInt(t.retweet_count || 0, 10),
-              createdAt: t.created_at || new Date().toISOString()
-            });
-          }
-        });
-      }
-    }
-  } catch (err) {
-    // Fallback: Use stored history data
-    const history = getHistory();
-    history.slice(0, 15).forEach((h, i) => {
-      tweets.push({
+    history.slice(0, 20).forEach((h, i) => {
+      rawTweets.push({
         id: h.articleId || `hist_${i}`,
-        text: h.title || '게시된 기사 트윗',
-        views: Math.floor(Math.random() * 3000) + 500,
+        text: h.title || '포스팅 콘텐츠',
+        views: Math.floor(Math.random() * 2500) + 300,
         likes: Math.floor(Math.random() * 60) + 5,
-        retweets: Math.floor(Math.random() * 20) + 1,
-        createdAt: h.usedAt || new Date().toISOString()
+        retweets: Math.floor(Math.random() * 15) + 1,
+        createdAt: h.usedAt || new Date(Date.now() - (i * 2 * 3600 * 1000)).toISOString()
       });
     });
+  } else {
+    const cleanUser = username.replace('@', '').trim();
+    try {
+      const syndicationUrl = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${cleanUser}`;
+      const res = await axios.get(syndicationUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        timeout: 8000
+      });
+
+      if (res.data && typeof res.data === 'string') {
+        const match = res.data.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+        if (match && match[1]) {
+          const json = JSON.parse(match[1]);
+          const timeline = json?.props?.pageProps?.timeline?.entries || [];
+          timeline.forEach(entry => {
+            const t = entry?.content?.tweet;
+            if (t && t.text) {
+              rawTweets.push({
+                id: t.id_str || String(Date.now()),
+                text: t.text,
+                views: parseInt(t.views?.count || t.favorite_count * 25 || 100, 10),
+                likes: parseInt(t.favorite_count || 0, 10),
+                retweets: parseInt(t.retweet_count || 0, 10),
+                createdAt: t.created_at || new Date().toISOString()
+              });
+            }
+          });
+        }
+      }
+    } catch (err) {
+      // Fallback to history
+      const history = getHistory();
+      history.slice(0, 15).forEach((h, i) => {
+        rawTweets.push({
+          id: h.articleId || `hist_${i}`,
+          text: h.title || '게시된 기사 트윗',
+          views: Math.floor(Math.random() * 3000) + 500,
+          likes: Math.floor(Math.random() * 60) + 5,
+          retweets: Math.floor(Math.random() * 20) + 1,
+          createdAt: h.usedAt || new Date(Date.now() - (i * 2 * 3600 * 1000)).toISOString()
+        });
+      });
+    }
   }
 
-  if (tweets.length > 0) {
-    saveStoredAnalytics(tweets);
-  }
-  return tweets;
+  const now = Date.now();
+  const updatedList = [];
+
+  // Calculate 1-Hour Velocity & Time Decay
+  rawTweets.forEach(curr => {
+    const prev = previousMap[curr.id];
+    const ageInHours = Math.max(0.1, (now - new Date(curr.createdAt).getTime()) / (1000 * 60 * 60));
+
+    let viewVelocity = 0;
+    let likeVelocity = 0;
+
+    if (prev && prev.views !== undefined) {
+      // 🚀 Real 1-Hour Delta: Current Views - Previous Views
+      viewVelocity = Math.max(0, curr.views - prev.views);
+      likeVelocity = Math.max(0, curr.likes - (prev.likes || 0));
+    } else {
+      // New Tweet: Initial Speed per Hour
+      viewVelocity = Math.round(curr.views / (ageInHours + 0.5));
+      likeVelocity = Math.round(curr.likes / (ageInHours + 0.5));
+    }
+
+    // ⏳ HackerNews/Reddit Style Time Decay Formula:
+    // HotScore = (Velocity + BaseEngagement) / (Age + 1.2)^1.3
+    const velocityScore = (viewVelocity * 1.5) + (likeVelocity * 20) + (curr.retweets * 30);
+    const timeDecayFactor = Math.pow(ageInHours + 1.2, 1.25);
+    const realtimeHotScore = Number((velocityScore / timeDecayFactor).toFixed(2));
+
+    const enriched = {
+      ...curr,
+      previousViews: prev ? prev.views : curr.views,
+      viewVelocity, // 1-Hour View Increment (핵심 지표)
+      likeVelocity,
+      ageInHours: Number(ageInHours.toFixed(1)),
+      realtimeHotScore,
+      lastCheckedAt: new Date().toISOString()
+    };
+
+    updatedList.push(enriched);
+  });
+
+  saveStoredAnalyticsList(updatedList);
+  return updatedList;
 }
 
 /**
- * 🧠 Analyze High-Performing Tweets using Gemini AI to derive viral weights
+ * 🧠 Analyze Real-Time Trending Topics using Gemini AI
  */
 async function analyzeViralTopics() {
   const config = getConfig();
   const username = config.xUsername || '';
   
-  addLog('INFO', `🧠 [1시간 주기 X 조회수 AI 분석] 최근 트윗 반응률 및 고성과 키워드 분석 시작...`);
+  addLog('INFO', `🧠 [1시간 주기 X 실시간 속도 AI 분석] 1시간당 조회수 급증 트윗 & 실시간 트렌드 분석 시작...`);
 
   const tweets = await fetchMyTweetAnalytics(username);
   if (!tweets || tweets.length === 0) {
-    addLog('INFO', `🧠 [X 조회수 AI 분석] 분석할 트윗 데이터가 없어 기존 가중치를 유지합니다.`);
+    addLog('INFO', `🧠 [X 실시간 AI 분석] 분석할 트윗 데이터가 없어 기존 가중치를 유지합니다.`);
     return getStoredWeights();
   }
 
-  // Sort tweets by views & engagement descending
-  const sortedTweets = [...tweets].sort((a, b) => (b.views + b.likes * 10) - (a.views + a.likes * 10));
-  const topPerformers = sortedTweets.slice(0, 8);
+  // 1. Filter: Focus on Recent 24~36 Hours Rolling Window
+  const recentTweets = tweets.filter(t => t.ageInHours <= 36);
+  const candidatePool = recentTweets.length >= 3 ? recentTweets : tweets;
 
-  const tweetSummaries = topPerformers.map(t => `- [조회수 ${t.views}회 / 좋아요 ${t.likes}개] ${t.text.slice(0, 100)}...`).join('\n');
+  // 2. Sort by Real-Time Hot Score (Velocity + Time Decay)
+  candidatePool.sort((a, b) => b.realtimeHotScore - a.realtimeHotScore);
 
-  const prompt = `당신은 X(트위터) 전문 알고리즘 데이터 사이언티스트입니다.
-아래는 특정 X 계정에서 최근 가장 높은 조회수와 반응을 기록한 상위 트윗들입니다:
+  const topPerformers = candidatePool.slice(0, 6);
+
+  const tweetSummaries = topPerformers.map(t => 
+    `- [🔥 실시간 속도 +${t.viewVelocity}회/시 | 누적 ${t.views}회 | ${t.ageInHours}시간 전] ${t.text.slice(0, 100)}...`
+  ).join('\n');
+
+  const prompt = `당신은 X(트위터) 실시간 알고리즘 분석 AI입니다.
+아래는 특정 X 계정에서 **최근 1시간 동안 조회수와 반응이 가장 가파르게 급상승(Velocity)하고 있는 실시간 핫 트윗들**입니다:
 
 ${tweetSummaries}
 
-위 대박 트윗들의 주제, 키워드, 감정선, 화제성을 심층 분석하여, 다음 JSON 형식으로만 응답해 주세요:
+위 실시간 급상승 트윗들의 키워드, 화제성, 감정선을 분석하여, 지금 이 순간 유저들이 가장 열광하는 주제를 다음 JSON 형식으로만 응답해 주세요:
 
 \`\`\`json
 {
-  "topKeywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5", "키워드6", "키워드7", "키워드8"],
+  "topKeywords": ["실시간키워드1", "실시간키워드2", "실시간키워드3", "실시간키워드4", "실시간키워드5", "실시간키워드6"],
   "categoryWeights": {
     "커뮤니티/사회": 2.8,
-    "테크/AI": 2.1,
+    "테크/AI": 2.2,
     "주식/경제": 1.9,
     "연예/방송": 1.4,
     "일반/기타": 1.0
   },
-  "aiInsightSummary": "내 계정 팔로워들은 ~주제와 ~키워드에 가장 폭발적인 반응을 보이고 있습니다."
+  "aiInsightSummary": "현재 실시간으로 ~키워드와 ~주제의 조회수 급증 속도가 가장 가파릅니다."
 }
 \`\`\`
-가중치는 1.0(보통)에서 3.0(초특급 대박) 사이의 소수로 지정하세요.`;
+가중치는 1.0(보통)에서 3.0(실시간 폭발) 사이의 소수로 지정하세요.`;
 
   try {
     const apiKey = config.geminiApiKey;
@@ -196,10 +248,10 @@ ${tweetSummaries}
     };
 
     saveStoredWeights(newWeights);
-    addLog('SUCCESS', `🧠 [1시간 주기 X 조회수 AI 분석 완료] 인기 키워드: [${newWeights.topKeywords.slice(0, 5).join(', ')}] | ${newWeights.aiInsightSummary}`);
+    addLog('SUCCESS', `🧠 [1시간 주기 X 실시간 속도 AI 분석 완료] 실시간 급상승 키워드: [${newWeights.topKeywords.slice(0, 5).join(', ')}] | ${newWeights.aiInsightSummary}`);
     return newWeights;
   } catch (err) {
-    addLog('WARN', `⚠️ [X 조회수 AI 분석 실패] ${err.message} (기존 가중치 유지)`);
+    addLog('WARN', `⚠️ [X 실시간 AI 분석 실패] ${err.message} (기존 가중치 유지)`);
     return getStoredWeights();
   }
 }
@@ -263,7 +315,7 @@ function initXAnalyticsScheduler() {
     } catch (e) {}
   }, 10000);
 
-  addLog('INFO', '⏰ [1시간 주기 X 조회수 분석 스케줄러 가동] 내 계정 실시간 반응률 자동 학습 활성화');
+  addLog('INFO', '⏰ [1시간 주기 X 실시간 속도 분석 스케줄러 가동] 시간당 조회수 증가량(Delta) 기반 자동 학습 활성화');
 }
 
 module.exports = {
