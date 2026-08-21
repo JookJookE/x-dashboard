@@ -565,6 +565,113 @@ async function fetchGlobalNewsRssArticles(categoryKey, queryStr, categoryName, t
   return [];
 }
 
+/**
+ * 🌐 SBH News (AI 고화질 커버 & 글로벌 지정학/경제/군사 속보 수집기)
+ */
+async function fetchSbhNewsArticles(limit = 12, scanBatchTime = null) {
+  try {
+    const res = await axios.get('https://www.sbhnews.com', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 6000
+    });
+
+    const html = res.data;
+    const flightMatches = html.match(/self\.__next_f\.push\(\[1,"([\s\S]*?)"\]\)/g);
+    if (!flightMatches) return [];
+
+    let rawList = [];
+    for (const f of flightMatches) {
+      if (f.includes('initialArticles')) {
+        let rawString = '';
+        try {
+          const fn = new Function('self', f);
+          const mockSelf = {
+            __next_f: {
+              push: (args) => {
+                if (args && args[1]) rawString = args[1];
+              }
+            }
+          };
+          fn(mockSelf);
+        } catch (e) {}
+
+        if (rawString) {
+          const idx = rawString.indexOf('"initialArticles":[');
+          if (idx !== -1) {
+            const start = idx + '"initialArticles":'.length;
+            let depth = 0;
+            let end = start;
+            for (let i = start; i < rawString.length; i++) {
+              if (rawString[i] === '[') depth++;
+              else if (rawString[i] === ']') {
+                depth--;
+                if (depth === 0) {
+                  end = i + 1;
+                  break;
+                }
+              }
+            }
+            try {
+              rawList = JSON.parse(rawString.slice(start, end));
+              break;
+            } catch (e) {}
+          }
+        }
+      }
+    }
+
+    if (!Array.isArray(rawList) || rawList.length === 0) {
+      return [];
+    }
+
+    const articles = rawList.slice(0, limit).map((a, idx) => {
+      const id = `sbh-${a.id || Date.now() + '-' + idx}`;
+      const firstCollectedAt = getOrCreateFetchedAt(id, scanBatchTime);
+
+      let catKey = 'heisenberg';
+      let catTag = '⚔️ 글로벌 전황/지정학';
+      let catName = '글로벌 전황';
+
+      if (a.category === 'economy' || a.category === 'finance') {
+        catKey = 'economy';
+        catTag = '💵 글로벌 경제';
+        catName = '경제뉴스';
+      } else if (a.category === 'tech' || a.category === 'it') {
+        catKey = 'it';
+        catTag = '💻 글로벌 IT';
+        catName = 'IT뉴스';
+      }
+
+      return {
+        id,
+        title: a.title || 'SBH News 글로벌 속보',
+        contentSnippet: a.summary || '',
+        excerpt: a.summary || '',
+        link: a.sourceUrl || `https://www.sbhnews.com/articles/${a.slug || a.id}`,
+        imageUrl: a.coverImage || '',
+        category: catKey,
+        categoryTag: catTag,
+        categoryName: catName,
+        source: `SBH News (${a.locationName || '글로벌'})`,
+        date: a.publishedAt || new Date().toISOString(),
+        firstCollectedAt,
+        lat: a.lat,
+        lng: a.lng,
+        locationName: a.locationName || '',
+        tags: a.tags || []
+      };
+    });
+
+    addLog('SUCCESS', `🌐 [SBH News 수집 완료] AI 고화질 커버 포함 글로벌 속보 ${articles.length}건 수집 성공`);
+    return articles;
+  } catch (err) {
+    addLog('WARN', `⚠️ [SBH News 수집 지연] ${err.message}`);
+    return [];
+  }
+}
+
 // Main fetcher: 순차 순연 수집으로 Cloudflare 프록시 타임아웃 100% 방지
 async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
   const scanBatchTimeVal = scanBatchTime || new Date().toISOString();
@@ -605,6 +712,10 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
     const idolNews = await fetchNewsRssArticles('idol', '걸그룹 OR 여자아이돌 OR 고윤정 OR 장원영 OR 카리나 OR 미모 OR 비주얼 OR 화보 OR 연예인 포토', '아이돌/비주얼 연예인', '🌸 아이돌 / 비주얼 연예인', 8, scanBatchTimeVal, '5d');
     await new Promise(r => setTimeout(r, 1500));
     const mindsetNews = await fetchNewsRssArticles('mindset', '심리학 OR 멘탈 OR 대인관계 OR 자존감', '멘탈/심리', '🧠 멘탈 / 심리 / 대인관계', 8, scanBatchTimeVal, '5d');
+    await new Promise(r => setTimeout(r, 1500));
+
+    // 🌐 SBH News (AI 고화질 커버 & 글로벌 지정학/경제 피드)
+    const sbhNews = await fetchSbhNewsArticles(12, scanBatchTimeVal);
 
     let allArticles = [
       ...heisenberg,
@@ -620,7 +731,8 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
       ...pannNews,
       ...gossipNews,
       ...idolNews,
-      ...mindsetNews
+      ...mindsetNews,
+      ...sbhNews
     ];
 
     // Cross-category semantic deduplication
@@ -638,7 +750,7 @@ async function fetchLatestArticles(limit = 35, scanBatchTime = null) {
     allArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
     const persistentArticles = saveStoredArticles(allArticles);
 
-    addLog('SUCCESS', `국내외 총 ${allArticles.length}건의 최신 소식을 성공적으로 수집했습니다. (DB 보관: ${persistentArticles.length}건)`);
+    addLog('SUCCESS', `국내외 및 SBH News 총 ${allArticles.length}건의 최신 소식을 성공적으로 수집했습니다. (DB 보관: ${persistentArticles.length}건)`);
     return persistentArticles;
   } catch (err) {
     addLog('ERROR', `뉴스 수집 실패: ${err.message}`);
