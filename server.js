@@ -475,6 +475,19 @@ app.get('/api/golden-hour', (req, res) => {
   }
 });
 
+// ===== 🧠 AI Viral Topic Weights & Analytics =====
+const { initXAnalyticsScheduler, getStoredWeights } = require('./services/xAnalyticsService');
+initXAnalyticsScheduler();
+
+app.get('/api/analytics/viral-weights', (req, res) => {
+  try {
+    const weights = getStoredWeights();
+    res.json({ success: true, weights });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ===== X Poll & Thread Generators =====
 app.post('/api/generate-poll', async (req, res) => {
   try {

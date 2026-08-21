@@ -3083,7 +3083,9 @@ async function loadQueueAndXStatus() {
       const asInput = document.getElementById('x-access-secret-input');
       const btInput = document.getElementById('tele-briefing-token-input');
       const bcInput = document.getElementById('tele-briefing-chatid-input');
+      const xuInput = document.getElementById('x-username-input');
 
+      if (xuInput && c.xUsername) xuInput.value = c.xUsername;
       if (kInput && c.hasXAppKey) kInput.placeholder = '✅ [저장됨] ' + (c.xAppKey || '••••••••');
       if (sInput && c.hasXAppSecret) sInput.placeholder = '✅ [저장됨] ••••••••••••••••';
       if (tInput && c.hasXAccessToken) tInput.placeholder = '✅ [저장됨] ••••••••••••••••';
@@ -3096,6 +3098,7 @@ async function loadQueueAndXStatus() {
 
 
 async function saveXApiSettings() {
+  const xUsername = document.getElementById('x-username-input')?.value?.trim();
   const appKey = document.getElementById('x-app-key-input')?.value?.trim();
   const appSecret = document.getElementById('x-app-secret-input')?.value?.trim();
   const accessToken = document.getElementById('x-access-token-input')?.value?.trim();
@@ -3107,6 +3110,7 @@ async function saveXApiSettings() {
   const payload = {
     telegramQueueEnabled: Boolean(queueEnabled)
   };
+  if (xUsername !== undefined) payload.xUsername = xUsername;
   if (appKey) payload.xAppKey = appKey;
   if (appSecret) payload.xAppSecret = appSecret;
   if (accessToken) payload.xAccessToken = accessToken;
@@ -3122,8 +3126,9 @@ async function saveXApiSettings() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('✅ X API 키 및 텔레그램 브리핑 설정이 저장되었습니다!');
+      showToast('✅ X 계정 아이디 및 브리핑 설정이 저장되었습니다!');
       loadQueueAndXStatus();
+      loadViralWeights();
     } else {
       showToast('⚠️ 저장 실패: ' + data.message);
     }
@@ -3306,9 +3311,43 @@ async function generateThreadForSelected() {
   }
 }
 
+// ===== 🧠 AI Viral Topic Weights Loader =====
+async function loadViralWeights() {
+  try {
+    const res = await fetch('/api/analytics/viral-weights');
+    const data = await res.json();
+    if (data.success && data.weights) {
+      const w = data.weights;
+      const summaryEl = document.getElementById('viral-insight-summary');
+      if (summaryEl && w.aiInsightSummary) {
+        summaryEl.textContent = w.aiInsightSummary;
+      }
+
+      const container = document.getElementById('viral-keywords-container');
+      if (container && Array.isArray(w.topKeywords)) {
+        const tagsHtml = w.topKeywords.slice(0, 6).map((kw, idx) => {
+          const colors = [
+            { bg: 'rgba(236,72,153,0.15)', color: '#f472b6', border: 'rgba(236,72,153,0.3)', icon: '🔥' },
+            { bg: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: 'rgba(56,189,248,0.3)', icon: '🚀' },
+            { bg: 'rgba(250,204,21,0.15)', color: '#facc15', border: 'rgba(250,204,21,0.3)', icon: '💰' },
+            { bg: 'rgba(74,222,128,0.15)', color: '#4ade80', border: 'rgba(74,222,128,0.3)', icon: '📈' },
+            { bg: 'rgba(168,85,247,0.15)', color: '#c084fc', border: 'rgba(168,85,247,0.3)', icon: '⚡' },
+            { bg: 'rgba(251,146,60,0.15)', color: '#fb923c', border: 'rgba(251,146,60,0.3)', icon: '🎯' }
+          ];
+          const c = colors[idx % colors.length];
+          return `<span class="viral-tag" style="background:${c.bg}; color:${c.color}; border:1px solid ${c.border}; font-size:11px; padding:2px 8px; border-radius:12px; font-weight:700;">${c.icon} ${kw}</span>`;
+        }).join('');
+
+        container.innerHTML = `<span style="font-size: 11px; color: #64748b; font-weight: 600;">인기 키워드:</span> ${tagsHtml}`;
+      }
+    }
+  } catch (err) {}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadQueueAndXStatus();
   loadStreakStats();
+  loadViralWeights();
   checkGoldenHourStatus();
   setInterval(checkGoldenHourStatus, 60000); // Check golden hour every minute
 });

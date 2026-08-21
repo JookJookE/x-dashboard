@@ -21,6 +21,7 @@ const defaultConfig = {
   autoPostEnabled: true,  // Auto daily draft generation enabled
   telegramQueueEnabled: true, // 3-minute Telegram approval queue
   maxTweetLength: 280,
+  xUsername: process.env.X_USERNAME || '',
   authUsername: process.env.AUTH_USERNAME || 'la5454',
   authPassword: process.env.AUTH_PASSWORD || 'rudghlWkd!',
   customPromptTemplate: `내가 직접 내 트위터 팔로워들에게 핵심 지식과 기술 인사이트를 설명해 주는 어조(기술 전문가/인플루언서 톤앤매너)로 X 포스트를 작성해 주세요.`,

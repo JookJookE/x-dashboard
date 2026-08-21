@@ -190,6 +190,29 @@
           </div>
         </div>
 
+        <!-- 🧠 1-Hour AI Viral Topic Weights Bar -->
+        <div class="viral-weights-card" id="viral-weights-widget" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 280px;">
+            <span style="font-size: 20px;">🧠</span>
+            <div>
+              <div style="font-size: 13px; font-weight: 800; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+                <span>AI 바이럴 가중치 분석 (1시간 자동 학습)</span>
+                <span id="viral-updated-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.3);">실시간 연동</span>
+              </div>
+              <div id="viral-insight-summary" style="font-size: 11px; color: #94a3b8; margin-top: 3px;">
+                내 X 계정의 고성과 키워드를 분석하여 10분 텔레그램 추천에 1순위로 반영 중입니다.
+              </div>
+            </div>
+          </div>
+          <div id="viral-keywords-container" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+            <span style="font-size: 11px; color: #64748b; font-weight: 600;">인기 키워드:</span>
+            <!-- Injected dynamically -->
+            <span class="viral-tag" style="background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid rgba(236,72,153,0.3); font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">🔥 블라인드</span>
+            <span class="viral-tag" style="background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">🚀 테크/AI</span>
+            <span class="viral-tag" style="background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.3); font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">💰 주식</span>
+          </div>
+        </div>
+
         <!-- Stats Bar: Dual Group Unread Status -->
         <div class="stats-grid">
           <div class="stat-card" style="cursor:pointer;" onclick="selectCategoryNav('tech_all')">
@@ -721,7 +744,11 @@
             <!-- Dedicated Briefing Telegram Bot -->
             <div style="margin-bottom:15px; padding:12px; background:rgba(56, 189, 248, 0.05); border:1px dashed rgba(56, 189, 248, 0.3); border-radius:8px;">
               <div style="font-size:12px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px;">
-                🤖 기사 브리핑 전용 텔레그램 봇 설정 (서버 알림과 분리 시 입력):
+                🤖 기사 브리핑 &amp; X 계정 연동 설정:
+              </div>
+              <div class="form-group" style="margin-bottom:8px;">
+                <label for="x-username-input" style="font-size:11px;">내 X(트위터) 계정 아이디 (@제외 입력):</label>
+                <input type="text" id="x-username-input" placeholder="예: my_x_handle (1시간 주기 조회수 자동 분석에 사용)" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:#fff; font-size:12px;">
               </div>
               <div class="form-group" style="margin-bottom:8px;">
                 <label for="tele-briefing-token-input" style="font-size:11px;">브리핑 전용 봇 토큰 (미입력 시 기본 알림 봇 사용):</label>

@@ -319,16 +319,21 @@ function selectNextPendingArticle() {
 
   if (unsent.length === 0) return null;
 
-  const priorityArticles = unsent.filter(a => {
-    const text = `${a.title} ${a.category || ''} ${a.categoryTag || ''}`.toLowerCase();
-    return text.includes('커뮤니티') || text.includes('네이트판') || text.includes('블라인드') ||
-           text.includes('더쿠') || text.includes('사건') || text.includes('사고') || 
-           text.includes('전쟁') || text.includes('논란') || text.includes('단독') || 
-           text.includes('충격') || text.includes('폭로') || text.includes('연예');
+  // 3. AI Viral Weight Score Calculation for each article
+  const { getStoredWeights, calculateArticleViralScore } = require('./xAnalyticsService');
+  const weights = getStoredWeights();
+
+  const scoredArticles = unsent.map(a => {
+    const score = calculateArticleViralScore(a, weights);
+    return { article: a, score };
   });
 
-  const selected = priorityArticles.length > 0 ? priorityArticles[0] : unsent[0];
+  // Sort descending by AI Viral Score
+  scoredArticles.sort((a, b) => b.score - a.score);
 
+  const selected = scoredArticles[0].article;
+
+  // 4. Check if it is a Breaking Mega Issue (Covered by >= 3 different press in stored DB)
   const similarCount = articles.filter(other => isSimilarArticleTitle(other.title, selected.title)).length;
   if (similarCount >= 3) {
     selected.isBreakingNews = true;
