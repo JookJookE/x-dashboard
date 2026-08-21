@@ -3456,10 +3456,12 @@ function initFoodMap() {
   const canvas = document.getElementById('food-map-canvas');
   if (!canvas) return;
 
-  // Center around Daejeon / Sejong central Korea
+  // Center around Daejeon / Sejong central Korea (minZoom: 6 prevents extreme drift)
   foodMap = L.map('food-map-canvas', {
     zoomControl: true,
-    attributionControl: false
+    attributionControl: false,
+    minZoom: 6,
+    maxZoom: 19
   }).setView([36.3504, 127.3845], 11);
 
   const defaultTheme = MAP_THEMES.color;
@@ -3521,14 +3523,16 @@ function renderRestaurantMarkers() {
         <div class="food-pin-icon" style="background:${catStyle.bg};">
           ${catStyle.icon}
         </div>
+        <div class="food-pin-pointer"></div>
       </div>
     `;
 
     const customIcon = L.divIcon({
       className: 'custom-food-marker',
       html: iconHtml,
-      iconSize: [120, 60],
-      iconAnchor: [60, 60]
+      iconSize: [120, 52],
+      iconAnchor: [60, 52],
+      popupAnchor: [0, -52]
     });
 
     const marker = L.marker([rest.lat, rest.lng], { icon: customIcon });
