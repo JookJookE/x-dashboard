@@ -768,15 +768,263 @@ app.post('/api/test-email', async (req, res) => {
 // ===== 🗺️ Korean Gourmet Food Map API (맛집 지도 CRUD) =====
 const RESTAURANTS_DB_FILE = path.join(DATA_DIR, 'restaurants_db.json');
 
+const DEFAULT_SEED_RESTAURANTS = [
+  {
+    "id": "rest_dj_1",
+    "name": "성심당 본점",
+    "category": "cafe",
+    "region": "대전",
+    "address": "대전 중구 대종로480번길 15",
+    "lat": 36.327664,
+    "lng": 127.427329,
+    "rating": 4.9,
+    "signature": "튀김소보로, 부추빵, 망고시루",
+    "review": "전국 최고의 빵지순례 성지! 갓 나온 튀소와 제철 시루 케이크는 필수.",
+    "tweetTemplate": "🍞 대전 여행 필수 1순위 성심당 본점! 갓 튀긴 튀김소보로 바삭함 미쳤음... 망고시루 대기표 오픈런 성공 꿀팁 공유합니다 🔥 #성심당 #대전맛집 #빵지순례",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_dj_2",
+    "name": "태평소국밥 본점",
+    "category": "korean",
+    "region": "대전",
+    "address": "대전 중구 태평로 116",
+    "lat": 36.320491,
+    "lng": 127.399583,
+    "rating": 4.8,
+    "signature": "소국밥, 따로국밥, 육사시미",
+    "review": "24시간 맑고 진한 소고기 국물과 가성비 최고의 신선한 육사시미.",
+    "tweetTemplate": "🥩 대전 현지인 찐맛집 태평소국밥! 맑고 깊은 국물에 육사시미 한 접시 1만원대 실화? 24시간 언제 가도 대만족... 🤤 #태평소국밥 #대전맛집 #육사시미",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_dj_3",
+    "name": "오씨칼국수 본점",
+    "category": "korean",
+    "region": "대전",
+    "address": "대전 동구 옛신탄진로 13",
+    "lat": 36.347312,
+    "lng": 127.430855,
+    "rating": 4.7,
+    "signature": "손칼국수, 물총조개탕, 해물파전",
+    "review": "신선한 동죽 조개가 산더미처럼 들어간 물총칼국수와 매콤한 김치의 환상 조합.",
+    "tweetTemplate": "🦪 시원 칼칼함의 끝판왕 오씨칼국수! 씹자마자 육즙 팡 터지는 물총조개탕에 손칼국수 조합은 대전 최고입니다 🍜 #오씨칼국수 #대전칼국수 #물총조개",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_dj_4",
+    "name": "광천식당",
+    "category": "korean",
+    "region": "대전",
+    "address": "대전 중구 대종로505번길 29",
+    "lat": 36.328811,
+    "lng": 127.426211,
+    "rating": 4.6,
+    "signature": "수육, 두부두루치기, 칼국수사리",
+    "review": "3대천왕에 나온 화끈한 매운맛의 두부두루치기와 야들야들 부드러운 수육.",
+    "tweetTemplate": "🌶️ 매운맛 마니아 성지 대전 광천식당! 불맛 나는 두부두루치기에 칼국수 사리 비벼 먹고 수육 한 점 얹으면 극락... 🔥 #광천식당 #두부두루치기 #대전노포",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_dj_5",
+    "name": "진로집",
+    "category": "korean",
+    "region": "대전",
+    "address": "대전 중구 중교로 45-5",
+    "lat": 36.326214,
+    "lng": 127.426912,
+    "rating": 4.6,
+    "signature": "두부두루치기, 두부오징어, 부추전",
+    "review": "50년 전통 노포 골목에서 맛보는 순두부 질감의 부드럽고 매콤달콤한 두루치기.",
+    "tweetTemplate": "🍲 50년 노포 대전 진로집 두부두루치기! 부들부들한 두부에 매콤한 양념이 쏙 배어있어 밥도둑 그 자체 ✨ #진로집 #대전맛집 #노포맛집",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_dj_6",
+    "name": "바로그집 본점",
+    "category": "korean",
+    "region": "대전",
+    "address": "대전 중구 중앙로 145 지하상가 C나 61호",
+    "lat": 36.327112,
+    "lng": 127.425514,
+    "rating": 4.5,
+    "signature": "아이스크림 떡볶이, 모둠튀김",
+    "review": "분유와 마요네즈가 들어간 듯한 크리미하고 독특한 고소한 소스의 대전 명물 떡볶이.",
+    "tweetTemplate": "🍦 일명 '아이스크림 떡볶이' 대전 바로그집! 고소하고 달콤한 특제 크리미 소스가 한번 먹으면 중독성 대박입니다 🤤 #바로그집 #떡볶이맛집 #대전분식",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_dj_7",
+    "name": "솔서원",
+    "category": "western",
+    "region": "대전",
+    "address": "대전 유성구 대덕대로 512번길 18",
+    "lat": 36.375214,
+    "lng": 127.382145,
+    "rating": 4.8,
+    "signature": "화덕피자, 트러플 파스타",
+    "review": "도룡동 연구단지 숲속 분위기의 정통 이탈리안 다이닝과 훌륭한 와인 페어링.",
+    "tweetTemplate": "🍷 대전 도룡동 감성 다이닝 솔서원! 분위기 좋은 정원에서 즐기는 나폴리 화덕피자와 트러플 파스타 강추 ✨ #솔서원 #대전데이트 #이탈리안",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_dj_8",
+    "name": "복수분식 본점",
+    "category": "korean",
+    "region": "대전",
+    "address": "대전 중구 충무로107번길 48",
+    "lat": 36.318214,
+    "lng": 127.428512,
+    "rating": 4.6,
+    "signature": "얼큰칼국수, 오징어두루치기, 주먹밥",
+    "review": "쑥갓 듬뿍 올려 먹는 얼큰하고 걸쭉한 장칼국수 스타일의 대전 대표 분식집.",
+    "tweetTemplate": "🌿 쑥갓 팍팍 넣은 대전 복수분식 얼큰칼국수! 매콤칼칼한 국물에 참치주먹밥 곁들이면 최고의 해장 조합 🍜 #복수분식 #얼큰칼국수 #대전맛집",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_sj_1",
+    "name": "이도사리",
+    "category": "korean",
+    "region": "세종",
+    "address": "세종 조치원읍 새내로 124",
+    "lat": 36.602145,
+    "lng": 127.298514,
+    "rating": 4.7,
+    "signature": "어탕국수, 민물매운탕, 도리뱅뱅이",
+    "review": "조치원 현지인들이 손꼽는 진하고 구수한 보약 같은 자연산 어탕국수 맛집.",
+    "tweetTemplate": "🐟 조치원 찐맛집 이도사리 어탕국수! 비린내 전혀 없이 진국인 보약 국물에 밥까지 말아먹으면 든든함 최고 💪 #이도사리 #세종맛집 #어탕국수",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_sj_2",
+    "name": "신안골분식",
+    "category": "korean",
+    "region": "세종",
+    "address": "세종 조치원읍 신안새벌길 63",
+    "lat": 36.611245,
+    "lng": 127.294125,
+    "rating": 4.6,
+    "signature": "닭떡볶이, 라면사리, 볶음밥",
+    "review": "닭볶음탕과 즉석떡볶이가 만난 마성의 닭떡볶이! 마지막 들기름 김가루 볶음밥은 필수.",
+    "tweetTemplate": "🍗 홍익대/고려대 세종캠 전설의 신안골분식 닭떡볶이! 매콤한 양념에 닭고기랑 떡 건져먹고 볶음밥 비비면 끝장납니다 🔥 #신안골분식 #닭떡볶이 #조치원맛집",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_sj_3",
+    "name": "클래식피자 세종점",
+    "category": "western",
+    "region": "세종",
+    "address": "세종 가름로 232 세종파이낸스센터 1층",
+    "lat": 36.498512,
+    "lng": 127.261245,
+    "rating": 4.7,
+    "signature": "페퍼로니 피자, 트러플 머쉬룸 피자",
+    "review": "치즈와 토핑이 흘러넘치는 미국 정통 스타일 수제 피자 맛집.",
+    "tweetTemplate": "🍕 세종 호수공원 근처 클래식피자! 쫀득한 도우에 페퍼로니 폭탄 토핑 치즈 쫙쫙 늘어남 🧀 #클래식피자 #세종피자 #호수공원맛집",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_sj_4",
+    "name": "고향칼국수",
+    "category": "korean",
+    "region": "세종",
+    "address": "세종 연서면 당산로 385",
+    "lat": 36.562145,
+    "lng": 127.275124,
+    "rating": 4.8,
+    "signature": "들깨칼국수, 해물칼국수, 왕만두",
+    "review": "직접 뽑은 쫄깃한 면발과 고소함이 폭발하는 진한 들깨 국물의 조화.",
+    "tweetTemplate": "🥣 고소한 들깨 향 가득한 세종 고향칼국수! 면발 탱글탱글하고 겉절이 김치까지 완벽한 맛 🥢 #고향칼국수 #세종칼국수 #들깨칼국수",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_sj_5",
+    "name": "헤이마 세종 (HEIMA)",
+    "category": "cafe",
+    "region": "세종",
+    "address": "세종 금남면 황룡1길 45",
+    "lat": 36.452145,
+    "lng": 127.284512,
+    "rating": 4.8,
+    "signature": "시그니처 라떼, 소금빵, 퀸아망",
+    "review": "자연 경관이 한눈에 들어오는 대형 베이커리 힐링 카페.",
+    "tweetTemplate": "☕ 세종 금남면 힐링 뷰 헤이마 카페! 드넓은 정원과 갓 구운 소금빵, 시그니처 크림라떼 인생샷 명소 🌿 #헤이마 #세종카페 #베이커리카페",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_seoul_1",
+    "name": "런던베이글뮤지엄 안국점",
+    "category": "cafe",
+    "region": "서울",
+    "address": "서울 종로구 북촌로4길 20",
+    "lat": 37.579124,
+    "lng": 126.986512,
+    "rating": 4.9,
+    "signature": "포테이토 치즈 베이글, 브릭레인, 스프",
+    "review": "영국 런던 감성 인테리어와 쫄깃한 수제 베이글의 전국 최고 핫플.",
+    "tweetTemplate": "🥯 런던베이글뮤지엄 안국점! 감자치즈베이글 쫀득함에 트러플 크림치즈 발라먹으면 천국행... 캐치테이블 예약 팁 🇬🇧 #런던베이글뮤지엄 #안국맛집 #베이글성지",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_seoul_2",
+    "name": "능동미나리 신용산점",
+    "category": "korean",
+    "region": "서울",
+    "address": "서울 용산구 한강대로40길 28",
+    "lat": 37.529814,
+    "lng": 126.968512,
+    "rating": 4.8,
+    "signature": "미나리 곰탕, 미나리 수육전골, 육회비빔밥",
+    "review": "향긋한 생미나리가 가득 들어간 맑고 담백한 서울식 곰탕과 수육전골.",
+    "tweetTemplate": "🌿 용리단길 웨이팅 1위 능동미나리! 향긋한 미나리 폭탄 곰탕 국물에 수육전골 조합은 반주하기에 예술입니다 🍶 #능동미나리 #용리단길맛집 #미나리곰탕",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_busan_1",
+    "name": "수변최고돼지국밥 민락본점",
+    "category": "korean",
+    "region": "부산",
+    "address": "부산 수영구 광안해변로370번길 9-32",
+    "lat": 35.155124,
+    "lng": 129.131245,
+    "rating": 4.9,
+    "signature": "항정국밥, 고기국밥, 맛보기순대",
+    "review": "잡내 1도 없는 뽀얀 사골 육수에 입에서 살살 녹는 항정살이 가득한 부산 1등 국밥집.",
+    "tweetTemplate": "🍲 부산 광안리 수변최고돼지국밥 항정국밥! 부드러운 항정살 고기 양 엄청나고 다대기 풀면 깊은 맛 폭발합니다 🏖️ #수변최고돼지국밥 #부산돼지국밥 #광안리맛집",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  },
+  {
+    "id": "rest_jeju_1",
+    "name": "숙성도 노형본점",
+    "category": "meat",
+    "region": "제주",
+    "address": "제주 제주시 원노형로 41",
+    "lat": 33.487512,
+    "lng": 126.485124,
+    "rating": 4.9,
+    "signature": "960 숙성 뼈등심, 720 숙성 삼겹살",
+    "review": "워터에이징과 드라이에이징 교차 숙성으로 육즙과 풍미를 극한으로 끌어올린 제주 흑돼지 끝판왕.",
+    "tweetTemplate": "🥩 제주도 흑돼지 원탑 숙성도 노형본점! 두툼한 뼈등심에 명란젓+멜젓 찍어 한입 물면 육즙 팡 터짐... 🍊 #숙성도 #제주흑돼지 #제주맛집",
+    "createdAt": "2026-08-20T00:00:00.000Z"
+  }
+];
+
 function getRestaurantsDb() {
   if (!fs.existsSync(RESTAURANTS_DB_FILE)) {
-    return [];
+    saveRestaurantsDb(DEFAULT_SEED_RESTAURANTS);
+    return DEFAULT_SEED_RESTAURANTS;
   }
   try {
     const raw = fs.readFileSync(RESTAURANTS_DB_FILE, 'utf8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      saveRestaurantsDb(DEFAULT_SEED_RESTAURANTS);
+      return DEFAULT_SEED_RESTAURANTS;
+    }
+    return parsed;
   } catch (e) {
-    return [];
+    saveRestaurantsDb(DEFAULT_SEED_RESTAURANTS);
+    return DEFAULT_SEED_RESTAURANTS;
   }
 }
 
