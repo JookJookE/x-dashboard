@@ -389,6 +389,8 @@ function switchTab(tabId) {
       loadSavedUserDrafts();
     } else if (tabId === 'visual-media') {
       initVisualMediaTab();
+    } else if (tabId === 'settings') {
+      loadLoginHistory();
     }
   }
 }
@@ -3344,10 +3346,54 @@ async function loadViralWeights() {
   } catch (err) {}
 }
 
+// ===== 🔒 Security Login History Loader =====
+async function loadLoginHistory() {
+  const tbody = document.getElementById('login-history-tbody');
+  if (!tbody) return;
+
+  try {
+    const res = await fetch('/api/login-history');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.history) && data.history.length > 0) {
+      tbody.innerHTML = data.history.map(item => {
+        const dateStr = new Date(item.timestamp).toLocaleString('ko-KR', {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+
+        return `
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <td style="padding: 8px; color: #facc15; font-family: monospace; font-weight: 700;">${dateStr}</td>
+            <td style="padding: 8px; color: #38bdf8; font-family: monospace; font-weight: 700;">${item.ip}</td>
+            <td style="padding: 8px; color: #cbd5e1;">${item.device}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="3" style="padding: 12px; text-align: center; color: #64748b;">아직 기록된 외부 로그인 이력이 없습니다.</td>
+        </tr>
+      `;
+    }
+  } catch (err) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="3" style="padding: 12px; text-align: center; color: #ef4444;">접속 이력 로드 실패</td>
+      </tr>
+    `;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadQueueAndXStatus();
   loadStreakStats();
   loadViralWeights();
+  loadLoginHistory();
   checkGoldenHourStatus();
   setInterval(checkGoldenHourStatus, 60000); // Check golden hour every minute
 });

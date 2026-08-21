@@ -64,6 +64,12 @@
 
 ## 📅 6. 버전 변경 이력 (Changelog)
 
+### v3.11.2 (2026-08-21) - 🔒 최근 로그인 접속 이력(시간, IP, 기기) 10회 실시간 트래커 탑재
+- 🛡️ **보안 로그인 접속 이력 자동 추적 (`history.js`, `server.js`)**:
+  - 대시보드 로그인/접속 시 클라이언트의 실제 접속 IP(Cloudflare Proxy/LTE 원본 IP), 기기 환경(iOS/Android/PC), 접속 일시(KST)를 `data/login_history.json`에 최근 10건 자동 기록.
+- 💻 **대시보드 접속 이력 테이블 UI (`public/index.html`, `public/app.js`)**:
+  - 설정 탭에 **"🔒 최근 로그인 접속 이력 (최근 10회)"** 전용 테이블 카드를 배치하여 실시간 접속 기록 시각화 완료.
+
 ### v3.11.1 (2026-08-21) - 🚀 시간당 조회수 증가 속도(Velocity Delta) & 시간 감쇠(Time Decay) 실시간 랭킹 엔진 도입
 - ⚡ **실시간 1시간 조회수 증가량(Delta) 추적 (`services/xAnalyticsService.js`)**:
   - 과거 누적 조회수에 의한 왜곡을 방지하기 위해 `viewVelocity = (현재 조회수 - 1시간 전 조회수)`를 계산.

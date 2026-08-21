@@ -54,6 +54,8 @@ app.get('/api/proxy-image', async (req, res) => {
 
 
 // HTTP Basic Security Authentication for Tunnel & External Access
+const { recordLoginHistory, getLoginHistory } = require('./history');
+
 app.use((req, res, next) => {
   const config = getConfig();
   const authUsername = config.authUsername || 'la5454';
@@ -73,6 +75,15 @@ app.use((req, res, next) => {
   const isPassValid = (pass === authPassword);
 
   if (isUserValid && isPassValid) {
+    // Record login access (IP & timestamp) on HTML page/main entry loads
+    if (req.path === '/' || req.path === '/index.html' || req.path.startsWith('/api/status')) {
+      const clientIp = req.headers['cf-connecting-ip'] || 
+                       req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                       req.socket?.remoteAddress || 
+                       req.ip || '127.0.0.1';
+      const userAgent = req.headers['user-agent'] || '';
+      recordLoginHistory(clientIp, userAgent);
+    }
     return next();
   } else {
     res.setHeader('WWW-Authenticate', 'Basic realm="X Tweet Generator Secure Access"');
@@ -83,6 +94,14 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
+app.get('/api/login-history', (req, res) => {
+  try {
+    const history = getLoginHistory();
+    res.json({ success: true, history });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 
 

@@ -723,6 +723,34 @@
           </div>
         </div>
 
+        <!-- 🔒 Security Login History (최근 10회 접속 이력) -->
+        <div class="card" style="max-width:600px; margin-bottom:20px; border: 1px solid rgba(250, 204, 21, 0.35); background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color:#facc15; font-size:15px; display:flex; align-items:center; gap:6px;">
+              <span>🔒 최근 로그인 접속 이력 (최근 10회)</span>
+            </h3>
+            <span style="font-size:11px; color:#94a3b8;">실시간 기록</span>
+          </div>
+          <div class="card-body" style="padding:12px 16px;">
+            <div style="overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                <thead>
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.1); color:#94a3b8;">
+                    <th style="padding:6px 8px;">접속 시간 (KST)</th>
+                    <th style="padding:6px 8px;">접속 IP</th>
+                    <th style="padding:6px 8px;">기기 / 환경</th>
+                  </tr>
+                </thead>
+                <tbody id="login-history-tbody">
+                  <tr>
+                    <td colspan="3" style="padding:12px; text-align:center; color:#64748b;">접속 이력을 불러오는 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Telegram 10-Minute Briefing & 1-Click X Post Settings -->
         <div class="card" style="max-width:600px; margin-bottom:20px; border: 1px solid rgba(56, 189, 248, 0.4); background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">

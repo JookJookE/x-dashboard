@@ -375,6 +375,68 @@ function getStreakStats() {
   };
 }
 
+// ===== 🔒 Security Login History (최근 10회 접속 이력) =====
+const LOGIN_HISTORY_FILE = path.join(DATA_DIR, 'login_history.json');
+
+function getLoginHistory() {
+  if (!fs.existsSync(LOGIN_HISTORY_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(LOGIN_HISTORY_FILE, 'utf8'));
+  } catch (e) {
+    return [];
+  }
+}
+
+let lastRecordedLoginTime = 0;
+let lastRecordedIp = '';
+
+function recordLoginHistory(ip, userAgent) {
+  const now = Date.now();
+  // Prevent duplicate spam within 3 minutes for identical IP
+  if (ip === lastRecordedIp && (now - lastRecordedLoginTime) < 3 * 60 * 1000) {
+    return;
+  }
+
+  lastRecordedLoginTime = now;
+  lastRecordedIp = ip;
+
+  const history = getLoginHistory();
+
+  // Detect Device Type
+  let device = '💻 데스크톱 (PC)';
+  const ua = (userAgent || '').toLowerCase();
+  if (ua.includes('iphone') || ua.includes('ipad')) {
+    device = '📱 iOS (아이폰/아이패드)';
+  } else if (ua.includes('android')) {
+    device = '📱 Android (스마트폰)';
+  } else if (ua.includes('mobile')) {
+    device = '📱 모바일 브라우저';
+  } else if (ua.includes('macintosh') || ua.includes('mac os')) {
+    device = '💻 Mac PC';
+  }
+
+  const cleanIp = (ip || '').replace('::ffff:', '').trim() || '127.0.0.1';
+
+  const entry = {
+    id: `log_${now}`,
+    ip: cleanIp,
+    device,
+    userAgent: (userAgent || '').slice(0, 120),
+    timestamp: new Date().toISOString()
+  };
+
+  history.unshift(entry);
+  const trimmed = history.slice(0, 10); // Keep latest 10 logs only
+
+  try {
+    fs.writeFileSync(LOGIN_HISTORY_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Failed to save login history:', e.message);
+  }
+
+  return entry;
+}
+
 module.exports = {
   getHistory,
   getStoredArticles,
@@ -399,7 +461,9 @@ module.exports = {
   getTodayXPostCount,
   incrementTodayXPostCount,
   getTodayKey,
-  getStreakStats
+  getStreakStats,
+  getLoginHistory,
+  recordLoginHistory
 };
 
 
