@@ -246,13 +246,10 @@ body {
   width: 100%;
 }
 
-/* Tabs Display Controller (Ensures only one active tab is visible) */
+/* All Dashboard Sections Display (모든 콘텐츠 상시 전체 표시 일체형) */
 .tab-content {
-  display: none !important;
-}
-
-.tab-content.active {
   display: block !important;
+  margin-bottom: 32px;
 }
 
 /* Food Map Custom Pin Markers & Labels (Zero-drift Pixel Perfect Anchoring) */

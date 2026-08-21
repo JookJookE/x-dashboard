@@ -355,47 +355,42 @@ async function markAllArticlesAsRead() {
 }
 
 function switchTab(tabId) {
-  if (tabId === 'visual-media') {
-    const checkbox = document.getElementById('jook-life-toggle-checkbox');
-    if (!checkbox || !checkbox.checked) {
-      switchTab('dashboard');
-      return;
-    }
-  }
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
 
   let activeNavItem = document.querySelector(`.nav-item[data-tab="${tabId}"][data-cat="${selectedCategory}"]`);
   if (!activeNavItem) {
     activeNavItem = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
   }
+  if (activeNavItem) activeNavItem.classList.add('active');
+
+  const titleMap = {
+    dashboard: '대시보드',
+    articles: is6HourFilterActive ? '⚡ 최근 6시간 이내 수집 속보' : getCategoryTitle(selectedCategory),
+    composer: '트윗 작성 & 복사',
+    'saved-drafts': '⭐ 나만의 임시 보관함',
+    'visual-media': '📸 웹 직캠·화보 & 핫클립 X 포스팅',
+    'food-map': '🗺️ 대한민국 맛집 지도',
+    settings: '⚙️ AI 키 및 보안 설정'
+  };
+  const titleEl = document.getElementById('page-title');
+  if (titleEl) titleEl.innerText = titleMap[tabId] || '대시보드';
 
   const tabContent = document.getElementById(`tab-${tabId}`);
-
-  if (activeNavItem) activeNavItem.classList.add('active');
   if (tabContent) {
-    tabContent.classList.add('active');
+    tabContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else if (tabId === 'dashboard') {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-    const titleMap = {
-      dashboard: '대시보드',
-      articles: is6HourFilterActive ? '⚡ 최근 6시간 이내 수집 속보' : getCategoryTitle(selectedCategory),
-      composer: '트윗 작성 & 복사',
-      'saved-drafts': '⭐ 나만의 임시 보관함',
-      'visual-media': '📸 웹 직캠·화보 & 핫클립 X 포스팅',
-      'food-map': '🗺️ 대한민국 맛집 지도'
-    };
-    document.getElementById('page-title').innerText = titleMap[tabId] || '대시보드';
-
-    if (tabId === 'saved-drafts') {
-      loadSavedUserDrafts();
-    } else if (tabId === 'visual-media') {
-      initVisualMediaTab();
-    } else if (tabId === 'food-map') {
-      initFoodMap();
-      loadRestaurants();
-    } else if (tabId === 'settings') {
-      loadLoginHistory();
-    }
+  if (tabId === 'saved-drafts') {
+    loadSavedUserDrafts();
+  } else if (tabId === 'visual-media') {
+    initVisualMediaTab();
+  } else if (tabId === 'food-map') {
+    initFoodMap();
+    loadRestaurants();
+  } else if (tabId === 'settings') {
+    loadLoginHistory();
   }
 }
 
@@ -3402,8 +3397,15 @@ document.addEventListener('DOMContentLoaded', () => {
   loadStreakStats();
   loadViralWeights();
   loadLoginHistory();
+  loadSavedUserDrafts();
   checkGoldenHourStatus();
   setInterval(checkGoldenHourStatus, 60000); // Check golden hour every minute
+
+  // Initialize Food Map on initial page load
+  setTimeout(() => {
+    initFoodMap();
+    loadRestaurants();
+  }, 300);
 });
 
 /**
