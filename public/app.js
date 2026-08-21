@@ -1992,11 +1992,15 @@ async function loadTrending() {
     const res = await fetch('/api/trending');
     const data = await res.json();
 
-    if (data.success) {
-      const timeStr = new Date(data.updatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    if (data.success && (data.kr?.length > 0 || data.us?.length > 0)) {
+      const timeStr = data.updatedAt ? new Date(data.updatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '실시간';
 
-      renderTrendingList('trending-kr-list', data.kr, 'kr');
-      renderTrendingList('trending-us-list', data.us, 'us');
+      if (data.kr && data.kr.length > 0) {
+        renderTrendingList('trending-kr-list', data.kr, 'kr');
+      }
+      if (data.us && data.us.length > 0) {
+        renderTrendingList('trending-us-list', data.us, 'us');
+      }
 
       const krTimeEl = document.getElementById('trending-kr-time');
       const usTimeEl = document.getElementById('trending-us-time');
