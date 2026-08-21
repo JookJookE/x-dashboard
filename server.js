@@ -767,11 +767,30 @@ app.post('/api/test-email', async (req, res) => {
 
 // ===== Trending Keywords API (No DB Storage) =====
 
+// ===== 🌐 Google Trends Realtime Keywords (5-Min Memory Cache & Fallback) =====
+let cachedTrendingData = {
+  kr: [],
+  us: [],
+  updatedAt: null
+};
+
 app.get('/api/trending', async (req, res) => {
+  const now = Date.now();
+  // 1. Return cached data if fresh within 5 minutes
+  if (cachedTrendingData.updatedAt && (now - new Date(cachedTrendingData.updatedAt).getTime()) < 5 * 60 * 1000 && cachedTrendingData.kr.length > 0) {
+    return res.json({ success: true, ...cachedTrendingData });
+  }
+
   try {
     const [krRes, usRes] = await Promise.allSettled([
-      axios.get('https://trends.google.co.kr/trending/rss?geo=KR', { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 }),
-      axios.get('https://trends.google.com/trending/rss?geo=US', { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 })
+      axios.get('https://trends.google.co.kr/trending/rss?geo=KR', { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }, 
+        timeout: 5000 
+      }),
+      axios.get('https://trends.google.com/trending/rss?geo=US', { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }, 
+        timeout: 5000 
+      })
     ]);
 
     function parseTrendingRss(xml) {
@@ -793,8 +812,19 @@ app.get('/api/trending', async (req, res) => {
     const krTrends = krRes.status === 'fulfilled' ? parseTrendingRss(krRes.value.data) : [];
     const usTrends = usRes.status === 'fulfilled' ? parseTrendingRss(usRes.value.data) : [];
 
-    res.json({ success: true, kr: krTrends, us: usTrends, updatedAt: new Date().toISOString() });
+    if (krTrends.length > 0 || usTrends.length > 0) {
+      cachedTrendingData = {
+        kr: krTrends.length > 0 ? krTrends : cachedTrendingData.kr,
+        us: usTrends.length > 0 ? usTrends : cachedTrendingData.us,
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    res.json({ success: true, ...cachedTrendingData });
   } catch (err) {
+    if (cachedTrendingData.kr.length > 0) {
+      return res.json({ success: true, ...cachedTrendingData });
+    }
     res.status(500).json({ success: false, message: err.message });
   }
 });
