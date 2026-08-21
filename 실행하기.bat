@@ -16,7 +16,8 @@ ping 127.0.0.1 -n 2 >nul
 
 
 echo [INFO] Pulling latest code from GitHub...
-git pull origin main --no-rebase
+git fetch origin main >nul 2>&1
+git reset --hard origin/main >nul 2>&1
 
 echo [INFO] Checking and installing dependencies if needed...
 call npm.cmd install --no-audit --prefer-offline >nul 2>&1
@@ -43,7 +44,8 @@ if %errorlevel% neq 0 (
     pause
 )
 timeout /t 3 /nobreak >nul
-git pull origin main --no-rebase >nul 2>&1
+git fetch origin main >nul 2>&1
+git reset --hard origin/main >nul 2>&1
 goto RUN_NODE
 
 :RUN_PROGRAM_FILES
@@ -57,7 +59,8 @@ if %errorlevel% neq 0 (
     pause
 )
 timeout /t 3 /nobreak >nul
-git pull origin main --no-rebase >nul 2>&1
+git fetch origin main >nul 2>&1
+git reset --hard origin/main >nul 2>&1
 goto RUN_PROGRAM_FILES
 
 :RUN_VS
@@ -71,7 +74,8 @@ if %errorlevel% neq 0 (
     pause
 )
 timeout /t 3 /nobreak >nul
-git pull origin main --no-rebase >nul 2>&1
+git fetch origin main >nul 2>&1
+git reset --hard origin/main >nul 2>&1
 goto RUN_VS
 
 :END

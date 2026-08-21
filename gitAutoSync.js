@@ -72,8 +72,8 @@ async function pullAndApplyUpdates() {
       return { success: true, updated: false, message: '이미 최신 코드입니다.' };
     }
 
-    // 3. Pull latest commits
-    const pullOutput = await executeCommand('git pull origin main --no-rebase');
+    // 3. Pull latest commits reliably with reset --hard origin/main
+    const pullOutput = await executeCommand('git reset --hard origin/main');
     lastSyncTime = new Date().toISOString();
     addLog('SUCCESS', `🚀 깃허브 최신 코드가 서버에 적용되었습니다! (${pullOutput})`);
 
