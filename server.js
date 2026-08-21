@@ -766,6 +766,7 @@ app.post('/api/test-email', async (req, res) => {
 });
 
 // ===== 🗺️ Korean Gourmet Food Map API (맛집 지도 CRUD) =====
+const DATA_DIR = path.join(__dirname, 'data');
 const RESTAURANTS_DB_FILE = path.join(DATA_DIR, 'restaurants_db.json');
 
 const DEFAULT_SEED_RESTAURANTS = [
