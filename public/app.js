@@ -3398,6 +3398,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadViralWeights();
   loadLoginHistory();
   loadSavedUserDrafts();
+  loadSavedVisualStudioState();
   checkGoldenHourStatus();
   setInterval(checkGoldenHourStatus, 60000); // Check golden hour every minute
 
@@ -3407,6 +3408,94 @@ document.addEventListener('DOMContentLoaded', () => {
     loadRestaurants();
   }, 300);
 });
+
+/**
+ * 🍿 Jook Life (트렌드 & 엔터) 대시보드 토글 제어
+ */
+function toggleVisualStudioMenu() {
+  const checkbox = document.getElementById('jook-life-toggle-checkbox');
+  const navItem = document.getElementById('nav-item-visual-media');
+  const dashboardSection = document.getElementById('tab-visual-media');
+
+  if (!checkbox) return;
+
+  const isEnabled = checkbox.checked;
+  localStorage.setItem('x_jook_life_enabled', isEnabled ? 'true' : 'false');
+
+  if (navItem) {
+    navItem.style.display = isEnabled ? 'flex' : 'none';
+  }
+
+  if (dashboardSection) {
+    dashboardSection.style.display = isEnabled ? 'block' : 'none';
+    if (isEnabled) {
+      initVisualMediaTab();
+    }
+  }
+
+  showToast(isEnabled ? '🍿 Jook Life (직캠/화보 스튜디오)가 켜졌습니다.' : '🍿 Jook Life 섹션이 숨김 처리되었습니다.');
+}
+
+function loadSavedVisualStudioState() {
+  const saved = localStorage.getItem('x_jook_life_enabled');
+  const checkbox = document.getElementById('jook-life-toggle-checkbox');
+  const navItem = document.getElementById('nav-item-visual-media');
+  const dashboardSection = document.getElementById('tab-visual-media');
+
+  // 기본값: false (사용자가 토글을 켜면 보이도록)
+  const isEnabled = saved === 'true';
+
+  if (checkbox) {
+    checkbox.checked = isEnabled;
+  }
+  if (navItem) {
+    navItem.style.display = isEnabled ? 'flex' : 'none';
+  }
+  if (dashboardSection) {
+    dashboardSection.style.display = isEnabled ? 'block' : 'none';
+    if (isEnabled) {
+      initVisualMediaTab();
+    }
+  }
+}
+
+function initVisualMediaTab() {
+  // Visual media gallery loader placeholder / safe runner
+  const grid = document.getElementById('visual-media-grid');
+  if (grid && (!grid.children.length || grid.querySelector('.skeleton-loader'))) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1; text-align:center; padding:30px; color:#94a3b8; font-size:13px;">
+        📸 직캠/화보 프리셋을 선택하거나 검색창에 키워드를 입력하여 미디어를 탐색하세요.
+      </div>
+    `;
+  }
+}
+
+function selectVisualPreset(presetName, btn) {
+  document.querySelectorAll('#visual-preset-pills .preset-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const searchInput = document.getElementById('visual-search-input');
+  if (searchInput) {
+    searchInput.value = presetName;
+  }
+  searchVisualMediaFromInput();
+}
+
+function searchVisualMediaFromInput() {
+  const query = (document.getElementById('visual-search-input')?.value || '').trim();
+  const grid = document.getElementById('visual-media-grid');
+  if (!grid) return;
+  if (!query) {
+    showToast('검색어를 입력해주세요.');
+    return;
+  }
+  showToast(`🔍 [${query}] 미디어를 탐색 중입니다...`);
+  grid.innerHTML = `
+    <div style="grid-column:1/-1; text-align:center; padding:30px; color:#cbd5e1; font-size:13px;">
+      ✨ [${query}] 관련 미디어를 불러오고 있습니다...
+    </div>
+  `;
+}
 
 /**
  * ===================================================================
@@ -3466,7 +3555,7 @@ function initFoodMap() {
     maxZoom: 19
   }).setView([36.3504, 127.3845], 11);
 
-  const defaultTheme = MAP_THEMES.color;
+  const defaultTheme = MAP_THEMES.white;
   foodMapTileLayer = L.tileLayer(defaultTheme.url, {
     maxZoom: 19,
     subdomains: 'abc'
