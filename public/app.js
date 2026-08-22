@@ -1,3 +1,14 @@
+// ===== 🔒 Global Fetch Credentials Wrapper =====
+// Automatically attach credentials (Basic Auth session cookie) to all fetch calls
+// so the server's HTTP Basic Auth middleware accepts them without 401.
+(function() {
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function(url, options) {
+    const opts = Object.assign({ credentials: 'include' }, options || {});
+    return _origFetch(url, opts);
+  };
+})();
+
 let currentArticles = [];
 let selectedArticle = null;
 let selectedCategory = 'all'; // 'all', 'heisenberg', 'it', 'coin', 'stock', 'economy'
