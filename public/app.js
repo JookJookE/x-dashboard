@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnSaveXBearer) btnSaveXBearer.addEventListener('click', saveXBearerToken);
 
   loadConfig();
-  loadYouTubeQuota();
+
 
   const textInput = document.getElementById('tweet-text-input');
   textInput.addEventListener('input', updateCharCount);
