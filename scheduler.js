@@ -30,12 +30,14 @@ function saveDailyDrafts(drafts) {
 }
 
 let cronJobTenMin = null;
+let cronJobBreaking = null;
 
 function initScheduler() {
   if (cronJobHourly) cronJobHourly.stop();
   if (cronJobTenMin) cronJobTenMin.stop();
+  if (cronJobBreaking) cronJobBreaking.stop();
 
-  // 1. Every 1 Hour Check (매시간 정각마다 신규 뉴스 자동 수집 및 DB 보관)
+  // 1. Every 1 Hour Check (매시간 정각마다 신규 뉴스 자동 수집 및 DB 보관 - STRICT RULE: 0 * * * *)
   cronJobHourly = cron.schedule('0 * * * *', async () => {
     addLog('INFO', '⏰ [1시간 주기 정각 감지] 신규 뉴스 탐지 및 DB 보관 중...');
     try {
@@ -59,7 +61,18 @@ function initScheduler() {
     }
   });
 
-  addLog('INFO', '⏰ 스케줄러 활성화: [정각: 뉴스 DB 수집] & [10분: 텔레그램 실시간 핫이슈/스몰톡 1건 발송]');
+  // 3. 🚨 Every 3 Minutes Check (3분 주기 초경량 실시간 속보 탐지 - 중대 속보 발생 시 10분 주기 독립 즉시 발송)
+  cronJobBreaking = cron.schedule('*/3 * * * *', async () => {
+    const config = getConfig();
+    if (config.telegramQueueEnabled) {
+      try {
+        const { checkAndSendRealtimeBreakingNews } = require('./services/breakingNewsService');
+        await checkAndSendRealtimeBreakingNews();
+      } catch (brkErr) {}
+    }
+  });
+
+  addLog('INFO', '⏰ 스케줄러 활성화: [정각: 뉴스 DB 수집] & [10분: 실시간 핫이슈/스몰톡] & [3분: 초경량 돌발속보 독립감지]');
 }
 
 async function checkAndGenerateNewDrafts(targetCount = 5) {
