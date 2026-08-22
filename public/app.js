@@ -3346,7 +3346,7 @@ let currentTopArticle = null;
 
 async function loadViralWeights() {
   try {
-    const res = await fetch('/api/analytics/viral-weights');
+    const res = await fetch('/api/analytics/viral-weights?t=' + Date.now());
     const data = await res.json();
     if (data.success) {
       if (data.weights) {
