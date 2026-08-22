@@ -191,52 +191,26 @@
           </div>
         </div>
 
-        <!-- 🧠 1-Hour AI Viral Topic Weights Bar -->
-        <div class="viral-weights-card" id="viral-weights-widget" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+        <!-- 🔥 실시간 화제성 & 바이럴 추천 가중치 바 (10분 텔레그램 선별) -->
+        <div class="viral-weights-card" id="viral-weights-widget" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
           <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 280px;">
-            <span style="font-size: 20px;">🧠</span>
+            <span style="font-size: 22px;">🔥</span>
             <div>
               <div style="font-size: 13px; font-weight: 800; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
-                <span>AI 바이럴 가중치 분석 (1시간 자동 학습)</span>
-                <span id="viral-updated-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.3);">실시간 연동</span>
+                <span>실시간 화제성 & 바이럴 추천 엔진</span>
+                <span id="viral-updated-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.3);">10분 주기 텔레그램 연동</span>
               </div>
               <div id="viral-insight-summary" style="font-size: 11px; color: #94a3b8; margin-top: 3px;">
-                내 X 계정의 고성과 키워드를 분석하여 10분 텔레그램 추천에 1순위로 반영 중입니다.
+                수집된 기사 중 실시간 급상승 키워드와 카테고리 가중치를 분석하여 10분 텔레그램 추천 기사를 1순위로 선별 중입니다.
               </div>
             </div>
           </div>
           <div id="viral-keywords-container" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-            <span style="font-size: 11px; color: #64748b; font-weight: 600;">인기 키워드:</span>
+            <span style="font-size: 11px; color: #64748b; font-weight: 600;">추천 키워드:</span>
             <!-- Injected dynamically -->
             <span class="viral-tag" style="background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid rgba(236,72,153,0.3); font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">🔥 블라인드</span>
             <span class="viral-tag" style="background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">🚀 테크/AI</span>
             <span class="viral-tag" style="background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.3); font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">💰 주식</span>
-          </div>
-        </div>
-
-        <!-- 👑 [내 X 계정 실시간 1위 인기 트윗 (조회수 급상승 Top #1)] 하이라이트 배너 카드 -->
-        <div id="top-performing-tweet-card" style="background: linear-gradient(135deg, rgba(29, 155, 240, 0.15), rgba(168, 85, 247, 0.12), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(56, 189, 248, 0.45); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); position: relative; overflow: hidden;">
-          <div style="position: absolute; right: -15px; top: -15px; font-size: 80px; opacity: 0.05; pointer-events: none;">𝕏</div>
-          <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px;">
-            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 280px;">
-              <span style="font-size: 26px;">👑</span>
-              <div style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
-                  <span style="background: linear-gradient(135deg, #38bdf8, #1d9bf0); color: #000; font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 6px; letter-spacing: 0.5px;">𝕏 내 계정 실시간 1위 인기글</span>
-                  <span id="top-tweet-velocity-badge" style="background: rgba(234, 179, 8, 0.2); color: #facc15; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(250, 204, 21, 0.4);">🚀 시간당 속도: +0회/시</span>
-                  <span id="top-tweet-views-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.4);">👁️ 총 조회수: 0회</span>
-                  <span id="top-tweet-likes-badge" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(236, 72, 153, 0.4);">❤️ 좋아요 0개</span>
-                </div>
-                <div id="top-tweet-text" style="font-size: 14px; font-weight: 600; color: #f8fafc; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">
-                  연동된 X 계정의 실시간 트윗 성과를 분석 중입니다...
-                </div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <a id="top-tweet-link" href="https://twitter.com" target="_blank" class="btn btn-outline btn-sm" style="border-color: #38bdf8; color: #38bdf8; font-weight: 700; font-size: 12px; padding: 7px 12px; border-radius: 8px; display: flex; align-items: center; gap: 6px;">
-                <span>🔗 𝕏에서 보기</span>
-              </a>
-            </div>
           </div>
         </div>
 
@@ -908,6 +882,6 @@
   <!-- Notification Toast -->
   <div id="toast" class="toast"></div>
 
-  <script src="/app.js?v=3.13.8"></script>
+  <script src="/app.js?v=3.14.0"></script>
 </body>
 </html>

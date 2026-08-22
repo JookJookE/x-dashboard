@@ -54,14 +54,12 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
-// ===== 🧠 [Public] AI Viral Topic Weights & Top Tweet (No Auth Required) =====
-const { getStoredWeights: _getWeightsPublic, getTopRankedArticles: _getTopArticlesPublic, getTopPerformingTweet: _getTopTweetPublic } = require('./services/xAnalyticsService');
+// ===== 🔥 [Public] 실시간 화제성 & 바이럴 추천 가중치 API (No Auth Required) =====
+const { getStoredWeights: _getWeightsPublic, getTopRankedArticles: _getTopArticlesPublic } = require('./services/xAnalyticsService');
 app.get('/api/analytics/viral-weights', (req, res) => {
   try {
-    const config = getConfig();
     const { topArticle, topArticles, weights } = _getTopArticlesPublic(5);
-    const topPerformingTweet = _getTopTweetPublic();
-    res.json({ success: true, weights, topArticle, topArticles, topPerformingTweet, xUsername: config.xUsername || '' });
+    res.json({ success: true, weights, topArticle, topArticles });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

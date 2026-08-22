@@ -3,10 +3,9 @@ const path = require('path');
 const axios = require('axios');
 const cron = require('node-cron');
 const { getConfig } = require('../config');
-const { addLog, getStoredArticles, getHistory } = require('../history');
+const { addLog, getStoredArticles } = require('../history');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
-const ANALYTICS_FILE = path.join(DATA_DIR, 'x_tweet_analytics.json');
 const WEIGHTS_FILE = path.join(DATA_DIR, 'viral_topic_weights.json');
 
 // Default initial weights (Cold-start baseline)
@@ -20,7 +19,7 @@ const defaultWeights = {
     '연예/방송': 1.5,
     '일반/기타': 1.0
   },
-  aiInsightSummary: '실시간 속도 분석 초기화: 커뮤니티 갈등, 테크/AI 혁신, 재테크/주식 이슈가 높은 반응률을 보입니다.'
+  aiInsightSummary: '실시간 수집 기사의 화제성과 바이럴 키워드를 바탕으로 10분 텔레그램 추천 기사를 자동 선별합니다.'
 };
 
 function getStoredWeights() {
@@ -41,200 +40,44 @@ function saveStoredWeights(weights) {
   }
 }
 
-function getStoredAnalyticsList() {
-  if (fs.existsSync(ANALYTICS_FILE)) {
-    try {
-      const data = fs.readFileSync(ANALYTICS_FILE, 'utf8');
-      const list = JSON.parse(data);
-      if (Array.isArray(list) && list.length > 0) return list;
-    } catch (e) {}
-  }
-
-  // If no analytics available, return empty list (UI will guide user to register xUsername)
-  return [];
-}
-
-function getStoredAnalyticsMap() {
-  const list = getStoredAnalyticsList();
-  const map = {};
-  list.forEach(item => {
-    if (item.id) map[item.id] = item;
-  });
-  return map;
-}
-
-function saveStoredAnalyticsList(list) {
-  try {
-    fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(list, null, 2), 'utf8');
-  } catch (e) {
-    console.error('Failed to save tweet analytics:', e.message);
-  }
-}
-
 /**
- * 👑 Get Top Performing Tweet from my X account analytics
- */
-function getTopPerformingTweet() {
-  const list = getStoredAnalyticsList();
-  if (!list || list.length === 0) return null;
-
-  const sorted = [...list].sort((a, b) => {
-    const scoreA = a.realtimeHotScore !== undefined ? a.realtimeHotScore : a.views || 0;
-    const scoreB = b.realtimeHotScore !== undefined ? b.realtimeHotScore : b.views || 0;
-    return scoreB - scoreA;
-  });
-
-  return sorted[0] || null;
-}
-
-/**
- * 📈 Fetch latest tweets & compute Real-Time Hourly Velocity (Delta Views)
- */
-async function fetchMyTweetAnalytics(username) {
-  const previousMap = getStoredAnalyticsMap();
-  const rawTweets = [];
-
-  if (!username) {
-    // username 미설정 시 기존 저장 데이터 유지 (fake 수치 사용 안 함)
-    return getStoredAnalyticsList();
-  } else {
-    const cleanUser = username.replace('@', '').trim();
-    try {
-      const syndicationUrl = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${cleanUser}`;
-      const res = await axios.get(syndicationUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        },
-        timeout: 8000
-      });
-
-      if (res.data && typeof res.data === 'string') {
-        const match = res.data.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
-        if (match && match[1]) {
-          const json = JSON.parse(match[1]);
-          const timeline = json?.props?.pageProps?.timeline?.entries || [];
-          timeline.forEach(entry => {
-            const t = entry?.content?.tweet;
-            if (t && t.text) {
-              rawTweets.push({
-                id: t.id_str || String(Date.now()),
-                text: t.text,
-                views: parseInt(t.views?.count || t.favorite_count * 25 || 100, 10),
-                likes: parseInt(t.favorite_count || 0, 10),
-                retweets: parseInt(t.retweet_count || 0, 10),
-                createdAt: t.created_at || new Date().toISOString()
-              });
-            }
-          });
-        }
-      }
-    } catch (err) {
-      // 트위터 API 오류 시 기존 저장 데이터 유지 (fake 수치 절대 사용 안 함)
-      addLog('INFO', `[X 분석] 트위터 API 오류: ${err.message} - 기존 데이터 유지`);
-      return getStoredAnalyticsList();
-    }
-  }
-
-  if (rawTweets.length === 0) {
-    const existing = getStoredAnalyticsList();
-    if (existing && existing.length > 0) {
-      return existing;
-    }
-  }
-
-  const now = Date.now();
-  const updatedList = [];
-
-  // Calculate 1-Hour Velocity & Time Decay
-  rawTweets.forEach(curr => {
-    const prev = previousMap[curr.id];
-    const ageInHours = Math.max(0.1, (now - new Date(curr.createdAt).getTime()) / (1000 * 60 * 60));
-
-    let viewVelocity = 0;
-    let likeVelocity = 0;
-
-    if (prev && prev.views !== undefined) {
-      // 🚀 Real 1-Hour Delta: Current Views - Previous Views
-      viewVelocity = Math.max(0, curr.views - prev.views);
-      likeVelocity = Math.max(0, curr.likes - (prev.likes || 0));
-    } else {
-      // New Tweet: Initial Speed per Hour
-      viewVelocity = Math.round(curr.views / (ageInHours + 0.5));
-      likeVelocity = Math.round(curr.likes / (ageInHours + 0.5));
-    }
-
-    // ⏳ HackerNews/Reddit Style Time Decay Formula:
-    // HotScore = (Velocity + BaseEngagement) / (Age + 1.2)^1.3
-    const velocityScore = (viewVelocity * 1.5) + (likeVelocity * 20) + (curr.retweets * 30);
-    const timeDecayFactor = Math.pow(ageInHours + 1.2, 1.25);
-    const realtimeHotScore = Number((velocityScore / timeDecayFactor).toFixed(2));
-
-    const enriched = {
-      ...curr,
-      previousViews: prev ? prev.views : curr.views,
-      viewVelocity, // 1-Hour View Increment (핵심 지표)
-      likeVelocity,
-      ageInHours: Number(ageInHours.toFixed(1)),
-      realtimeHotScore,
-      lastCheckedAt: new Date().toISOString()
-    };
-
-    updatedList.push(enriched);
-  });
-
-  saveStoredAnalyticsList(updatedList);
-  return updatedList;
-}
-
-/**
- * 🧠 Analyze Real-Time Trending Topics using Gemini AI
+ * 🧠 Analyze Real-Time Trending Topics from Stored News Stream using Gemini AI
  */
 async function analyzeViralTopics() {
   const config = getConfig();
-  const username = config.xUsername || '';
-  
-  addLog('INFO', `🧠 [1시간 주기 X 실시간 속도 AI 분석] 1시간당 조회수 급증 트윗 & 실시간 트렌드 분석 시작...`);
+  const articles = getStoredArticles();
 
-  const tweets = await fetchMyTweetAnalytics(username);
-  if (!tweets || tweets.length === 0) {
-    addLog('INFO', `🧠 [X 실시간 AI 분석] 분석할 트윗 데이터가 없어 기존 가중치를 유지합니다.`);
+  if (!articles || articles.length === 0) {
     return getStoredWeights();
   }
 
-  // 1. Filter: Focus on Recent 24~36 Hours Rolling Window
-  const recentTweets = tweets.filter(t => t.ageInHours <= 36);
-  const candidatePool = recentTweets.length >= 3 ? recentTweets : tweets;
+  addLog('INFO', `🧠 [실시간 화제성 AI 분석] 최신 수집된 뉴스/커뮤니티 ${Math.min(30, articles.length)}건 기반 인기 키워드 분석 시작...`);
 
-  // 2. Sort by Real-Time Hot Score (Velocity + Time Decay)
-  candidatePool.sort((a, b) => b.realtimeHotScore - a.realtimeHotScore);
+  // Sample top 25 recent articles across various categories
+  const sampleArticles = articles.slice(0, 25);
+  const articleListText = sampleArticles.map((a, i) => `${i + 1}. [${a.categoryTag || a.category || '기타'}] ${a.title}`).join('\n');
 
-  const topPerformers = candidatePool.slice(0, 6);
+  const prompt = `당신은 실시간 뉴스 및 SNS 화제성 분석 AI입니다.
+아래는 최근 수집된 실시간 국내외 주요 기사 및 커뮤니티 게시글 목록입니다:
 
-  const tweetSummaries = topPerformers.map(t => 
-    `- [🔥 실시간 속도 +${t.viewVelocity}회/시 | 누적 ${t.views}회 | ${t.ageInHours}시간 전] ${t.text.slice(0, 100)}...`
-  ).join('\n');
+${articleListText}
 
-  const prompt = `당신은 X(트위터) 실시간 알고리즘 분석 AI입니다.
-아래는 특정 X 계정에서 **최근 1시간 동안 조회수와 반응이 가장 가파르게 급상승(Velocity)하고 있는 실시간 핫 트윗들**입니다:
-
-${tweetSummaries}
-
-위 실시간 급상승 트윗들의 키워드, 화제성, 감정선을 분석하여, 지금 이 순간 유저들이 가장 열광하는 주제를 다음 JSON 형식으로만 응답해 주세요:
+위 기사들의 주요 트렌드, 자극성, 대중의 반응률을 분석하여, 지금 이 순간 가장 화제성이 높은 핵심 키워드와 카테고리 가중치를 다음 JSON 형식으로만 응답해 주세요:
 
 \`\`\`json
 {
-  "topKeywords": ["실시간키워드1", "실시간키워드2", "실시간키워드3", "실시간키워드4", "실시간키워드5", "실시간키워드6"],
+  "topKeywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5", "키워드6"],
   "categoryWeights": {
-    "커뮤니티/사회": 2.8,
+    "커뮤니티/사회": 2.5,
     "테크/AI": 2.2,
-    "주식/경제": 1.9,
-    "연예/방송": 1.4,
+    "주식/경제": 1.8,
+    "연예/방송": 1.5,
     "일반/기타": 1.0
   },
-  "aiInsightSummary": "현재 실시간으로 ~키워드와 ~주제의 조회수 급증 속도가 가장 가파릅니다."
+  "aiInsightSummary": "현재 ~와 ~관련 이슈의 화제성이 가장 높으며, 텔레그램 추천에 우선 반영 중입니다."
 }
 \`\`\`
-가중치는 1.0(보통)에서 3.0(실시간 폭발) 사이의 소수로 지정하세요.`;
+가중치는 1.0에서 3.0 사이의 소수로 지정하세요.`;
 
   try {
     const apiKey = config.geminiApiKey;
@@ -260,10 +103,10 @@ ${tweetSummaries}
     };
 
     saveStoredWeights(newWeights);
-    addLog('SUCCESS', `🧠 [1시간 주기 X 실시간 속도 AI 분석 완료] 실시간 급상승 키워드: [${newWeights.topKeywords.slice(0, 5).join(', ')}] | ${newWeights.aiInsightSummary}`);
+    addLog('SUCCESS', `🧠 [실시간 화제성 AI 분석 완료] 인기 키워드: [${newWeights.topKeywords.slice(0, 5).join(', ')}] | ${newWeights.aiInsightSummary}`);
     return newWeights;
   } catch (err) {
-    addLog('WARN', `⚠️ [X 실시간 AI 분석 실패] ${err.message} (기존 가중치 유지)`);
+    addLog('WARN', `⚠️ [실시간 화제성 AI 분석 실패] ${err.message} (기존 가중치 유지)`);
     return getStoredWeights();
   }
 }
@@ -316,7 +159,7 @@ function initXAnalyticsScheduler() {
     try {
       await analyzeViralTopics();
     } catch (e) {
-      console.error('Hourly X analytics job error:', e.message);
+      console.error('Hourly viral analytics job error:', e.message);
     }
   });
 
@@ -327,7 +170,7 @@ function initXAnalyticsScheduler() {
     } catch (e) {}
   }, 10000);
 
-  addLog('INFO', '⏰ [1시간 주기 X 실시간 속도 분석 스케줄러 가동] 시간당 조회수 증가량(Delta) 기반 자동 학습 활성화');
+  addLog('INFO', '⏰ [1시간 주기 실시간 화제성 분석 스케줄러 가동] 뉴스/커뮤니티 트렌드 기반 추천 가중치 자동 갱신');
 }
 
 /**
@@ -358,8 +201,7 @@ module.exports = {
   analyzeViralTopics,
   getStoredWeights,
   calculateArticleViralScore,
-  getTopRankedArticles,
-  getTopPerformingTweet,
-  fetchMyTweetAnalytics
+  getTopRankedArticles
 };
+
 

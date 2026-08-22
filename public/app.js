@@ -3383,72 +3383,13 @@ async function loadViralWeights() {
             return `<span class="viral-tag" style="background:${c.bg}; color:${c.color}; border:1px solid ${c.border}; font-size:11px; padding:2px 8px; border-radius:12px; font-weight:700;">${c.icon} ${kw}</span>`;
           }).join('');
 
-          container.innerHTML = `<span style="font-size: 11px; color: #64748b; font-weight: 600;">인기 키워드:</span> ${tagsHtml}`;
+          container.innerHTML = `<span style="font-size: 11px; color: #64748b; font-weight: 600;">추천 키워드:</span> ${tagsHtml}`;
         }
-      }
-
-      // 👑 Handle Top Performing Tweet from My X Account
-      const bannerCard = document.getElementById('top-performing-tweet-card');
-      const textEl = document.getElementById('top-tweet-text');
-      const velocityBadge = document.getElementById('top-tweet-velocity-badge');
-      const viewsBadge = document.getElementById('top-tweet-views-badge');
-      const likesBadge = document.getElementById('top-tweet-likes-badge');
-      const linkEl = document.getElementById('top-tweet-link');
-
-      if (data.topPerformingTweet) {
-        const tweet = data.topPerformingTweet;
-        if (bannerCard) bannerCard.style.display = 'block';
-        if (textEl) {
-          textEl.innerHTML = '';
-          textEl.textContent = tweet.text;
-        }
-        if (velocityBadge) {
-          velocityBadge.style.display = 'inline-block';
-          velocityBadge.textContent = `🚀 시간당 속도: +${tweet.viewVelocity || 0}회/시`;
-        }
-        if (viewsBadge) {
-          viewsBadge.style.display = 'inline-block';
-          viewsBadge.textContent = `👁️ 총 조회수: ${(tweet.views || 0).toLocaleString()}회`;
-        }
-        if (likesBadge) {
-          likesBadge.style.display = 'inline-block';
-          likesBadge.textContent = `❤️ 좋아요 ${(tweet.likes || 0).toLocaleString()}개 · 🔁 RT ${(tweet.retweets || 0)}개`;
-        }
-        if (linkEl) {
-          if (tweet.id && !tweet.id.startsWith('hist_')) {
-            linkEl.href = `https://twitter.com/i/web/status/${tweet.id}`;
-            linkEl.style.display = 'flex';
-          } else {
-            linkEl.style.display = 'none';
-          }
-        }
-      } else if (data.xUsername) {
-        if (bannerCard) bannerCard.style.display = 'block';
-        if (textEl) {
-          textEl.innerHTML = `<span style="color:#38bdf8; font-weight:700;">👑 @${data.xUsername} 계정이 성공적으로 연동되었습니다!</span><br><span style="font-size:12px; color:#94a3b8; margin-top:3px; display:inline-block;">현재 X에서 작성하신 트윗들의 실시간 성과(시간당 조회수 증가 속도, 좋아요, RT)를 백그라운드에서 추적·분석 중입니다.</span>`;
-        }
-        if (velocityBadge) {
-          velocityBadge.style.display = 'inline-block';
-          velocityBadge.textContent = '🚀 실시간 속도 추적 중';
-        }
-        if (viewsBadge) viewsBadge.style.display = 'none';
-        if (likesBadge) likesBadge.style.display = 'none';
-        if (linkEl) {
-          linkEl.href = `https://twitter.com/${data.xUsername}`;
-          linkEl.style.display = 'flex';
-        }
-      } else {
-        if (bannerCard) bannerCard.style.display = 'block';
-        if (textEl) {
-          textEl.innerHTML = `<span style="color:#94a3b8;">⚙️ 좌측 메뉴 <strong>[AI 키 설정]</strong>에서 본인의 <strong>X 계정 아이디(@username)</strong>를 입력하고 저장하시면, 내 계정의 실시간 1위 인기 트윗과 조회수 증가 속도가 여기에 자동으로 집계됩니다.</span>`;
-        }
-        if (velocityBadge) velocityBadge.style.display = 'none';
-        if (viewsBadge) viewsBadge.style.display = 'none';
-        if (likesBadge) likesBadge.style.display = 'none';
-        if (linkEl) linkEl.style.display = 'none';
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('Viral weights loading error:', err);
+  }
 }
 
 // ===== 🔒 Security Login History Loader =====
