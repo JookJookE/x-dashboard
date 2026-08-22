@@ -3359,6 +3359,7 @@ async function loadViralWeights() {
   try {
     const res = await fetch('/api/analytics/viral-weights?t=' + Date.now());
     const data = await res.json();
+    console.log('👑 [X 실시간 분석 로드 결과]:', data);
     if (data.success) {
       if (data.weights) {
         const w = data.weights;

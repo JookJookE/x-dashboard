@@ -30,6 +30,9 @@ app.get('/ping', (req, res) => {
   res.send('pong');
 });
 
+// Favicon handler to avoid 404 console noise
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // Image Proxy Endpoint for CORS-free Clipboard Copying
 app.get('/api/proxy-image', async (req, res) => {
   const imageUrl = req.query.url;
