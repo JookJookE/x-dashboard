@@ -3386,7 +3386,10 @@ async function loadViralWeights() {
       if (data.topPerformingTweet) {
         const tweet = data.topPerformingTweet;
         if (bannerCard) bannerCard.style.display = 'block';
-        if (textEl) textEl.textContent = tweet.text;
+        if (textEl) {
+          textEl.innerHTML = '';
+          textEl.textContent = tweet.text;
+        }
         if (velocityBadge) {
           velocityBadge.style.display = 'inline-block';
           velocityBadge.textContent = `🚀 시간당 속도: +${tweet.viewVelocity || 0}회/시`;
