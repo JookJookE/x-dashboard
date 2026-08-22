@@ -3375,44 +3375,32 @@ async function loadViralWeights() {
         }
       }
 
-      // 👑 Handle Top Ranked 1st Article
-      if (data.topArticle) {
-        currentTopArticle = data.topArticle;
-        window.currentTopArticleId = data.topArticle.id;
-
-        const bannerCard = document.getElementById('top-ranked-banner-card');
-        const titleEl = document.getElementById('top-ranked-title');
-        const catBadge = document.getElementById('top-ranked-cat-badge');
-        const scoreBadge = document.getElementById('top-ranked-score-badge');
+      // 👑 Handle Top Performing Tweet from My X Account
+      if (data.topPerformingTweet) {
+        const tweet = data.topPerformingTweet;
+        const bannerCard = document.getElementById('top-performing-tweet-card');
+        const textEl = document.getElementById('top-tweet-text');
+        const velocityBadge = document.getElementById('top-tweet-velocity-badge');
+        const viewsBadge = document.getElementById('top-tweet-views-badge');
+        const likesBadge = document.getElementById('top-tweet-likes-badge');
+        const linkEl = document.getElementById('top-tweet-link');
 
         if (bannerCard) bannerCard.style.display = 'block';
-        if (titleEl) {
-          titleEl.textContent = data.topArticle.title;
-          titleEl.title = '클릭하면 1위 기사로 트윗 작성창이 즉시 열립니다.';
-        }
-        if (catBadge) {
-          catBadge.textContent = data.topArticle.categoryTag || data.topArticle.category || '실시간';
-        }
-        if (scoreBadge) {
-          scoreBadge.textContent = `⭐️ 바이럴 점수: ${data.topArticle.viralScore || 2.5}점`;
-        }
-
-        // Re-render lists to show gold crown badge if articles are loaded
-        if (currentArticles && currentArticles.length > 0) {
-          renderFilteredArticles();
+        if (textEl) textEl.textContent = tweet.text;
+        if (velocityBadge) velocityBadge.textContent = `🚀 시간당 속도: +${tweet.viewVelocity || 0}회/시`;
+        if (viewsBadge) viewsBadge.textContent = `👁️ 총 조회수: ${(tweet.views || 0).toLocaleString()}회`;
+        if (likesBadge) likesBadge.textContent = `❤️ 좋아요 ${(tweet.likes || 0).toLocaleString()}개 · 🔁 RT ${(tweet.retweets || 0)}개`;
+        if (linkEl) {
+          if (tweet.id && !tweet.id.startsWith('hist_')) {
+            linkEl.href = `https://twitter.com/i/web/status/${tweet.id}`;
+            linkEl.style.display = 'flex';
+          } else {
+            linkEl.style.display = 'none';
+          }
         }
       }
     }
   } catch (err) {}
-}
-
-function selectTopRankedArticle() {
-  if (currentTopArticle && currentTopArticle.id) {
-    selectArticleForComposer(currentTopArticle.id);
-    showToast('👑 [실시간 1위 바이럴 기사]가 선택되었습니다!');
-  } else if (currentArticles && currentArticles.length > 0) {
-    selectArticleForComposer(currentArticles[0].id);
-  }
 }
 
 // ===== 🔒 Security Login History Loader =====
