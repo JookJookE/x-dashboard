@@ -3407,6 +3407,21 @@ async function loadViralWeights() {
             linkEl.style.display = 'none';
           }
         }
+      } else if (data.xUsername) {
+        if (bannerCard) bannerCard.style.display = 'block';
+        if (textEl) {
+          textEl.innerHTML = `<span style="color:#38bdf8; font-weight:700;">👑 @${data.xUsername} 계정이 성공적으로 연동되었습니다!</span><br><span style="font-size:12px; color:#94a3b8; margin-top:3px; display:inline-block;">현재 X에서 작성하신 트윗들의 실시간 성과(시간당 조회수 증가 속도, 좋아요, RT)를 백그라운드에서 추적·분석 중입니다.</span>`;
+        }
+        if (velocityBadge) {
+          velocityBadge.style.display = 'inline-block';
+          velocityBadge.textContent = '🚀 실시간 속도 추적 중';
+        }
+        if (viewsBadge) viewsBadge.style.display = 'none';
+        if (likesBadge) likesBadge.style.display = 'none';
+        if (linkEl) {
+          linkEl.href = `https://twitter.com/${data.xUsername}`;
+          linkEl.style.display = 'flex';
+        }
       } else {
         if (bannerCard) bannerCard.style.display = 'block';
         if (textEl) {

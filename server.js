@@ -508,9 +508,10 @@ initXAnalyticsScheduler();
 
 app.get('/api/analytics/viral-weights', (req, res) => {
   try {
+    const config = getConfig();
     const { topArticle, topArticles, weights } = getTopRankedArticles(5);
     const topPerformingTweet = getTopPerformingTweet();
-    res.json({ success: true, weights, topArticle, topArticles, topPerformingTweet });
+    res.json({ success: true, weights, topArticle, topArticles, topPerformingTweet, xUsername: config.xUsername || '' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
