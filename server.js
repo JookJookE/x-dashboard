@@ -503,13 +503,14 @@ app.get('/api/golden-hour', (req, res) => {
 });
 
 // ===== 🧠 AI Viral Topic Weights & Analytics =====
-const { initXAnalyticsScheduler, getStoredWeights, getTopRankedArticles } = require('./services/xAnalyticsService');
+const { initXAnalyticsScheduler, getStoredWeights, getTopRankedArticles, getTopPerformingTweet } = require('./services/xAnalyticsService');
 initXAnalyticsScheduler();
 
 app.get('/api/analytics/viral-weights', (req, res) => {
   try {
     const { topArticle, topArticles, weights } = getTopRankedArticles(5);
-    res.json({ success: true, weights, topArticle, topArticles });
+    const topPerformingTweet = getTopPerformingTweet();
+    res.json({ success: true, weights, topArticle, topArticles, topPerformingTweet });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
