@@ -51,7 +51,18 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
-
+// ===== 🧠 [Public] AI Viral Topic Weights & Top Tweet (No Auth Required) =====
+const { getStoredWeights: _getWeightsPublic, getTopRankedArticles: _getTopArticlesPublic, getTopPerformingTweet: _getTopTweetPublic } = require('./services/xAnalyticsService');
+app.get('/api/analytics/viral-weights', (req, res) => {
+  try {
+    const config = getConfig();
+    const { topArticle, topArticles, weights } = _getTopArticlesPublic(5);
+    const topPerformingTweet = _getTopTweetPublic();
+    res.json({ success: true, weights, topArticle, topArticles, topPerformingTweet, xUsername: config.xUsername || '' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // HTTP Basic Security Authentication for Tunnel & External Access
 const { recordLoginHistory, getLoginHistory } = require('./history');
@@ -505,17 +516,7 @@ app.get('/api/golden-hour', (req, res) => {
 // ===== 🧠 AI Viral Topic Weights & Analytics =====
 const { initXAnalyticsScheduler, getStoredWeights, getTopRankedArticles, getTopPerformingTweet } = require('./services/xAnalyticsService');
 initXAnalyticsScheduler();
-
-app.get('/api/analytics/viral-weights', (req, res) => {
-  try {
-    const config = getConfig();
-    const { topArticle, topArticles, weights } = getTopRankedArticles(5);
-    const topPerformingTweet = getTopPerformingTweet();
-    res.json({ success: true, weights, topArticle, topArticles, topPerformingTweet, xUsername: config.xUsername || '' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
+// NOTE: /api/analytics/viral-weights is registered BEFORE auth middleware (public endpoint)
 
 // ===== X Poll & Thread Generators =====
 app.post('/api/generate-poll', async (req, res) => {
