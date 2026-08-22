@@ -24,10 +24,31 @@ function escapeXml(unsafe) {
     .replace(/'/g, '&apos;');
 }
 
+function getTextWidthUnits(str) {
+  if (!str) return 0;
+  let units = 0;
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    // 한글 및 CJK 문자 (폭 2), 영문/숫자/기호/공백 (폭 1)
+    if (
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0x1100 && code <= 0x11ff) ||
+      (code >= 0x3130 && code <= 0x318f) ||
+      (code >= 0x4e00 && code <= 0x9fff) ||
+      (code >= 0xff01 && code <= 0xff60)
+    ) {
+      units += 2;
+    } else {
+      units += 1;
+    }
+  }
+  return units;
+}
+
 /**
- * Split title into wrapped lines (32px Bold, max-width 880px)
+ * Split title into wrapped lines (32px Bold, max-width 880px, no arbitrary cutoff)
  */
-function wrapTitleLines(text, maxCharsPerLine = 22, maxLines = 3) {
+function wrapTitleLines(text, maxUnitsPerLine = 52, maxLines = 8) {
   if (!text) return [''];
   const words = text.replace(/\[외신\s*.*?\]/g, '').replace(/\[오피니언\]/g, '').trim().split(/\s+/);
   const lines = [];
@@ -35,10 +56,10 @@ function wrapTitleLines(text, maxCharsPerLine = 22, maxLines = 3) {
 
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (testLine.length > maxCharsPerLine && currentLine) {
+    if (getTextWidthUnits(testLine) > maxUnitsPerLine && currentLine) {
       lines.push(currentLine);
       currentLine = word;
-      if (lines.length === maxLines - 1) break;
+      if (lines.length >= maxLines) break;
     } else {
       currentLine = testLine;
     }
@@ -46,13 +67,13 @@ function wrapTitleLines(text, maxCharsPerLine = 22, maxLines = 3) {
   if (currentLine && lines.length < maxLines) {
     lines.push(currentLine);
   }
-  return lines.slice(0, maxLines);
+  return lines.length > 0 ? lines : [text];
 }
 
 /**
- * Clean and split snippet/body text (22px Regular, max-width 880px)
+ * Clean and split snippet/body text (22px Regular, max-width 880px, up to 35 lines like dashboard)
  */
-function getSnippetLines(article, maxCharsPerLine = 34, maxLines = 18) {
+function getSnippetLines(article, maxUnitsPerLine = 74, maxLines = 35) {
   let snippet = article.contentSnippet || article.excerpt || article.title || '';
   
   // Clean snippet from ugly RSS artifacts matching app.js getSnippetLines
@@ -91,7 +112,7 @@ function getSnippetLines(article, maxCharsPerLine = 34, maxLines = 18) {
     let currentLine = '';
     for (let n = 0; n < words.length; n++) {
       const testLine = currentLine ? `${currentLine} ${words[n]}` : words[n];
-      if (testLine.length > maxCharsPerLine && currentLine) {
+      if (getTextWidthUnits(testLine) > maxUnitsPerLine && currentLine) {
         lines.push(currentLine);
         currentLine = words[n];
         if (lines.length >= maxLines) break;
@@ -257,7 +278,7 @@ async function generateCardNewsTitleOnly(article) {
   const outputPath = path.join(THUMBNAIL_DIR, filename);
 
   const canvasWidth = 1000;
-  const titleLines = wrapTitleLines(title, 22, 3);
+  const titleLines = wrapTitleLines(title);
   const lineCount = titleLines.length;
   const canvasHeight = 200 + (lineCount * 46);
 
@@ -301,14 +322,14 @@ async function generateCardNewsBody(article) {
     day: 'numeric'
   });
 
-  const bodyLines = getSnippetLines(article, 34, 18);
+  const bodyLines = getSnippetLines(article);
 
   const timestamp = Date.now() + Math.floor(Math.random() * 1000);
   const filename = `news-capture-body-${timestamp}.png`;
   const outputPath = path.join(THUMBNAIL_DIR, filename);
 
   const canvasWidth = 1000;
-  const titleLines = wrapTitleLines(title, 22, 3);
+  const titleLines = wrapTitleLines(title);
   const lineCount = titleLines.length;
 
   let currentY = 125 + (lineCount * 46) + 10 + 22 + 30;
@@ -365,7 +386,7 @@ async function generateCardNewsPhoto(article) {
   const outputPath = path.join(THUMBNAIL_DIR, filename);
 
   const canvasWidth = 1000;
-  const titleLines = wrapTitleLines(title, 22, 3);
+  const titleLines = wrapTitleLines(title);
   const lineCount = titleLines.length;
 
   const imageUrl = await resolveArticleImageUrl(article);
