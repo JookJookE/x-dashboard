@@ -160,7 +160,15 @@ app.get('/api/articles', async (req, res) => {
 
     const totalDbCount = getStoredArticles().length;
     const unreadCount = articlesWithStatus.filter(a => !a.isRead).length;
-    res.json({ success: true, totalCount: totalDbCount, unreadCount, articles: articlesWithStatus });
+    const { getTopRankedArticles } = require('./services/xAnalyticsService');
+    const { topArticle } = getTopRankedArticles(1);
+    res.json({ 
+      success: true, 
+      totalCount: totalDbCount, 
+      unreadCount, 
+      topArticleId: topArticle ? topArticle.id : null,
+      articles: articlesWithStatus 
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -495,13 +503,13 @@ app.get('/api/golden-hour', (req, res) => {
 });
 
 // ===== 🧠 AI Viral Topic Weights & Analytics =====
-const { initXAnalyticsScheduler, getStoredWeights } = require('./services/xAnalyticsService');
+const { initXAnalyticsScheduler, getStoredWeights, getTopRankedArticles } = require('./services/xAnalyticsService');
 initXAnalyticsScheduler();
 
 app.get('/api/analytics/viral-weights', (req, res) => {
   try {
-    const weights = getStoredWeights();
-    res.json({ success: true, weights });
+    const { topArticle, topArticles, weights } = getTopRankedArticles(5);
+    res.json({ success: true, weights, topArticle, topArticles });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

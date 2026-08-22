@@ -702,7 +702,14 @@ function renderArticlesGrid(articles) {
   }
 
   gridEl.innerHTML = articles.map(art => {
-    let badgesHtml = `<span class="badge badge-info">${art.categoryTag || art.category}</span>`;
+    const isTopRanked = window.currentTopArticleId && String(art.id) === String(window.currentTopArticleId);
+    let badgesHtml = '';
+
+    if (isTopRanked) {
+      badgesHtml += `<span class="badge" style="background: linear-gradient(135deg, #facc15, #f59e0b); color: #000; font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 8px; box-shadow: 0 2px 8px rgba(250, 204, 21, 0.4);">👑 1위 바이럴 추천</span> `;
+    }
+
+    badgesHtml += `<span class="badge badge-info">${art.categoryTag || art.category}</span>`;
 
     if (!art.isRead) {
       badgesHtml += ` <span class="badge" style="background:#facc15; color:#000; font-size:10px; font-weight:900; padding:2px 6px; border-radius:8px;">NEW 미확인</span>`;
@@ -714,8 +721,17 @@ function renderArticlesGrid(articles) {
       badgesHtml += ` <span class="badge" style="background:#8b5cf6; color:#fff; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:10px;">📰 X 아티클</span>`;
     }
 
+    let cardBorder = '';
+    if (isTopRanked) {
+      cardBorder = 'border: 1.8px solid #facc15; background: linear-gradient(135deg, rgba(250, 204, 21, 0.08), rgba(15, 23, 42, 0.6)); box-shadow: 0 4px 16px rgba(250, 204, 21, 0.2);';
+    } else if (art.postedTweet || art.postedArticle) {
+      cardBorder = 'border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);';
+    } else if (!art.isRead) {
+      cardBorder = 'border-color: rgba(250, 204, 21, 0.5);';
+    }
+
     return `
-    <div class="article-card" style="${(art.postedTweet || art.postedArticle) ? 'border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);' : (!art.isRead ? 'border-color: rgba(250, 204, 21, 0.5);' : '')}">
+    <div class="article-card" style="${cardBorder}">
       <div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:4px;">
           <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
@@ -747,10 +763,13 @@ function renderArticlesDashboardTech(articles) {
     return;
   }
 
-  miniListEl.innerHTML = articles.map(art => `
-    <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+  miniListEl.innerHTML = articles.map(art => {
+    const isTopRanked = window.currentTopArticleId && String(art.id) === String(window.currentTopArticleId);
+    return `
+    <div style="padding: 10px 12px; background: ${isTopRanked ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.12), rgba(255,255,255,0.03))' : 'rgba(255,255,255,0.03)'}; border: ${isTopRanked ? '1.5px solid #facc15' : '1px solid transparent'}; border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
       <div style="flex:1; min-width:0;">
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px; flex-wrap:wrap;">
+        <div style="display:flex; gap:6px; align-items:center; margin-bottom:2px; flex-wrap:wrap;">
+          ${isTopRanked ? '<span class="badge" style="background:#facc15; color:#000; font-size:9px; font-weight:900; padding:1px 5px; border-radius:4px;">👑 1위 추천</span>' : ''}
           <span class="badge badge-info" style="font-size:9px;">${art.categoryTag || art.category}</span>
           <span style="font-size: 10px; color: var(--accent-cyan); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
         </div>
@@ -758,7 +777,8 @@ function renderArticlesDashboardTech(articles) {
       </div>
       <button class="btn btn-secondary btn-sm" style="white-space:nowrap; flex-shrink:0;" onclick="selectArticleForComposer('${art.id}')">생성</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function renderArticlesDashboardComm(articles) {
@@ -769,10 +789,13 @@ function renderArticlesDashboardComm(articles) {
     return;
   }
 
-  miniListEl.innerHTML = articles.map(art => `
-    <div style="padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+  miniListEl.innerHTML = articles.map(art => {
+    const isTopRanked = window.currentTopArticleId && String(art.id) === String(window.currentTopArticleId);
+    return `
+    <div style="padding: 10px 12px; background: ${isTopRanked ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.12), rgba(255,255,255,0.03))' : 'rgba(255,255,255,0.03)'}; border: ${isTopRanked ? '1.5px solid #facc15' : '1px solid transparent'}; border-radius: 8px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
       <div style="flex:1; min-width:0;">
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px; flex-wrap:wrap;">
+        <div style="display:flex; gap:6px; align-items:center; margin-bottom:2px; flex-wrap:wrap;">
+          ${isTopRanked ? '<span class="badge" style="background:#facc15; color:#000; font-size:9px; font-weight:900; padding:1px 5px; border-radius:4px;">👑 1위 추천</span>' : ''}
           <span class="badge badge-info" style="font-size:9px; background:rgba(250, 204, 21, 0.2); color:#facc15;">${art.categoryTag || art.category}</span>
           <span style="font-size: 10px; color: var(--accent-gold); font-weight:700;">⏱️ ${formatRelativeTime(art.date)}</span>
         </div>
@@ -780,7 +803,8 @@ function renderArticlesDashboardComm(articles) {
       </div>
       <button class="btn btn-secondary btn-sm" style="white-space:nowrap; flex-shrink:0;" onclick="selectArticleForComposer('${art.id}')">생성</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // Select Article & Switch to Composer
@@ -3317,37 +3341,78 @@ async function generateThreadForSelected() {
   }
 }
 
-// ===== 🧠 AI Viral Topic Weights Loader =====
+// ===== 🧠 AI Viral Topic Weights & Top Ranked Article Loader =====
+let currentTopArticle = null;
+
 async function loadViralWeights() {
   try {
     const res = await fetch('/api/analytics/viral-weights');
     const data = await res.json();
-    if (data.success && data.weights) {
-      const w = data.weights;
-      const summaryEl = document.getElementById('viral-insight-summary');
-      if (summaryEl && w.aiInsightSummary) {
-        summaryEl.textContent = w.aiInsightSummary;
+    if (data.success) {
+      if (data.weights) {
+        const w = data.weights;
+        const summaryEl = document.getElementById('viral-insight-summary');
+        if (summaryEl && w.aiInsightSummary) {
+          summaryEl.textContent = w.aiInsightSummary;
+        }
+
+        const container = document.getElementById('viral-keywords-container');
+        if (container && Array.isArray(w.topKeywords)) {
+          const tagsHtml = w.topKeywords.slice(0, 6).map((kw, idx) => {
+            const colors = [
+              { bg: 'rgba(236,72,153,0.15)', color: '#f472b6', border: 'rgba(236,72,153,0.3)', icon: '🔥' },
+              { bg: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: 'rgba(56,189,248,0.3)', icon: '🚀' },
+              { bg: 'rgba(250,204,21,0.15)', color: '#facc15', border: 'rgba(250,204,21,0.3)', icon: '💰' },
+              { bg: 'rgba(74,222,128,0.15)', color: '#4ade80', border: 'rgba(74,222,128,0.3)', icon: '📈' },
+              { bg: 'rgba(168,85,247,0.15)', color: '#c084fc', border: 'rgba(168,85,247,0.3)', icon: '⚡' },
+              { bg: 'rgba(251,146,60,0.15)', color: '#fb923c', border: 'rgba(251,146,60,0.3)', icon: '🎯' }
+            ];
+            const c = colors[idx % colors.length];
+            return `<span class="viral-tag" style="background:${c.bg}; color:${c.color}; border:1px solid ${c.border}; font-size:11px; padding:2px 8px; border-radius:12px; font-weight:700;">${c.icon} ${kw}</span>`;
+          }).join('');
+
+          container.innerHTML = `<span style="font-size: 11px; color: #64748b; font-weight: 600;">인기 키워드:</span> ${tagsHtml}`;
+        }
       }
 
-      const container = document.getElementById('viral-keywords-container');
-      if (container && Array.isArray(w.topKeywords)) {
-        const tagsHtml = w.topKeywords.slice(0, 6).map((kw, idx) => {
-          const colors = [
-            { bg: 'rgba(236,72,153,0.15)', color: '#f472b6', border: 'rgba(236,72,153,0.3)', icon: '🔥' },
-            { bg: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: 'rgba(56,189,248,0.3)', icon: '🚀' },
-            { bg: 'rgba(250,204,21,0.15)', color: '#facc15', border: 'rgba(250,204,21,0.3)', icon: '💰' },
-            { bg: 'rgba(74,222,128,0.15)', color: '#4ade80', border: 'rgba(74,222,128,0.3)', icon: '📈' },
-            { bg: 'rgba(168,85,247,0.15)', color: '#c084fc', border: 'rgba(168,85,247,0.3)', icon: '⚡' },
-            { bg: 'rgba(251,146,60,0.15)', color: '#fb923c', border: 'rgba(251,146,60,0.3)', icon: '🎯' }
-          ];
-          const c = colors[idx % colors.length];
-          return `<span class="viral-tag" style="background:${c.bg}; color:${c.color}; border:1px solid ${c.border}; font-size:11px; padding:2px 8px; border-radius:12px; font-weight:700;">${c.icon} ${kw}</span>`;
-        }).join('');
+      // 👑 Handle Top Ranked 1st Article
+      if (data.topArticle) {
+        currentTopArticle = data.topArticle;
+        window.currentTopArticleId = data.topArticle.id;
 
-        container.innerHTML = `<span style="font-size: 11px; color: #64748b; font-weight: 600;">인기 키워드:</span> ${tagsHtml}`;
+        const bannerCard = document.getElementById('top-ranked-banner-card');
+        const titleEl = document.getElementById('top-ranked-title');
+        const catBadge = document.getElementById('top-ranked-cat-badge');
+        const scoreBadge = document.getElementById('top-ranked-score-badge');
+
+        if (bannerCard) bannerCard.style.display = 'block';
+        if (titleEl) {
+          titleEl.textContent = data.topArticle.title;
+          titleEl.title = '클릭하면 1위 기사로 트윗 작성창이 즉시 열립니다.';
+        }
+        if (catBadge) {
+          catBadge.textContent = data.topArticle.categoryTag || data.topArticle.category || '실시간';
+        }
+        if (scoreBadge) {
+          scoreBadge.textContent = `⭐️ 바이럴 점수: ${data.topArticle.viralScore || 2.5}점`;
+        }
+
+        // Re-render lists to show gold crown badge if articles are loaded
+        if (currentArticles && currentArticles.length > 0) {
+          renderFilteredArticles();
+        }
       }
     }
   } catch (err) {}
+}
+
+function selectTopRankedArticle() {
+  if (currentTopArticle && currentTopArticle.id) {
+    selectArticleForComposer(currentTopArticle.id);
+    showToast('👑 [실시간 1위 바이럴 기사]가 선택되었습니다!');
+  } else if (currentArticles && currentArticles.length > 0) {
+    selectArticleForComposer(currentArticles[0].id);
+  }
 }
 
 // ===== 🔒 Security Login History Loader =====

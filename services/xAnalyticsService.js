@@ -318,10 +318,35 @@ function initXAnalyticsScheduler() {
   addLog('INFO', '⏰ [1시간 주기 X 실시간 속도 분석 스케줄러 가동] 시간당 조회수 증가량(Delta) 기반 자동 학습 활성화');
 }
 
+/**
+ * 👑 Get Top Ranked Articles sorted by AI Viral Score
+ */
+function getTopRankedArticles(limit = 5) {
+  const articles = getStoredArticles();
+  if (!articles || articles.length === 0) return { topArticle: null, topArticles: [] };
+
+  const weights = getStoredWeights();
+  const scored = articles
+    .filter(a => a.title && a.title.trim().length > 0)
+    .map(a => {
+      const score = calculateArticleViralScore(a, weights);
+      return { ...a, viralScore: Number(score.toFixed(2)) };
+    });
+
+  scored.sort((a, b) => b.viralScore - a.viralScore);
+
+  const topArticle = scored[0] || null;
+  const topArticles = scored.slice(0, limit);
+
+  return { topArticle, topArticles, weights };
+}
+
 module.exports = {
   initXAnalyticsScheduler,
   analyzeViralTopics,
   getStoredWeights,
   calculateArticleViralScore,
+  getTopRankedArticles,
   fetchMyTweetAnalytics
 };
+
