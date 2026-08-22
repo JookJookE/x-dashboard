@@ -154,6 +154,13 @@ async function fetchMyTweetAnalytics(username) {
     }
   }
 
+  if (rawTweets.length === 0) {
+    const existing = getStoredAnalyticsList();
+    if (existing && existing.length > 0) {
+      return existing;
+    }
+  }
+
   const now = Date.now();
   const updatedList = [];
 
