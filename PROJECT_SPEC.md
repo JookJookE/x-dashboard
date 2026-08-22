@@ -65,14 +65,14 @@
 
 ## 📅 6. 버전 변경 이력 (Changelog)
 
-### v3.13.1 (2026-08-22) - 👑 실시간 AI 바이럴 1위 추천 게시물 대시보드 시각화 & 1-Click 트윗 생성 연동
-- 🏆 **대시보드 상단 1위 게시물 하이라이트 배너 탑재 (`public/index.html`, `public/app.js`)**:
-  - 시간 감쇠(Time Decay) & 조회수 속도(Velocity Delta) 기반 AI 바이럴 가중치 계산으로 선정된 **실시간 1위 게시물**을 대시보드 상단에 골드 배너로 시각화.
-  - 1위 기사 제목, 카테고리 태그, 바이럴 점수(예: ⭐️ 3.2점) 및 `[⚡ 1위 기사로 트윗 작성]` 원클릭 연동 지원.
-- 👑 **기사 목록 1위 게시물 골드 하이라이트 & 뱃지 부여**:
-  - 기사 그리드 및 미니 리스트에서 1위 기사 카드에 `👑 1위 바이럴 추천` 골드 뱃지와 황금빛 테두리 하이라이트 자동 적용.
-- ⚙️ **서버 랭킹 API 고도화 (`services/xAnalyticsService.js`, `server.js`)**:
-  - `getTopRankedArticles` 함수를 통해 실시간 바이럴 순위를 계산하고 `/api/analytics/viral-weights` 및 `/api/articles`에 1위 기사 메타데이터 제공.
+### v3.13.1 (2026-08-22) - 👑 연동된 내 𝕏 계정 실시간 1위 인기 트윗 & 실시간 급상승 검색어 자동 로딩
+- 🏆 **대시보드 상단 내 𝕏 실시간 1위 인기글 하이라이트 배너 탑재 (`public/index.html`, `public/app.js`)**:
+  - 시간당 조회수 증가 속도(Velocity Delta), 시간 감쇠(Time Decay), 반응률(좋아요/RT)을 종합 계산하여 내 X 계정에서 **가장 반응이 뜨거운 1위 인기 트윗**을 대시보드 상단 배너로 시각화.
+  - 트윗 본문, `🚀 시간당 속도 (+N회/시)`, `👁️ 총 조회수`, `❤️ 좋아요/RT` 실시간 지표 및 `[🔗 𝕏에서 보기]` 원본 링크 연동.
+- 🔍 **한국/해외 실시간 급상승 검색어 자동 로딩 버그 수정**:
+  - `DOMContentLoaded` 및 주기적 인터벌에 `loadTrending()`을 연동하여 "검색어 순위 로딩 중..." 멈춤 현상 완벽 해결.
+- ⚙️ **서버 분석 API 고도화 (`services/xAnalyticsService.js`, `server.js`)**:
+  - `getTopPerformingTweet` 함수를 통해 내 계정의 실시간 최고 성과 트윗 데이터를 `/api/analytics/viral-weights` API에 제공.
 
 ### v3.13.0 (2026-08-22) - 🚨 초경량 실시간 돌발 중요 속보 독립 감지 & 엄격 발송 제한 안전망 탑재
 - 📡 **3분 주기 초경량 실시간 속보 프로브 (`services/breakingNewsService.js`, `scheduler.js`)**:

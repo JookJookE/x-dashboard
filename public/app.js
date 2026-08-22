@@ -3447,11 +3447,15 @@ async function loadLoginHistory() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  loadArticles(false);
+  loadTrending();
   loadQueueAndXStatus();
   loadStreakStats();
   loadViralWeights();
   loadLoginHistory();
   checkGoldenHourStatus();
   setInterval(checkGoldenHourStatus, 60000); // Check golden hour every minute
+  setInterval(loadViralWeights, 30000); // Check viral weights & top tweet every 30s
+  setInterval(loadTrending, 120000); // Refresh trending keywords every 2 minutes
 });
 
