@@ -95,18 +95,8 @@ async function fetchMyTweetAnalytics(username) {
   const rawTweets = [];
 
   if (!username) {
-    // If username is not set, synthesize analytics from recent dashboard posting history
-    const history = getHistory();
-    history.slice(0, 20).forEach((h, i) => {
-      rawTweets.push({
-        id: h.articleId || `hist_${i}`,
-        text: h.title || '포스팅 콘텐츠',
-        views: Math.floor(Math.random() * 2500) + 300,
-        likes: Math.floor(Math.random() * 60) + 5,
-        retweets: Math.floor(Math.random() * 15) + 1,
-        createdAt: h.usedAt || new Date(Date.now() - (i * 2 * 3600 * 1000)).toISOString()
-      });
-    });
+    // username 미설정 시 기존 저장 데이터 유지 (fake 수치 사용 안 함)
+    return getStoredAnalyticsList();
   } else {
     const cleanUser = username.replace('@', '').trim();
     try {
@@ -139,18 +129,9 @@ async function fetchMyTweetAnalytics(username) {
         }
       }
     } catch (err) {
-      // Fallback to history
-      const history = getHistory();
-      history.slice(0, 15).forEach((h, i) => {
-        rawTweets.push({
-          id: h.articleId || `hist_${i}`,
-          text: h.title || '게시된 기사 트윗',
-          views: Math.floor(Math.random() * 3000) + 500,
-          likes: Math.floor(Math.random() * 60) + 5,
-          retweets: Math.floor(Math.random() * 20) + 1,
-          createdAt: h.usedAt || new Date(Date.now() - (i * 2 * 3600 * 1000)).toISOString()
-        });
-      });
+      // 트위터 API 오류 시 기존 저장 데이터 유지 (fake 수치 절대 사용 안 함)
+      addLog('INFO', `[X 분석] 트위터 API 오류: ${err.message} - 기존 데이터 유지`);
+      return getStoredAnalyticsList();
     }
   }
 
