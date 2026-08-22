@@ -50,48 +50,8 @@ function getStoredAnalyticsList() {
     } catch (e) {}
   }
 
-  // Fallback: Generate initial list from posting history or stored articles
-  const history = getHistory();
-  const fallbackList = [];
-  if (history && history.length > 0) {
-    history.slice(0, 10).forEach((h, i) => {
-      fallbackList.push({
-        id: h.articleId || `hist_${i}`,
-        text: h.title || '게시된 인기 트윗',
-        views: 1850 - (i * 120),
-        likes: 64 - (i * 4),
-        retweets: 18 - i,
-        viewVelocity: 140 - (i * 10),
-        likeVelocity: 6,
-        ageInHours: 1.5 + (i * 2),
-        realtimeHotScore: Number((25.4 - (i * 2.1)).toFixed(1)),
-        createdAt: h.usedAt || new Date().toISOString()
-      });
-    });
-  } else {
-    const articles = getStoredArticles();
-    if (articles && articles.length > 0) {
-      articles.slice(0, 5).forEach((a, i) => {
-        fallbackList.push({
-          id: a.id || `art_${i}`,
-          text: a.title || '실시간 인기 토픽',
-          views: 1200 - (i * 100),
-          likes: 45 - (i * 5),
-          retweets: 12 - i,
-          viewVelocity: 95 - (i * 8),
-          likeVelocity: 4,
-          ageInHours: 1.0 + (i * 1.5),
-          realtimeHotScore: Number((18.5 - (i * 1.8)).toFixed(1)),
-          createdAt: a.date || new Date().toISOString()
-        });
-      });
-    }
-  }
-
-  if (fallbackList.length > 0) {
-    saveStoredAnalyticsList(fallbackList);
-  }
-  return fallbackList;
+  // If no analytics available, return empty list (UI will guide user to register xUsername)
+  return [];
 }
 
 function getStoredAnalyticsMap() {
